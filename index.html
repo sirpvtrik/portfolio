@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Patrik Madarász — Portfólió</title>
+  <meta name="description" content="Patrik Madarász grafikus portfóliója: forgó liquid glass pillek, zenére reagáló fényhullámok.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;800&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="goo" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>
+    <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -11" result="goo"/>
+    <feMorphology in="goo" operator="erode" radius="1.1" result="er"/>
+    <feComposite in="goo" in2="er" operator="out" result="rim"/>
+    <feFlood flood-color="#ffffff" flood-opacity="0.18"/>
+    <feComposite in2="rim" operator="in" result="rimc"/>
+    <feMerge><feMergeNode in="goo"/><feMergeNode in="rimc"/></feMerge>
+  </filter>
+</svg>
+<canvas id="gl" aria-label="Forgó 3D liquid glass pillek a projektekkel"></canvas>
+
+<div class="ui">
+  <svg class="logo-top" id="logoTop" viewBox="0 0 335.11 155.11" role="img" aria-label="MP"></svg>
+  <div class="row">
+    <div class="stack-label"><span>Patrik Madarász</span><span class="dim">Munkák / Válogatás</span></div>
+    <div class="top-right">
+      <div class="stack-label"><span>06 projekt</span><span class="dim">2025 — 2026</span></div>
+      <button class="btn square" id="panelBtn" type="button" aria-expanded="false" aria-controls="panel" aria-label="Glass beállítások">
+        <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M4.5 9.5a4 4 0 0 0 4 3"/></svg>
+      </button>
+      <div class="panel" id="panel" hidden>
+        <header>
+          <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M4.5 9.5a4 4 0 0 0 4 3"/></svg>Glass</span>
+          <button class="reset" id="reset" type="button">Alaphelyzet</button>
+        </header>
+        <div class="sec">
+          <div class="ctl"><label for="c-ang">Light</label><input type="range" id="c-ang" min="-180" max="180" step="1"><output for="c-ang"></output></div>
+          <div class="ctl"><label for="c-int">Intensity</label><input type="range" id="c-int" min="0" max="100" step="1"><output for="c-int"></output></div>
+        </div>
+        <div class="sec">
+          <div class="ctl"><label for="c-refr">Refraction</label><input type="range" id="c-refr" min="0" max="100" step="1"><output for="c-refr"></output></div>
+          <div class="ctl"><label for="c-depth">Depth</label><input type="range" id="c-depth" min="0" max="100" step="1"><output for="c-depth"></output></div>
+          <div class="ctl"><label for="c-disp">Dispersion</label><input type="range" id="c-disp" min="0" max="100" step="1"><output for="c-disp"></output></div>
+          <div class="ctl"><label for="c-frost">Frost</label><input type="range" id="c-frost" min="0" max="100" step="1"><output for="c-frost"></output></div>
+          <div class="ctl"><label for="c-splay">Splay</label><input type="range" id="c-splay" min="0" max="100" step="1"><output for="c-splay"></output></div>
+        </div>
+        <div class="sec">
+          <div class="ctl"><label for="c-spin">Forgás</label><input type="range" id="c-spin" min="0" max="100" step="1"><output for="c-spin"></output></div>
+        </div>
+        <div class="sec">
+          <div class="sec-title">Hullám</div>
+          <div class="seg" role="group" aria-label="Hullám stílusa"><button type="button" class="seg-btn" id="ws-0" aria-pressed="true">Fényszalag</button><button type="button" class="seg-btn" id="ws-1" aria-pressed="false">Üveg</button></div>
+          <div class="ctl"><label for="c-react">Reakció</label><input type="range" id="c-react" min="0" max="100" step="1"><output for="c-react"></output></div>
+          <div class="ctl"><label for="c-wlight">Fényerő</label><input type="range" id="c-wlight" min="0" max="100" step="1"><output for="c-wlight"></output></div>
+          <div class="ctl"><label for="c-wpush">Behúzás</label><input type="range" id="c-wpush" min="0" max="100" step="1"><output for="c-wpush"></output></div>
+          <div class="ctl"><label for="c-wspeed">Áramlás</label><input type="range" id="c-wspeed" min="0" max="100" step="1"><output for="c-wspeed"></output></div>
+          <div class="ctl"><label for="c-surge">Lendület</label><input type="range" id="c-surge" min="0" max="100" step="1"><output for="c-surge"></output></div>
+          <div class="ctl"><label for="c-bpm">BPM-szinkron</label><input type="checkbox" id="c-bpm"><output id="bpmOut">92 BPM</output></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div></div>
+  <div class="bottom">
+    <div class="pl" id="pl" role="group" aria-label="Zenelejátszó">
+      <div class="pl-shapes" aria-hidden="true">
+        <i class="s s-top"></i><i class="s s-vbar"></i><i class="s s-hbar"></i>
+        <i class="s s-l"></i><i class="s s-c"></i><i class="s s-r"></i>
+        <i class="s s-bot"></i>
+      </div>
+      <div class="pl-c">
+        <div class="c-top">
+          <label class="art" for="file" title="Saját zene betöltése"><img alt="Borító" src="data:image/jpeg;base64,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"><span aria-hidden="true">+</span></label>
+          <input type="file" id="file" accept="audio/*" hidden>
+          <div class="meta">
+            <span class="artist"><span id="trackArtist">Demó</span> · <span id="trackSub">0:00 / 0:20</span></span>
+            <b id="trackName">Demó loop</b>
+            <input type="range" id="seek" min="0" max="1000" step="1" value="0" aria-label="Pozíció a zenében" disabled>
+          </div>
+        </div>
+        <button class="cb c-prev" id="prev" type="button" aria-label="Előző"><svg viewBox="0 0 16 16"><path d="M3.5 3h1.6v10H3.5zM13 3v10L6 8z"/></svg></button>
+        <button class="cb c-play" id="play" type="button" aria-label="Lejátszás"><svg id="ico" viewBox="0 0 16 16"><path d="M4 2.5v11l9.5-5.5z"/></svg></button>
+        <button class="cb c-next" id="next" type="button" aria-label="Következő"><svg viewBox="0 0 16 16"><path d="M10.9 3h1.6v10h-1.6zM3 3v10l7-5z"/></svg></button>
+        <div class="c-vol" id="vol" role="slider" tabindex="0" aria-label="Hangerő" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80"><div class="vol-fill" id="volFill"></div></div>
+      </div>
+      <button class="spk" id="spk" type="button" aria-label="Lejátszó megnyitása"><svg viewBox="0 0 16 16"><path d="M2 6h2.5L8 3v10L4.5 10H2z"/><path id="spkWaves" d="M10.5 5.5a3.5 3.5 0 0 1 0 5M12.3 3.8a6 6 0 0 1 0 8.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="caption" aria-live="polite">
+      <span class="meta dim" id="capMeta">Válassz egy pillt</span>
+      <span class="name" id="capName">&nbsp;</span>
+    </div>
+    <div class="hint dim">Görgess vagy húzd<br>Hangszóró → lejátszó</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
