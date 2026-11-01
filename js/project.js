@@ -1,6 +1,7 @@
 // Projekt-aloldal: pillre kattintva a többi pill leesik, és sorban megjelennek a kártyák.
 // Görgetéskor a sorok domborúak (középen nagyobbak, fent és lent kisebbek, mint egy dob),
-// a galéria pedig jobbra halad, végtelenül ismétlődik, és a széleken hengerként begörbül.
+// a galéria a képernyő közepére ragad: amíg egy teljes kört meg nem tett, a görgetés jobbra forgatja
+// (hengerként begörbülő szélekkel), utána a lap megy tovább.
 import { reduced, DETAIL_TEST } from './config.js';
 import { onSelect, restorePills } from './pills.js';
 import { setWavesCentered } from './waves.js';
@@ -12,8 +13,8 @@ const grid = document.getElementById('pjGrid');
 const backBtn = document.getElementById('projectBack');
 
 export let isOpen = false;
-let rows = [], gal = null, items = [], closing = 0;
-let galOff = 0, galShown = 0, lastTop = 0;
+let rows = [], gal = null, pin = null, r3 = null, items = [], closing = 0, uniq = 4;
+let galOff = 0, galShown = 0, travel = 0, stickTop = 0;
 
 /* ---------- Felépítés ---------- */
 const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.textContent = html; return e; };
@@ -29,11 +30,14 @@ function build(d) {
   text.append(el('p', 'pj-text', d.text));
   r1.append(imgA, intro); r2.append(text, imgB);
 
-  const r3 = el('div', 'pj-row r3');
+  r3 = el('div', 'pj-row r3');
+  pin = el('div', 'pj-pin');                                      // a galéria ebben ragad középre; a magassága = a forgatás útja
   gal = el('div', 'pj-gallery');
   const pics = d.gallery.length ? d.gallery : [null, null, null, null];
+  uniq = pics.length;
   items = [];
-  for (let k = 0; k < 8; k++) {                                   // elég elem a végtelen körhöz (képek ismétlődnek)
+  const n = uniq * Math.ceil(Math.max(8, uniq) / uniq);          // elég elem a körhöz, a képek számának többszöröse (varratmentes)
+  for (let k = 0; k < n; k++) {
     const it = el('div', 'gal-item'), card = el('div', 'card anim gal-card');
     card.style.setProperty('--i', 4 + Math.min(k, 3));
     const src = pics[k % pics.length];
@@ -41,8 +45,8 @@ function build(d) {
     else card.classList.add('ph');                                  // helyőrző, amíg nincs kép
     it.append(card); gal.append(it); items.push(it);
   }
-  r3.append(gal);
-  grid.append(r1, r2, r3);
+  r3.append(gal); pin.append(r3);
+  grid.append(r1, r2, pin);
   rows = [r1, r2, r3];
 }
 
@@ -52,7 +56,7 @@ function open() {
   isOpen = true; closing = 0;
   galOff = galShown = 0;
   root.hidden = false;
-  scroller.scrollTop = 0; lastTop = 0;
+  scroller.scrollTop = 0;
   document.body.classList.add('project-open');
   setWavesCentered(false);                                        // a hullámok kiúsznak a szélekre, hogy ne zavarják a szöveget
   layout();
@@ -77,19 +81,6 @@ onSelect(open);
 backBtn.addEventListener('click', close);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && isOpen) close(); });
 
-/* ---------- Görgetés → galéria ---------- */
-scroller.addEventListener('scroll', () => {
-  const t = scroller.scrollTop;
-  galOff += (t - lastTop) * 0.9;                                  // lefelé görgetve jobbra megy
-  lastTop = t;
-});
-// a lap tetején / alján is tovább görgethető a galéria (végtelen)
-scroller.addEventListener('wheel', e => {
-  const k = e.deltaMode === 1 ? 32 : (e.deltaMode === 2 ? 400 : 1);
-  const atTop = scroller.scrollTop <= 0, atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
-  if ((atTop && e.deltaY < 0) || (atEnd && e.deltaY > 0)) galOff += e.deltaY * k * 0.9;
-}, { passive: true });
-
 /* ---------- Kockánkénti frissítés: domború sorok, hengeres galéria ---------- */
 let W = 900, cardW = 325, gap = 20, R = 324, flatR = 648;
 function layout() {
@@ -100,20 +91,27 @@ function layout() {
   gap = W * 20 / 900;
   R = Math.max(120, W * 0.36);                                    // a henger sugara (az utolsó, ki nem férő kártya erre görbül)
   flatR = W * 0.72;                                               // eddig sík a sor (a terv harmadik kártyája már görbül)
+  // ragadás: a galéria a képernyő közepén áll meg; az itt eltöltött görgetési út = egy teljes kör (minden kép egyszer)
+  travel = uniq * (cardW + gap);
+  stickTop = Math.max(0, (scroller.clientHeight - r3.offsetHeight) / 2);
+  r3.style.top = stickTop + 'px';
+  pin.style.height = (r3.offsetHeight + travel) + 'px';
 }
 window.addEventListener('resize', layout);
 
 export function updateProject(dt) {
   if (!isOpen) return;
   // domború sorok: a képernyő közepén a legnagyobbak, felé és lefelé kisebbek és hátradőlnek
-  const vh = scroller.clientHeight, top = scroller.scrollTop;
+  const vh = scroller.clientHeight, top = scroller.scrollTop, sTop = scroller.getBoundingClientRect().top;
   for (const r of rows) {
-    const c = r.offsetTop + r.offsetHeight / 2 - top;
+    const b = r.getBoundingClientRect(), c = b.top + b.height / 2 - sTop;   // a ragadó galériánál is a valódi helyzet
     const d = Math.max(-1, Math.min(1, (c - vh / 2) / (vh / 2 + r.offsetHeight / 2)));
     r.style.transform = 'perspective(1400px) rotateX(' + (-d * 16).toFixed(2) + 'deg) scale(' + (1 - 0.14 * d * d).toFixed(4) + ')';
   }
-  // galéria: végtelen sor, a széleken hengerre tekeredik
-  galShown = damp(galShown, galOff, reduced ? 30 : 8, dt);
+  // galéria: amíg középre ragadva áll, a görgetés forgatja jobbra (0 → egy teljes kör), utána a lap megy tovább
+  const prog = Math.max(0, Math.min(1, (top - (pin.offsetTop - stickTop)) / travel));
+  galOff = prog * travel;
+  galShown = damp(galShown, galOff, reduced ? 30 : 12, dt);
   const p = cardW + gap, n = items.length, total = n * p, lead = R + p;
   const flatL = cardW / 2;                                        // a bal szélen kifelé görbül (onnan jönnek be)
   items.forEach((it, i) => {

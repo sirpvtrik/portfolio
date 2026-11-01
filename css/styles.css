@@ -128,7 +128,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 120px, #000 calc(100% - 40px), transparent 100%);
           mask-image: linear-gradient(to bottom, transparent 0, #000 120px, #000 calc(100% - 40px), transparent 100%); }
 .pj-scroll::-webkit-scrollbar { display: none; }
-.pj-grid { width: var(--gw); margin: 0 auto; padding: calc(150px + env(safe-area-inset-top, 0px)) 0 160px; display: grid; gap: calc(20 * var(--u)); }
+.pj-grid { width: var(--gw); margin: 0 auto; padding: calc(150px + env(safe-area-inset-top, 0px)) 0 55vh;   /* alul hely: a körbeforgás után a galéria felfelé kiúszik */ display: grid; gap: calc(20 * var(--u)); }
 .pj-row { display: grid; gap: calc(20 * var(--u)); transform-origin: 50% 50%; will-change: transform; }
 .r1 { grid-template-columns: 325fr 554fr; }
 .r2 { grid-template-columns: 554fr 326fr; }
@@ -145,7 +145,9 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .pj-big { margin: calc(20 * var(--u)) 0 0; max-width: calc(504 * var(--u)); font: 300 calc(32 * var(--u))/1.25 'Nohemi', var(--display); letter-spacing: -0.0125em; color: #f2f2f2; }
 .pj-text { margin: 0; max-width: calc(325 * var(--u)); font: 400 calc(24 * var(--u))/1.42 'Nohemi', var(--display); color: #f2f2f2; }
 
-/* galéria: a JS pozícionálja a kártyákat (végtelen sor, hengeres szélek) */
+/* galéria: a JS pozícionálja a kártyákat (hengeres szélek); a .pj-pin-ben középre ragad, amíg körbe nem forog */
+.pj-pin { position: relative; }
+.pj-pin > .r3 { position: sticky; }
 .pj-gallery { position: relative; height: calc(464 * var(--u)); perspective: 1100px; transform-style: preserve-3d; }
 .gal-item { position: absolute; left: 0; top: 0; width: calc(325 * var(--u)); height: 100%; will-change: transform, opacity; }
 .gal-card { height: 100%; border-radius: 20px; overflow: hidden; }
