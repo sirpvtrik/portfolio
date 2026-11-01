@@ -7,11 +7,19 @@
   <meta name="description" content="Patrik Madarász grafikus portfóliója: forgó liquid glass pillek, zenére reagáló fényhullámok.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;800&family=Geist+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;800&family=Geist+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 <canvas id="gl" aria-label="Forgó 3D liquid glass pillek a projektekkel"></canvas>
+
+<!-- Projekt-aloldal: pillre kattintva nyílik, a JS tölti fel (js/project.js) -->
+<section class="project" id="project" hidden aria-label="Projekt">
+  <button class="back" id="projectBack" type="button" aria-label="Vissza a projektekhez">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg><span>Vissza</span>
+  </button>
+  <div class="pj-scroll" id="pjScroll"><div class="pj-grid" id="pjGrid"></div></div>
+</section>
 
 <div class="ui">
   <svg class="logo-top" id="logoTop" viewBox="0 0 335.11 155.11" role="img" aria-label="MP"></svg>

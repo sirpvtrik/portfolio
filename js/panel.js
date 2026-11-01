@@ -16,7 +16,6 @@ function applySettings() {
   requestGeoRebuild();
   document.getElementById('c-bpm').checked = S.bpmSync;
   WU.uStyle.value = S.wstyle;
-  WU.uShift.value = S.wshift / 100 * 1.4;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
   [0, 1].forEach(v => document.getElementById('ws-' + v).setAttribute('aria-pressed', String(S.wstyle === v)));
   CTL.forEach(k => {
     const el = document.getElementById('c-' + k);

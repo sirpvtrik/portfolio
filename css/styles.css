@@ -118,3 +118,70 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
   .caption .name { font-size: 22px; }
   .top-right .stack-label { display: none; }
 }
+
+/* ---------- Projekt-aloldal (Figma: Desktop – 2) ----------
+   Kártyák: sötét üveg (color-dodge színátmenet + belső fehér fény), 900 px-es rács, minden méret a rács szélességével arányos */
+.ui { z-index: 2; }
+.project { position: fixed; inset: 0; z-index: 1; --gw: min(900px, calc(100vw - 48px)); --u: calc(var(--gw) / 900); }
+.pj-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none;
+  /* a fejléc (Vissza, logó) alatt elhalványul a tartalom */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 120px, #000 calc(100% - 40px), transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0, #000 120px, #000 calc(100% - 40px), transparent 100%); }
+.pj-scroll::-webkit-scrollbar { display: none; }
+.pj-grid { width: var(--gw); margin: 0 auto; padding: calc(150px + env(safe-area-inset-top, 0px)) 0 160px; display: grid; gap: calc(20 * var(--u)); }
+.pj-row { display: grid; gap: calc(20 * var(--u)); transform-origin: 50% 50%; will-change: transform; }
+.r1 { grid-template-columns: 325fr 554fr; }
+.r2 { grid-template-columns: 554fr 326fr; }
+.r1 .card, .r2 .card { height: calc(392 * var(--u)); }
+
+.card { position: relative; border-radius: 15px; box-shadow: inset 0 0 35.9px -6px rgba(255, 255, 255, 0.45); box-sizing: border-box; }
+.card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: color-dodge;
+  background: linear-gradient(var(--ga, 228deg), rgba(0, 0, 0, 0.06) 50.8%, rgba(255, 255, 255, 0.06) 90%); }
+.c-img.a1 { --ga: 242deg; }
+.c-img.a2 { --ga: 242deg; }
+.c-text { --ga: 132deg; padding: calc(40 * var(--u)) calc(30 * var(--u)); box-shadow: inset 0 0 35.9px 0 rgba(255, 255, 255, 0.45); }
+.c-intro { padding: calc(40 * var(--u)) calc(25 * var(--u)); }
+.pj-label { display: block; font: 400 calc(16 * var(--u))/1 'Nohemi', var(--display); color: #919191; letter-spacing: 0.04em; text-transform: uppercase; }
+.pj-big { margin: calc(20 * var(--u)) 0 0; max-width: calc(504 * var(--u)); font: 300 calc(32 * var(--u))/1.25 'Nohemi', var(--display); letter-spacing: -0.0125em; color: #f2f2f2; }
+.pj-text { margin: 0; max-width: calc(325 * var(--u)); font: 400 calc(24 * var(--u))/1.42 'Nohemi', var(--display); color: #f2f2f2; }
+
+/* galéria: a JS pozícionálja a kártyákat (végtelen sor, hengeres szélek) */
+.pj-gallery { position: relative; height: calc(464 * var(--u)); perspective: 1100px; transform-style: preserve-3d; }
+.gal-item { position: absolute; left: 0; top: 0; width: calc(325 * var(--u)); height: 100%; will-change: transform, opacity; }
+.gal-card { height: 100%; border-radius: 20px; overflow: hidden; }
+.gal-card img { width: 100%; height: 100%; object-fit: cover; opacity: 0.95; display: block; }
+.gal-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 35.9px -6px rgba(255, 255, 255, 0.45); pointer-events: none; }
+.gal-card.ph { background: linear-gradient(160deg, #6a45b8 0%, #3b2a86 55%, #c2307e 100%); }
+
+/* megjelenés: sorban, folyékonyan (elmosódásból, kicsit alulról, rugósan) */
+.project .anim { opacity: 0; transform: translateY(28px) scale(0.94); filter: blur(12px); }
+.project.show .anim { opacity: 1; transform: none; filter: none;
+  transition: opacity .7s ease calc(var(--i) * .14s), transform 1s cubic-bezier(.3, 1.3, .4, 1) calc(var(--i) * .14s), filter .8s ease calc(var(--i) * .14s); }
+.project.hide .anim { opacity: 0; transform: translateY(18px) scale(0.96); filter: blur(8px); transition: opacity .3s ease, transform .35s ease, filter .3s ease; }
+
+/* vissza gomb: üveg pill a bal felső sarokban */
+.back { position: fixed; z-index: 3; top: calc(22px + env(safe-area-inset-top, 0px)); left: max(24px, env(safe-area-inset-left, 0px));
+  display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 20px 0 16px; border: 0; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.03); color: var(--fg); font: 500 11px var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+  box-shadow: inset 0 0 10.9px -6px rgba(255, 255, 255, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: background .2s ease; }
+.back:hover { background: rgba(255, 255, 255, 0.08); }
+.back:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+.back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* nyitott projektnél a kezdőlap címkéi eltűnnek */
+.ui .row > .stack-label, .caption, .hint { transition: opacity .3s ease; }
+.project-open .ui .row > .stack-label, .project-open .caption, .project-open .hint { opacity: 0; }
+
+@media (max-width: 720px) {
+  .project { --gw: calc(100vw - 32px); --u: calc(var(--gw) / 560); }
+  .pj-grid { padding-top: calc(96px + env(safe-area-inset-top, 0px)); }
+  .r1, .r2 { grid-template-columns: 1fr; }
+  .r1 .c-img, .r2 .c-img { height: calc(var(--gw) * 0.62); }
+  .r1 .c-intro, .r2 .c-text { height: auto; padding-bottom: calc(48 * var(--u)); }
+  .r2 .c-text { order: 0; }
+  .gal-item { width: calc(var(--gw) * 0.62); }
+  .pj-gallery { height: calc(var(--gw) * 0.62 * 464 / 325); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project .anim, .project.show .anim, .project.hide .anim { transition-duration: .01s !important; transition-delay: 0s !important; filter: none; }
+}

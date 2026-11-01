@@ -18,6 +18,7 @@ Statikus weboldal: forgó, 3D liquid glass pillek a projektekkel, a két szélen
 | `js/logo.js` | A zenére reagáló MP logó |
 | `js/player.js` | Blob lejátszó: nyitás/csukás idővonala, rugók, SDF üveg, hangerő, előző/következő, tekerés |
 | `js/panel.js` | A Glass panel csúszkái |
+| `js/project.js` | Projekt-aloldal: pillre kattintva nyílik; kártyák, domború sorok, végtelen hengeres galéria |
 | `js/util.js` | Kis segédfüggvények (`damp`) |
 | `js/shaders/*.js` | GLSL shaderek template stringként: `glass`, `waves`, `player`, `fullscreen` |
 
@@ -41,5 +42,6 @@ Vercelen: **Add New → Project → Import** ezt a repót, a Framework Preset le
 
 - **Projektek:** `js/config.js`, `PROJECTS` lista (jelenleg placeholderek). A pillek címke-rajzolata (motívumok) a `js/pills.js`-ben, a `drawMotif`-ban van.
 - **Alapbeállítások:** `js/config.js`, `DEFAULTS` objektum (üveg, hullám, reakció).
+- **Projekt-aloldal tartalma:** `js/config.js`, `DETAIL_TEST` (szövegek, `gallery` képlista; üresen helyőrzők).
 - **Shaderek:** `js/shaders/` — a pill üvege a `glass.js`, a hullámok a `waves.js`, a lejátszó a `player.js`.
 - **Saját zene:** a lejátszó borítójára kattintva tölthető be böngészőben; a demó loop kódból generált.

@@ -127,7 +127,8 @@ PROJECTS.forEach((p, i) => {
   const baseY = ((N - 1) / 2 - i) * SP;
   holder.position.y = baseY;
   stack.add(holder);
-  pills.push({ holder, spin, glass, mat: glassMat, canvas: c, tex, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0 });
+  pills.push({ holder, spin, glass, mat: glassMat, canvas: c, tex, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0,
+    dy: 0, dvy: 0, drz: 0, dvrz: 0, ds: 1, delay: 0 });   // d*: leesés / visszaesés
 });
 
 if (document.fonts && document.fonts.load) {
@@ -168,10 +169,12 @@ export let scrollVel = 0;   // a hullámok is olvassák (görgetésre beljebb ú
 const clampV = v => Math.max(-14, Math.min(14, v));
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
+  if (mode !== 'tower') return;
   const k = e.deltaMode === 1 ? 1.6 : (e.deltaMode === 2 ? 20 : 0.045);
   scrollVel = clampV(scrollVel + e.deltaY * k);
 }, { passive: false });
 canvas.addEventListener('pointerdown', e => {
+  if (mode !== 'tower') return;
   dragging = true; dragY = e.clientY; dragMoved = 0; lastDragT = performance.now();
   scrollVel = 0;
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
@@ -190,10 +193,21 @@ const endDrag = () => {
   dragging = false;
   if (performance.now() - lastDragT > 90) scrollVel = 0;   // megállt a húzás a végén → nincs lendület
 };
-canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointerup', e => {
+  const wasDrag = dragMoved > 6;
+  endDrag();
+  if (wasDrag || mode !== 'tower') return;
+  // kattintás (nem húzás): ha pillre esett, kiválasztjuk
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  camera.layers.set(0);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(hitTargets, false)[0];
+  if (hit) selectPill(hit.object.userData.index);
+});
 canvas.addEventListener('pointercancel', endDrag);
 document.addEventListener('keydown', e => {
   if (e.target && (/INPUT|BUTTON/.test(e.target.tagName) || (e.target.closest && e.target.closest('#vol')))) return;
+  if (mode !== 'tower') return;
   if (e.key === 'ArrowDown') { scrollVel = clampV(scrollVel + 5); e.preventDefault(); }
   if (e.key === 'ArrowUp') { scrollVel = clampV(scrollVel - 5); e.preventDefault(); }
 });
@@ -206,6 +220,55 @@ canvas.addEventListener('pointerdown', e => {
   pointerIn = !!ray.intersectObjects(hitTargets, false)[0];
 });
 
+/* ---------- Kiválasztás: a többi pill leesik, a kiválasztott összehúzódik; vissza: felülről beesnek ----------
+   mode: 'tower' (alap) → 'leaving' (esnek) → 'away' (nem látszanak, nem rajzoljuk) → 'returning' (beesnek) → 'tower' */
+export let mode = 'tower';
+let selected = -1, modeT = 0, onSelectFn = null;
+export function onSelect(fn) { onSelectFn = fn; }
+function selectPill(i) {
+  mode = 'leaving'; selected = i; modeT = 0;
+  scrollVel = 0; dragging = false; pointerIn = false;
+  pills.forEach((pl, j) => {
+    pl.dvy = j === i ? 0 : 1.6 + Math.random() * 1.2;          // kis felugrás, aztán zuhanás
+    pl.dvrz = j === i ? 0 : (Math.random() - 0.5) * 3;
+    pl.delay = j === i ? 0 : Math.abs(j - i) * 0.05 + Math.random() * 0.05;   // a szomszédok esnek először
+  });
+  if (onSelectFn) onSelectFn(i);
+}
+export function restorePills() {
+  mode = 'returning'; modeT = 0; stack.visible = true;
+  pills.forEach((pl, j) => {
+    pl.dy = visH * 0.75 + j * 0.5; pl.dvy = 0;                 // a képen kívülről, fentről esnek vissza
+    pl.drz = (Math.random() - 0.5) * 0.8; pl.dvrz = 0;
+    pl.ds = 1; pl.delay = j * 0.06;
+  });
+}
+function updateDrop(dt) {
+  modeT += dt;
+  let busy = false;
+  pills.forEach((pl, j) => {
+    if (modeT < pl.delay) { busy = true; return; }
+    if (mode === 'leaving') {
+      if (j === selected) {                                       // a kiválasztott finoman felúszik és eltűnik
+        pl.dy = damp(pl.dy, 0.6, 3, dt); pl.ds = damp(pl.ds, 0, 4.5, dt);
+        if (pl.ds > 0.01) busy = true;
+      } else {
+        pl.dvy -= 26 * dt; pl.dy += pl.dvy * dt; pl.drz += pl.dvrz * dt;
+        if (pl.dy > -(visH + 3)) busy = true;
+      }
+    } else {                                                      // returning: rugó → kis túllendülés, folyékony leérkezés
+      const k = 70, d = 11;
+      pl.dvy += (-pl.dy * k - pl.dvy * d) * dt; pl.dy += pl.dvy * dt;
+      pl.dvrz += (-pl.drz * k - pl.dvrz * d) * dt; pl.drz += pl.dvrz * dt;
+      if (Math.abs(pl.dy) + Math.abs(pl.dvy) > 0.004) busy = true;
+    }
+  });
+  if (!busy) {
+    if (mode === 'leaving') { mode = 'away'; stack.visible = false; }
+    else { mode = 'tower'; pills.forEach(pl => { pl.dy = pl.dvy = pl.drz = pl.dvrz = 0; pl.ds = 1; }); }
+  }
+}
+
 const capMeta = document.getElementById('capMeta'), capName = document.getElementById('capName');
 function setCaption(i) {
   if (i < 0) { capMeta.textContent = 'Válassz egy pillt'; capName.innerHTML = '&nbsp;'; }
@@ -217,13 +280,17 @@ const TAU = Math.PI * 2;
 let parX = 0, parY = 0;
 export function updatePills(dt) {
   let h = -1;
-  if (pointerIn) {
+  if (mode === 'away') return;                 // nincs mit mozgatni / rajzolni
+  if (mode !== 'tower') updateDrop(dt);
+  if (pointerIn && mode === 'tower') {
     camera.layers.set(0);
     ray.setFromCamera(ndc, camera);
     const hit = ray.intersectObjects(hitTargets, false)[0];
     if (hit) h = hit.object.userData.index;
   }
   if ((dragging && dragMoved > 6) || Math.abs(scrollVel) > 2.5) h = -1;   // görgetés közben nincs kiemelés
+  if (mode === 'leaving') h = selected;          // a kiválasztott szemben marad, amíg a többi leesik
+  if (mode === 'returning') h = -1;
   if (h !== hovered) { hovered = h; setCaption(h); canvas.style.cursor = h >= 0 ? 'pointer' : 'default'; }
 
   // görgetés fizika
@@ -262,9 +329,10 @@ export function updatePills(dt) {
     const r = Math.min(1, Math.abs(yw) / YMAX);
     const depth = r * r;
     const fade = 1 - THREE.MathUtils.smoothstep(r, 0.8, 1.0);
-    pl.holder.position.set(0, yw + pl.push, pl.z - depth * 1.8);
-    pl.holder.scale.setScalar(Math.max(0.0001, pl.s * (1 - depth * 0.35) * fade));
+    pl.holder.position.set(0, yw + pl.push + pl.dy, pl.z - depth * 1.8);
+    pl.holder.scale.setScalar(Math.max(0.0001, pl.s * (1 - depth * 0.35) * fade * pl.ds));
     pl.holder.rotation.x = -(yw / YMAX) * 0.5 - scrollVel * 0.025;
+    pl.holder.rotation.z = pl.drz;
     pl.spin.rotation.y = pl.angle;
   });
 
