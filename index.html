@@ -25,7 +25,7 @@
       <div class="panel" id="panel" hidden>
         <header>
           <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M4.5 9.5a4 4 0 0 0 4 3"/></svg>Glass</span>
-          <button class="reset" id="reset" type="button">Alaphelyzet</button>
+          <span><button class="reset" id="copy" type="button" title="Beállítások másolása a vágólapra">Másolás</button><button class="reset" id="reset" type="button">Alaphelyzet</button></span>
         </header>
         <div class="sec">
           <div class="ctl"><label for="c-ang">Light</label><input type="range" id="c-ang" min="-180" max="180" step="1"><output for="c-ang"></output></div>
@@ -47,6 +47,7 @@
           <div class="ctl"><label for="c-react">Reakció</label><input type="range" id="c-react" min="0" max="100" step="1"><output for="c-react"></output></div>
           <div class="ctl"><label for="c-wlight">Fényerő</label><input type="range" id="c-wlight" min="0" max="100" step="1"><output for="c-wlight"></output></div>
           <div class="ctl"><label for="c-wpush">Behúzás</label><input type="range" id="c-wpush" min="0" max="100" step="1"><output for="c-wpush"></output></div>
+          <div class="ctl"><label for="c-wshift">Középre</label><input type="range" id="c-wshift" min="0" max="100" step="1"><output for="c-wshift"></output></div>
           <div class="ctl"><label for="c-wspeed">Áramlás</label><input type="range" id="c-wspeed" min="0" max="100" step="1"><output for="c-wspeed"></output></div>
           <div class="ctl"><label for="c-surge">Lendület</label><input type="range" id="c-surge" min="0" max="100" step="1"><output for="c-surge"></output></div>
           <div class="ctl"><label for="c-bpm">BPM-szinkron</label><input type="checkbox" id="c-bpm"><output id="bpmOut">92 BPM</output></div>
