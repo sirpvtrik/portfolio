@@ -1,0 +1,39 @@
+// Glass panel (jobb felső gomb): a Figma Glass effekt csúszkái + Forgás + Hullám beállítások
+import { S, DEFAULTS } from './config.js';
+import { canvas, U } from './scene.js';
+import { WU } from './waves.js';
+import { requestGeoRebuild } from './pills.js';
+
+const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
+const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wspeed', 'surge'];
+function applySettings() {
+  U.uLightAng.value = S.ang;
+  U.uLightInt.value = S.int / 100;
+  U.uRefr.value = S.refr / 100;
+  U.uDisp.value = S.disp / 100;
+  U.uFrost.value = S.frost / 100;
+  U.uSplay.value = S.splay / 100;
+  requestGeoRebuild();
+  document.getElementById('c-bpm').checked = S.bpmSync;
+  WU.uStyle.value = S.wstyle;
+  [0, 1].forEach(v => document.getElementById('ws-' + v).setAttribute('aria-pressed', String(S.wstyle === v)));
+  CTL.forEach(k => {
+    const el = document.getElementById('c-' + k);
+    el.value = S[k];
+    el.nextElementSibling.textContent = k === 'ang' ? S[k] + '°' : (k === 'int' ? S[k] + '%' : S[k]);
+  });
+}
+CTL.forEach(k => document.getElementById('c-' + k).addEventListener('input', e => { S[k] = +e.target.value; applySettings(); }));
+document.getElementById('c-bpm').addEventListener('change', e => { S.bpmSync = e.target.checked; });
+[0, 1].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));
+document.getElementById('reset').addEventListener('click', () => { Object.assign(S, DEFAULTS); applySettings(); });
+panelBtn.addEventListener('click', () => {
+  const open = panel.hidden;
+  panel.hidden = !open; panelBtn.setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; panelBtn.setAttribute('aria-expanded', 'false'); panelBtn.focus(); } });
+// a színpadra kattintás becsukja a panelt
+canvas.addEventListener('pointerdown', () => {
+  if (!panel.hidden) { panel.hidden = true; panelBtn.setAttribute('aria-expanded', 'false'); }
+});
+applySettings();
