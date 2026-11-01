@@ -16,7 +16,8 @@ export const glassFS = /* glsl */`
   precision highp float;
   uniform sampler2D uBg;
   uniform vec2  uRes;
-  uniform float uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uHover, uPulse, uThick;
+  uniform float uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uHover, uPulse, uThick, uTintK;
+  uniform vec3 uTint;
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
@@ -85,5 +86,6 @@ export const glassFS = /* glsl */`
     col += pow(max(dot(N, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt;  // csillanás
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost;             // vékony világos kontúr
 
+    col = mix(col, col * uTint * 1.5 + uTint * 0.07, uTintK * 0.5);   // projekt-szín (hoverre kicsit beszíneződik)
     gl_FragColor = vec4(col, 1.0);
   }`;

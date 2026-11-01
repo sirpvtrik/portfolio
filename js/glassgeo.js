@@ -37,12 +37,21 @@ export function smoothSides(geo) {
   n.needsUpdate = true;
   return geo;
 }
+// A körvonal pontjai ismétlődés nélkül. A Three.js a záró (első = utolsó) pontot csak a sapka háromszögelésénél
+// szűri ki, a perem építésénél nem; vékony peremnél (Depth 0–0,2) emiatt az alsó egyenes élen a perem egy része
+// hiányzott (látható bevágás a pill alján). Itt előre kiszűrjük, így minden Depth-nél teljes a perem.
+function cleanShape(shape, segs) {
+  const pts = shape.getPoints(segs), out = [];
+  for (const q of pts) if (!out.length || out[out.length - 1].distanceTo(q) > 1e-6) out.push(q);
+  while (out.length > 2 && out[0].distanceTo(out[out.length - 1]) < 1e-6) out.pop();
+  return new THREE.Shape(out);
+}
 // perem mérete a Depth csúszkából (0..1)
 export const bevelOf = depth01 => 0.05 + depth01 * 0.32;
 // vastag üveglap az alakból: shapeFn(belső szélesség, belső magasság) → Shape
 export function glassSlab(shapeFn, w, h, depth01, curveSegments) {
   const b = bevelOf(depth01);
-  const geo = new THREE.ExtrudeGeometry(shapeFn(w - 2 * b, h - 2 * b), {
+  const geo = new THREE.ExtrudeGeometry(cleanShape(shapeFn(w - 2 * b, h - 2 * b), curveSegments), {
     depth: 0.18, bevelEnabled: true, bevelThickness: b * 0.95, bevelSize: b, bevelSegments: 16, curveSegments,
   });
   geo.center();

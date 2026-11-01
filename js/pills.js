@@ -37,8 +37,16 @@ function drawMotif(g, i) {
     for (let k = -4; k <= 4; k++) { g.beginPath(); g.moveTo(vx, vy); g.lineTo(vx + k * 60, cy + 110); g.stroke();
       g.beginPath(); g.moveTo(vx, vy); g.lineTo(vx + k * 60, cy - 110); g.stroke(); }
     for (let k = 1; k <= 4; k++) { const d = k * k * 6.5; g.strokeRect(vx - d * 2.4, vy - d, d * 4.8, d * 2); }
-  } else {
+  } else if (i === 5) {
     for (let x = x0; x <= x1; x += 22) { g.beginPath(); g.moveTo(x, cy - 78); g.lineTo(x, cy + 78); g.stroke(); }
+  } else {                                           // oldalra fújt, elvékonyodó szélvonalak
+    for (let k = 0; k < 6; k++) {
+      const y0 = cy - 75 + k * 30, len = 150 + (k % 3) * 45;
+      for (let s = 0; s < 3; s++) { g.lineWidth = 4 - s * 1.2; g.globalAlpha = 1 - s * 0.3; g.beginPath();
+        for (let t = 0; t <= 1.0001; t += 0.05) { const x = x0 + (s * len / 3) + t * len / 3, y = y0 + Math.sin(t * 3.14 + k + s * 1.1) * 7 - t * 6;
+          t === 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); }
+      g.globalAlpha = 1;
+    }
   }
   g.restore();
 }
@@ -73,7 +81,8 @@ PROJECTS.forEach((p, i) => {
   const labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.FrontSide });
   const glassMat = new THREE.ShaderMaterial({
     vertexShader: glassVS, fragmentShader: glassFS,
-    uniforms: Object.assign({}, U, { uHover: { value: 0 } }),
+    uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 },
+      uTint: { value: new THREE.Vector3().fromArray(p.color || [1, 1, 1]) } }),
   });
 
   const holder = new THREE.Group(), spin = new THREE.Group();
@@ -91,11 +100,13 @@ PROJECTS.forEach((p, i) => {
   holder.position.y = baseY;
   stack.add(holder);
   pills.push({ holder, spin, glass, mat: glassMat, canvas: c, tex, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0,
-    dy: 0, dvy: 0, drz: 0, dvrz: 0, ds: 1, delay: 0 });   // d*: leesés / visszaesés
+    dy: 0, dvy: 0, dz: 0, drz: 0, dvrz: 0, ds: 1, delay: 0 });   // d*: leesés / visszaesés (dz: hátra, a projekt-kártyák mögé)
 });
 
 if (document.fonts && document.fonts.load) {
-  Promise.all([document.fonts.load('800 100px Archivo'), document.fonts.load('500 28px "Geist Mono"')])
+  // a tényleges szöveggel töltjük be (az ékezetes latin-ext rész is, pl. Ő, Ű, Ú), különben tartalék betűvel rajzolódhat
+  const names = PROJECTS.map(p => p.name.toUpperCase()).join(' '), metas = PROJECTS.map(p => (p.id + ' ' + p.cat + ' ' + p.meta).toUpperCase()).join(' ');
+  Promise.all([document.fonts.load('800 100px Archivo', names), document.fonts.load('500 28px "Geist Mono"', metas)])
     .then(() => pills.forEach((pl, i) => { drawLabel(pl.canvas, PROJECTS[i], i); pl.tex.needsUpdate = true; }))
     .catch(() => {});
 }
@@ -203,7 +214,7 @@ export function restorePills() {
   pills.forEach((pl, j) => {
     pl.dy = visH * 0.75 + j * 0.5; pl.dvy = 0;                 // a képen kívülről, fentről esnek vissza
     pl.drz = (Math.random() - 0.5) * 0.8; pl.dvrz = 0;
-    pl.ds = 1; pl.delay = j * 0.06;
+    pl.ds = 1; pl.dz = 0; pl.delay = j * 0.06;
   });
 }
 function updateDrop(dt) {
@@ -217,6 +228,7 @@ function updateDrop(dt) {
         if (pl.ds > 0.01) busy = true;
       } else {
         pl.dvy -= 26 * dt; pl.dy += pl.dvy * dt; pl.drz += pl.dvrz * dt;
+        pl.dz = damp(pl.dz, -7, 3.5, dt);                         // hátrafelé is esnek → a megjelenő kártyák mögött tűnnek el
         if (pl.dy > -(visH + 3)) busy = true;
       }
     } else {                                                      // returning: rugó → kis túllendülés, folyékony leérkezés
@@ -228,7 +240,7 @@ function updateDrop(dt) {
   });
   if (!busy) {
     if (mode === 'leaving') { mode = 'away'; stack.visible = false; }
-    else { mode = 'tower'; pills.forEach(pl => { pl.dy = pl.dvy = pl.drz = pl.dvrz = 0; pl.ds = 1; }); }
+    else { mode = 'tower'; pills.forEach(pl => { pl.dy = pl.dvy = pl.dz = pl.drz = pl.dvrz = 0; pl.ds = 1; }); }
   }
 }
 
@@ -288,11 +300,12 @@ export function updatePills(dt) {
     pl.s = damp(pl.s, isH ? 1.07 : (any ? 0.96 : 1), 6, dt);
     pl.hv = damp(pl.hv, isH ? 1 : 0, 6, dt);
     pl.mat.uniforms.uHover.value = pl.hv;
+    if (PROJECTS[i].color) pl.mat.uniforms.uTintK.value = pl.hv;   // saját színű projekt: hoverre kicsit beszíneződik
     // dob-hatás: a szélek felé kisebb, hátrébb és megdől; a hurok varrata láthatatlan
     const r = Math.min(1, Math.abs(yw) / YMAX);
     const depth = r * r;
     const fade = 1 - THREE.MathUtils.smoothstep(r, 0.8, 1.0);
-    pl.holder.position.set(0, yw + pl.push + pl.dy, pl.z - depth * 1.8);
+    pl.holder.position.set(0, yw + pl.push + pl.dy, pl.z - depth * 1.8 + pl.dz);
     pl.holder.scale.setScalar(Math.max(0.0001, pl.s * (1 - depth * 0.35) * fade * pl.ds));
     pl.holder.rotation.x = -(yw / YMAX) * 0.5 - scrollVel * 0.025;
     pl.holder.rotation.z = pl.drz;

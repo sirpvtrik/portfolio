@@ -6,7 +6,8 @@ import { damp } from './util.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { waveFS } from './shaders/waves.js';
 
-export const WU = { uTime: { value: 0 }, uAmp: { value: 0 }, uPush: { value: 0 }, uGain: { value: 1 }, uReact: { value: 1.2 }, uBeat: { value: 0 }, uRes: U.uRes, uBands: { value: [0, 0, 0, 0, 0, 0] }, uFlowY: { value: 0 }, uStyle: { value: 0 }, uShift: { value: 0 } };
+export const WU = { uTime: { value: 0 }, uAmp: { value: 0 }, uPush: { value: 0 }, uGain: { value: 1 }, uReact: { value: 1.2 }, uBeat: { value: 0 }, uRes: U.uRes, uBands: { value: [0, 0, 0, 0, 0, 0] }, uFlowY: { value: 0 }, uStyle: { value: 0 }, uShift: { value: 0 },
+  uColA: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColB: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColFront: { value: 1.2 } };
 const waveMat = new THREE.ShaderMaterial({
   uniforms: WU, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   extensions: { derivatives: true },
@@ -22,6 +23,25 @@ scene.add(onLayer(waveQuad, LAYER_BG));
 let shiftK = 1, shiftTarget = 1;
 export function setWavesCentered(on) { shiftTarget = on ? 1 : 0; }
 export function updateWaves(dt) {
+  updateWaveColor(dt);
   shiftK = damp(shiftK, shiftTarget, 2.2, dt);
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
+}
+
+/* ---------- Hullám-szín: projekt-színre vált (fentről lefelé végigfutó átmenettel), visszalépéskor vissza fehérre ---------- */
+const WHITE = [0.95, 0.96, 1.0];
+let colTarget = WHITE.join(), frontV = 1.2;
+export function setWaveColor(rgb) {
+  const c = rgb || WHITE;
+  if (c.join() === colTarget) return;
+  colTarget = c.join();
+  // a most látszó színből indul (ha épp átmenet közben van, a front alatti rész az A-szín)
+  if (frontV > 0.6) WU.uColA.value.copy(WU.uColB.value);       // (ha egy átmenet még az elején jár, a régi alapszín marad)
+  WU.uColB.value.set(c[0], c[1], c[2]);
+  frontV = 0;
+}
+export function updateWaveColor(dt) {
+  if (frontV >= 1.2) return;
+  frontV = Math.min(1.2, frontV + dt * 0.95);                  // ~1,3 mp alatt fut végig fentről lefelé
+  WU.uColFront.value = frontV;
 }

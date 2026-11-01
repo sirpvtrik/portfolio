@@ -2,7 +2,8 @@
 
 export const waveFS = /* glsl */`
   precision highp float;
-  uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift;
+  uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront;
+  uniform vec3 uColA, uColB;   // régi és új szín; a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
   // a spektrum 6 sávból, harang-görbékkel összemosva → teljesen sima, nincs lépcső a vonalon
@@ -99,5 +100,7 @@ export const waveFS = /* glsl */`
     vec3 l = (ribbons(px, -1.0) + ribbons(px, 1.0)) * uGain * (uStyle < 0.5 ? 0.75 : 1.0);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
-    gl_FragColor = vec4(vec3(0.95, 0.96, 1.0) * max(v, 0.0), 1.0);
+    float yt = 1.0 - gl_FragCoord.y / uRes.y;                         // 0 fent, 1 lent
+    vec3 tint = mix(uColA, uColB, 1.0 - smoothstep(uColFront - 0.18, uColFront, yt));
+    gl_FragColor = vec4(tint * max(v, 0.0), 1.0);
   }`;

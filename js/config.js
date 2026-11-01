@@ -6,6 +6,8 @@ export const PROJECTS = [
   { id: 'P04', name: 'Időkövető', cat: 'Desktop app',    meta: 'Saját eszköz' },
   { id: 'P05', name: 'Backrooms', cat: '3D web',         meta: 'Liminális portfólió' },
   { id: 'P06', name: 'Csarnok',   cat: 'Social kampány', meta: 'Ipari csarnok' },
+  // color: hoverre a pill ilyen színűre árnyalódik, kattintásra a hullámok fentről lefelé erre váltanak
+  { id: 'P07', name: 'Oldalra fújva', cat: 'Illusztráció', meta: 'Placeholder', color: [0.24, 0.92, 0.5] },
 ];
 export const N = PROJECTS.length;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;

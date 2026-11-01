@@ -3,12 +3,12 @@
 // Görgetés: dob, mint a pilleknél — középen teljes méret, felfelé/lefelé hátradőlnek, mélyebbre kerülnek, kisebbek lesznek.
 // Galéria: valódi 3D henger, a sugara a rács fél szélessége (nem lóg ki a rács szélén). Amikor középre ér, az egész lap
 // megáll, és a görgetés a hengert forgatja; ha az utolsó kép is beért, a lap megy tovább.
-import { S, reduced, DETAIL_TEST } from './config.js';
+import { S, reduced, DETAIL_TEST, PROJECTS } from './config.js';
 import { scene, renderer, onLayer, LAYER_BG, LAYER_GLASS, U, visH, setCameraLift } from './scene.js';
 import { glassVS, glassFS } from './shaders/glass.js';
 import { roundedRect, glassSlab, remapUV, bevelOf } from './glassgeo.js';
 import { onSelect, restorePills } from './pills.js';
-import { setWavesCentered } from './waves.js';
+import { setWavesCentered, setWaveColor } from './waves.js';
 import { damp } from './util.js';
 
 const root = document.getElementById('project');
@@ -116,7 +116,7 @@ function galleryDrawer(src) {
 function makeCard(wpx, hpx, k, depth01, draw, order, clip) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
   const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10);
-  const mat = new THREE.ShaderMaterial({ vertexShader: clip ? clipVS : glassVS, fragmentShader: clip ? clipFS : glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 } }) });
+  const mat = new THREE.ShaderMaterial({ vertexShader: clip ? clipVS : glassVS, fragmentShader: clip ? clipFS : glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
   if (clip) { mat.clipping = true; mat.clippingPlanes = CLIP; }
   const holder = new THREE.Group(), spin = new THREE.Group();
   holder.add(spin);
@@ -166,7 +166,8 @@ function dispose() {
 }
 
 /* ---------- Nyitás / zárás ---------- */
-function open() {
+function open(i) {
+  setWaveColor(PROJECTS[i] && PROJECTS[i].color);                // saját színű projektnél a hullámok fentről lefelé átszíneződnek
   isOpen = true; closing = false; s = 0; vel = 0; openT = 0;
   build();
   root.hidden = false;
@@ -183,6 +184,7 @@ function close() {
     root.hidden = true;
     document.body.classList.remove('project-open');
     setWavesCentered(true);
+    setWaveColor(null);
     restorePills();
   }, reduced ? 0 : 450);
 }
@@ -230,11 +232,12 @@ document.addEventListener('keydown', e => {
 
 /* ---------- Kockánkénti frissítés ---------- */
 // dob, mint a pilleknél: középen teljes méret; felfelé/lefelé hátradől, mélyebbre kerül, kisebb lesz
+// (a vízszintes helyzet is a méret arányában húzódik a közép felé → egy sor kártyái egyben kisebbednek, a közük nem nyílik ki)
 function drum(obj, xpx, ypx, k, tilt) {
-  const R = L.vh * 0.62, r = Math.min(1.35, Math.abs(ypx) / R), depth = r * r;
-  obj.position.set(xpx * k, -ypx * k, -depth * 1.8);
+  const R = L.vh * 0.62, r = Math.min(1.35, Math.abs(ypx) / R), depth = r * r, sc = 1 - depth * 0.3;
+  obj.position.set(xpx * k * sc, -ypx * k, -depth * 1.8);
   obj.rotation.x = (ypx / R) * 0.45 - tilt;
-  return 1 - depth * 0.3;
+  return sc;
 }
 // megjelenés: sorban, rugóval (kis túllendülés), lentről úszik be
 function appear(c, dt) {
