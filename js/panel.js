@@ -4,6 +4,7 @@ import { canvas, U } from './scene.js';
 import { WU } from './waves.js';
 import { requestGeoRebuild } from './pills.js';
 import { requestCardRebuild } from './project.js';
+import { bevelOf } from './glassgeo.js';
 
 const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
 const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
@@ -14,6 +15,7 @@ function applySettings() {
   U.uDisp.value = S.disp / 100;
   U.uFrost.value = S.frost / 100;
   U.uSplay.value = S.splay / 100;
+  U.uThick.value = bevelOf(S.depth / 100) / bevelOf(0.55);   // Depth 55-nél 1 (a megszokott törés)
   requestGeoRebuild();
   requestCardRebuild();                       // a projekt-kártyák (a galéria is) ugyanazt a peremet kapják
   document.getElementById('c-bpm').checked = S.bpmSync;

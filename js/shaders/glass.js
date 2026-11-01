@@ -16,7 +16,7 @@ export const glassFS = /* glsl */`
   precision highp float;
   uniform sampler2D uBg;
   uniform vec2  uRes;
-  uniform float uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uHover, uPulse;
+  uniform float uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uHover, uPulse, uThick;
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
@@ -58,7 +58,7 @@ export const glassFS = /* glsl */`
 
     float spl = mix(pow(g, 1.4) * 2.2, 1.0, uSplay);
     float w = smoothstep(0.0, 1.0, vEdge);              // sík lap → tiszta, perem → törés
-    float amt = uRefr * 0.2 * spl * w;
+    float amt = uRefr * 0.2 * spl * w * uThick;      // vékonyabb perem → kisebb törés (Depth)
     float k = uDisp * 0.14 * w;
     vec2 dR = dev(V, N, 1.0 / (1.5 - k)) * amt * asp;
     vec2 dG = dev(V, N, 1.0 / 1.5)       * amt * asp;
