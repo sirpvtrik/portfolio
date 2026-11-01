@@ -28,7 +28,7 @@ Patrik grafikus hallgató (Eszterházy Károly Egyetem, Eger) és szabadúszó t
 - **MP logó** fent középen: a szárai a zenére rövidülnek (1 mély, 2 közép, 3 hangerő, 4 magas).
 - **Blob lejátszó** bal alul: csukva hangszóró-kör; hoverre rugós, folyékony nyitás (jobbra nyúlik → középen felnő egy csepp → kétfelé válik → felül kinyílik), csukás pontosan visszafelé. Az alakot WebGL rajzolja SDF smooth-unionnal, liquid glass-szal. Hangerő-pill, előző/lejátszás/következő, idősáv, saját zene a borítóra kattintva.
 - **Glass panel** (jobb felső gomb): a Figma Glass effekt csúszkái (Light, Intensity, Refraction, Depth, Dispersion, Frost, Splay) + Forgás + Hullám (stílus, Reakció, Fényerő, Behúzás, Középre, Áramlás, Lendület, BPM-szinkron). Alapértékek: `DEFAULTS` a `js/config.js`-ben. A fejlécben a **Másolás** gomb az aktuális beállításokat JSON-ként a vágólapra teszi: Patrik így küldi vissza a beállított értékeket, ezekből lesz az új `DEFAULTS`.
-- **Középre** (`wshift` → `uShift`): a hullámszalagokat a pillek mögé hozza; ahol a pillek mögé érnek, az üveg megtöri őket. 0 = a régi, szélen futó hullám.
+- **Középre** (`wshift` → `uShift`): a hullámszalagokat a pillek mögé hozza; ahol a pillek mögé érnek, az üveg megtöri őket. 0 = a régi, szélen futó hullám. A shader a képarányhoz igazítja (~70 → épp a pillek széléig ér bármilyen széles képernyőn), álló/mobil képernyőn nincs hatása. Alapértékek: Refraction 40, Középre 90 → átlátszó üvegpillek, mögöttük áthaladó hullámokkal.
 
 ## Design-irány
 - Fekete háttér, monokróm, finom fehér fények; üveg (Apple liquid glass) és fémes hatások.

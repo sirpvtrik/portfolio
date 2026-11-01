@@ -17,6 +17,9 @@ export const waveFS = /* glsl */`
   }
   // egy fényszalag távolsága a képernyő szélétől (képernyőmagasság egységben)
   // közös, lassú fő hullám + kis eltérés → a szalagok együtt futnak, finoman szétválnak és összeérnek
+  // a Középre eltolás képernyőmagasság-egységben, a képarányhoz igazítva:
+  // uShift = 1 → a szalag a pillek széléig ér bármilyen széles képernyőn; álló (mobil) képernyőn 0
+  float shiftH() { return uShift * max(0.0, 0.5 * uRes.x / uRes.y - 0.25); }
   float curve(float y, float side, float k, float sp, float beat) {
     float env = pow(sin(3.14159265 * clamp(y, 0.0, 1.0)), 1.2);
     float t = uTime + side * 3.7;
@@ -26,7 +29,7 @@ export const waveFS = /* glsl */`
     float drift = sin(yy * 2.2 - t * 0.27 + k * 1.7) * 0.011 * (k + 1.0);
     float ripple = sin(yy * 15.0 - t * 1.4 + k * 2.3) * 0.004 * (1.0 + sp * 6.0 + beat * 3.0);   // finom, folyékony fodrozódás
     // uShift: a Középre csúszka, a szalagokat a pillek felé hozza (a végeik a sarkokban maradnak)
-    return env * (0.07 + uShift + k * 0.012 + uPush * 0.32 + (mainW + drift) * amp + ripple + sp * 0.05 * (1.0 + k * 0.3));   // a hangsávok helyben kidomborítják
+    return env * (0.07 + shiftH() + k * 0.012 + uPush * 0.32 + (mainW + drift) * amp + ripple + sp * 0.05 * (1.0 + k * 0.3));   // a hangsávok helyben kidomborítják
   }
   float hash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
   // uStyle: 0 = fényszalag, 1 = üvegrúd
@@ -34,7 +37,8 @@ export const waveFS = /* glsl */`
     float H = uRes.y;
     float y = px.y / H;
     float xe = (side < 0.0 ? px.x : uRes.x - px.x) / H;
-    if (xe > 1.3 + uShift) return vec3(0.0);                                   // messze a széltől nincs mit számolni
+    float sh = shiftH();
+    if (xe > 1.3 + sh) return vec3(0.0);                                   // messze a széltől nincs mit számolni
     float sp = specAt(0.03 + sqrt((y - 0.5) * (y - 0.5) + 0.004) * 1.7) * uAmp * uReact;
     float beat = uBeat * uReact;
     float env = pow(sin(3.14159265 * clamp(y, 0.0, 1.0)), 1.4);       // a végein sötétbe fut
@@ -88,7 +92,7 @@ export const waveFS = /* glsl */`
       }
       sum += c * bl * (1.0 - k * 0.2);
     }
-    return sum * env * (1.0 - smoothstep(0.7, 1.3, xe - uShift * env));   // fokozatos elhalványulás, nincs éles határ
+    return sum * env * (1.0 - smoothstep(0.7, 1.3, xe - sh * env));   // fokozatos elhalványulás, nincs éles határ
   }
   void main() {
     vec2 px = gl_FragCoord.xy;
