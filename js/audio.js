@@ -2,7 +2,7 @@
 // és a zenei reakció (hullámok, logó, pill-pulzálás) kockánkénti számolása
 import { S, reduced } from './config.js';
 import { U } from './scene.js';
-import { WU, BANDS, specData, specTex } from './waves.js';
+import { WU } from './waves.js';
 import { scrollVel } from './pills.js';
 import { updateLogo } from './logo.js';
 import { damp } from './util.js';
@@ -221,6 +221,7 @@ export function seekTo(pos) {
 }
 
 /* ---------- Zenei reakció (kockánként) ---------- */
+const BANDS = 64;   // a spektrum ennyi logaritmikus sávra bontva
 const levels = new Float32Array(BANDS);
 let musicAmt = 0, pulse = 0, elapsed = 0, reach = 0, scrollPush = 0;
 let prevL = 0, prevM = 0, prevH = 0, surge = 0, surgeS = 0, flowVel = 0, flowY = 0, bassSlow = 0;   // hangszerenkénti gyorsulás
@@ -242,12 +243,10 @@ export function updateAudio(dt) {
       target = Math.pow(Math.min(1, (sum / (b1 - b0) / 255) * (1 + k0 * 0.7)), 1.5);
     }
     levels[r] += (target - levels[r]) * (target > levels[r] ? 0.35 : 0.06);
-    specData[r * 4] = Math.round(levels[r] * 255);
     if (r < 10) low += levels[r] / 10;
     else if (r < 36) mid += levels[r] / 26;
     else high += levels[r] / 28;
   }
-  specTex.needsUpdate = true;
   for (let j = 0; j < 6; j++) {
     const r0 = Math.floor(j * BANDS / 6), r1 = Math.floor((j + 1) * BANDS / 6);
     let a = 0; for (let r = r0; r < r1; r++) a += levels[r];

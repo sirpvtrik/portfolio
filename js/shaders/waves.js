@@ -4,8 +4,6 @@ export const waveFS = /* glsl */`
   precision highp float;
   uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle;
   uniform vec2 uRes;
-  uniform sampler2D uSpec;
-
   uniform float uBands[6];
   // a spektrum 6 sávból, harang-görbékkel összemosva → teljesen sima, nincs lépcső a vonalon
   float specAt(float m) {

@@ -36,7 +36,6 @@ function plGeom(t) {
   return [top, vb, hb, l, cc, r, bot];
 }
 const plCur = plGeom(0).map(q => q.slice()), plVel = plCur.map(() => [0, 0, 0, 0]);
-const touchUI = matchMedia('(hover: none)').matches;
 function setOpen(v) {
   clearTimeout(closeT);
   plTarget = v ? 1 : 0;
@@ -44,12 +43,10 @@ function setOpen(v) {
   if (!v) pl.classList.remove('show');                               // csukáskor a tartalom azonnal eltűnik
   spk.setAttribute('aria-label', v ? (vol > 0 ? 'Némítás' : 'Hang vissza') : 'Lejátszó megnyitása');
 }
-function placeSpk() {}   // a hangszóró helyét a plUpdate számolja kockánként
 function applyVol() {
   volFill.style.width = (vol * 100) + '%';
   volEl.setAttribute('aria-valuenow', String(Math.round(vol * 100)));
   spkWaves.setAttribute('d', vol > 0 ? 'M10.5 5.5a3.5 3.5 0 0 1 0 5M12.3 3.8a6 6 0 0 1 0 8.4' : 'M10.5 6l3.5 4M14 6l-3.5 4');
-  placeSpk();
 }
 pl.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') setOpen(true); });
 pl.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') { clearTimeout(closeT); closeT = setTimeout(() => setOpen(false), 380); } });
