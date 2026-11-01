@@ -32,5 +32,17 @@ export const DETAIL_TEST = {
   label: 'Introduction ipsum',
   intro: 'Ez az alufóliából készült víz témájú portfólióm bemutató szövege. / This is the showcase text for my water-themed portfolio made from aluminum foil.',
   text: 'Ez az alufóliából készült víz témájú portfólióm bemutató szövege. / This is the showcase text for my water-themed portfolio made from aluminum foil.',
-  gallery: [],
+  gallery: [   // Zsebkönyv illusztrációk (Patrik posztersorozata)
+    'assets/projects/zsebkonyv/poszterek-05.webp',
+    'assets/projects/zsebkonyv/poszterek-07.webp',
+    'assets/projects/zsebkonyv/poszterek-08.webp',
+    'assets/projects/zsebkonyv/poszterek-09.webp',
+    'assets/projects/zsebkonyv/poszterek-12.webp',
+    'assets/projects/zsebkonyv/poszterek-14.webp',
+    'assets/projects/zsebkonyv/poszterek-15.webp',
+    'assets/projects/zsebkonyv/poszterek-16.webp',
+    'assets/projects/zsebkonyv/poszterek-17.webp',
+    'assets/projects/zsebkonyv/poszterek-19.webp',
+    'assets/projects/zsebkonyv/poszterek-28.webp',
+  ],
 };

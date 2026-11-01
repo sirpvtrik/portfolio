@@ -21,6 +21,16 @@ let closing = false, group = null, cards = [], gal = [], galHolder = null, L = n
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
+
+/* ---------- Vágás a rács szélén (a galéria kártyáinál): a pillek üveg-shadere + a Three.js vágósík-darabjai ---------- */
+renderer.localClippingEnabled = true;
+const clipL = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0), clipR = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
+const CLIP = [clipL, clipR];
+const clipVS = glassVS
+  .replace('void main() {', '#include <clipping_planes_pars_vertex>\n  void main() {')
+  .replace('vec4 mv = modelViewMatrix * vec4(position, 1.0);', 'vec4 mv = modelViewMatrix * vec4(position, 1.0);\n    vec4 mvPosition = mv;\n    #include <clipping_planes_vertex>');
+const clipFS = glassFS
+  .replace('void main() {', '#include <clipping_planes_pars_fragment>\n  void main() {\n    #include <clipping_planes_fragment>');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /* ---------- Elrendezés (képernyő-pixelben; a 3D-be visH / képernyőmagasság szorzóval kerül) ---------- */
@@ -59,7 +69,7 @@ function computeLayout() {
   const travel = Math.max(0, (n - 1) * p - (gw - cw));   // az első kártya bal szélről indul, az utolsó a jobb szélre ér
   const galY = y + ch / 2;
   const sG = Math.max(0, galY - vh / 2);                  // ennél a görgetésnél van a galéria középen
-  const spin = travel * 2.5;                             // ennyi görgetés forgatja végig a hengert (lassabb, mint a lap)
+  const spin = travel * 1.6;                             // ennyi görgetés forgatja végig a hengert (lassabb, mint a lap)
   return { vw, vh, mob, gw, u, g, list, cw, ch, p, n, travel, spin, galY, sG, sMax: sG + spin + vh * 0.5 };
 }
 
@@ -103,10 +113,11 @@ function galleryDrawer(src) {
 }
 
 /* ---------- Egy kártya: vastag üveglap + a belsejében a tartalom (mint a pill és a címkéje) ---------- */
-function makeCard(wpx, hpx, k, depth01, draw, order) {
+function makeCard(wpx, hpx, k, depth01, draw, order, clip) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
   const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10);
-  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 } }) });
+  const mat = new THREE.ShaderMaterial({ vertexShader: clip ? clipVS : glassVS, fragmentShader: clip ? clipFS : glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 } }) });
+  if (clip) { mat.clipping = true; mat.clippingPlanes = CLIP; }
   const holder = new THREE.Group(), spin = new THREE.Group();
   holder.add(spin);
   spin.add(onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS));
@@ -120,7 +131,7 @@ function makeCard(wpx, hpx, k, depth01, draw, order) {
     card.redraw = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); draw(g, wpx, hpx, q, b / k, card); tex.needsUpdate = true; };
     card.redraw();
     card.pgeo = remapUV(new THREE.ShapeGeometry(roundedRect(w, h, b), 8));
-    card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+    card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, clippingPlanes: clip ? CLIP : null });
     const plane = onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_BG); plane.position.z = 0.002;
     spin.add(plane);
   }
@@ -139,7 +150,7 @@ function build() {
   });
   galHolder = new THREE.Group(); group.add(galHolder);
   const pics = d.gallery.length ? d.gallery : [null, null, null, null];
-  gal = pics.map((src, i) => { const c = makeCard(L.cw, L.ch, k, depth01, galleryDrawer(src), 4 + Math.min(i, 3)); galHolder.add(c.holder); return c; });
+  gal = pics.map((src, i) => { const c = makeCard(L.cw, L.ch, k, depth01, galleryDrawer(src), 4 + Math.min(i, 3), true); galHolder.add(c.holder); return c; });
   srText.textContent = d.label + '. ' + d.intro + ' ' + d.text;
   // a betűket a tényleges szöveggel töltjük be (az ékezetes latin-ext rész is), utána újrarajzolunk
   if (document.fonts && document.fonts.load) {
@@ -258,17 +269,25 @@ export function updateProject(dt) {
     c.holder.position.y -= (1 - Math.min(1, a)) * 60 * k;
     if (c.pmat) c.pmat.opacity = Math.min(1, a);
   });
-  // galéria: henger függőleges tengellyel, sugár = a rács fél szélessége → a széle pontosan a rács szélén van
+  // galéria: indításkor egyenes sor (az első kép szemből, mint a terven), görgetés közben henger (függőleges tengely,
+  // sugár = a rács fél szélessége), a végén újra egyenes (az utolsó kép szemből). A rács szélén túl levágjuk.
   const gsc = drum(galHolder, gridX + L.gw / 2, L.galY - v - L.vh / 2, k, tilt);
   galHolder.scale.setScalar(gsc);
+  const prog = L.travel > 0 ? off / L.travel : 0;
+  const bend = Math.pow(Math.sin(Math.PI * prog), 0.6);           // 0 az elején és a végén, közben 1
+  const half = (L.gw / 2) * k * gsc;
+  clipL.constant = -(galHolder.position.x - half);                  // x ≥ bal szél
+  clipR.constant = galHolder.position.x + half;                     // x ≤ jobb szél
   const Rh = L.gw / 2;
   gal.forEach((c, i) => {
     appear(c, dt);
-    const u = i * L.p - off - (L.gw / 2 - L.cw / 2);                 // ívhossz a henger elejétől (0 = szemben)
-    const al = u / Rh;
-    c.spin.visible = Math.abs(al) < Math.PI / 2 + (L.cw / 2) / Rh;
-    c.spin.position.set(Rh * Math.sin(al) * k, 0, -Rh * (1 - Math.cos(al)) * k);
-    c.spin.rotation.y = al;
+    const u = i * L.p - off - (L.gw / 2 - L.cw / 2);                 // a kártya közepe a rács közepétől (ívhossz)
+    const al = u / Rh, alC = clamp(al, -Math.PI, Math.PI);
+    const X = u + (Rh * Math.sin(alC) - u) * bend, Z = -Rh * (1 - Math.cos(alC)) * bend;
+    const onCyl = Math.abs(al) < Math.PI / 2 + (L.cw / 2) / Rh;       // hengeren: a hátoldal nem látszik
+    c.spin.visible = Math.abs(X) - L.cw / 2 < L.gw / 2 + 1 && (bend < 0.5 || onCyl);
+    c.spin.position.set(X * k, 0, Z * k);
+    c.spin.rotation.y = alC * bend;
     const a = Math.max(0, c.a);
     c.holder.scale.setScalar(Math.max(0.0001, a));
     c.holder.position.y = -(1 - Math.min(1, a)) * 60 * k;
