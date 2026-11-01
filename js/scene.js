@@ -12,8 +12,8 @@ renderer.setClearColor(0x000000, 1);
 
 /* ---------- Rétegek ----------
    1 = háttér + címkék (render targetbe, ezt töri meg az üveg)
-   2 = a pillek üvege, 3 = a render target kirajzolása (blit), 4 = a lejátszó üvege */
-export const LAYER_BG = 1, LAYER_GLASS = 2, LAYER_BLIT = 3, LAYER_PL = 4;
+   2 = a pillek üvege, 3 = a render target kirajzolása (blit), 4 = a lejátszó üvege, 5 = a projekt-aloldal kártyáinak üvege */
+export const LAYER_BG = 1, LAYER_GLASS = 2, LAYER_BLIT = 3, LAYER_PL = 4, LAYER_CARDS = 5;
 export const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 export const scene = new THREE.Scene();
 export const onLayer = (obj, l) => { obj.layers.set(l); return obj; };
@@ -77,7 +77,10 @@ function render() {
   camera.layers.set(LAYER_GLASS);
   renderer.autoClear = false;
   renderer.render(scene, camera);
-  // 4) a lejátszó liquid glass blobja
+  // 4) a projekt-aloldal kártyáinak üvege
+  camera.layers.set(LAYER_CARDS);
+  renderer.render(scene, camera);
+  // 5) a lejátszó liquid glass blobja
   camera.layers.set(LAYER_PL);
   renderer.render(scene, camera);
   renderer.autoClear = true;

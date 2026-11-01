@@ -120,7 +120,8 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 }
 
 /* ---------- Projekt-aloldal (Figma: Desktop – 2) ----------
-   Kártyák: sötét üveg (color-dodge színátmenet + belső fehér fény), 900 px-es rács, minden méret a rács szélességével arányos */
+   Kártyák: az üveget a WebGL rajzolja alájuk (js/cardglass.js), a DOM csak a helyet és a tartalmat adja.
+   900 px-es rács, minden méret a rács szélességével arányos */
 .ui { z-index: 2; }
 .project { position: fixed; inset: 0; z-index: 1; --gw: min(900px, calc(100vw - 48px)); --u: calc(var(--gw) / 900); }
 .pj-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none;
@@ -134,26 +135,25 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .r2 { grid-template-columns: 554fr 326fr; }
 .r1 .card, .r2 .card { height: calc(392 * var(--u)); }
 
-.card { position: relative; border-radius: 15px; box-shadow: inset 0 0 35.9px -6px rgba(255, 255, 255, 0.45); box-sizing: border-box; }
-.card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; mix-blend-mode: color-dodge;
-  background: linear-gradient(var(--ga, 228deg), rgba(0, 0, 0, 0.06) 50.8%, rgba(255, 255, 255, 0.06) 90%); }
-.c-img.a1 { --ga: 242deg; }
-.c-img.a2 { --ga: 242deg; }
-.c-text { --ga: 132deg; padding: calc(40 * var(--u)) calc(30 * var(--u)); box-shadow: inset 0 0 35.9px 0 rgba(255, 255, 255, 0.45); }
+.card { position: relative; border-radius: 15px; box-sizing: border-box; }
+.cm { position: absolute; width: 0; height: 0; pointer-events: none; }   /* sarokjelölők az üveg helyéhez */
+.cm.tl { left: 0; top: 0; } .cm.tr { left: 100%; top: 0; } .cm.br { left: 100%; top: 100%; } .cm.bl { left: 0; top: 100%; }
+.c-text { padding: calc(40 * var(--u)) calc(30 * var(--u)); }
 .c-intro { padding: calc(40 * var(--u)) calc(25 * var(--u)); }
 .pj-label { display: block; font: 400 calc(16 * var(--u))/1 'Nohemi', var(--display); color: #919191; letter-spacing: 0.04em; text-transform: uppercase; }
 .pj-big { margin: calc(20 * var(--u)) 0 0; max-width: calc(504 * var(--u)); font: 300 calc(32 * var(--u))/1.25 'Nohemi', var(--display); letter-spacing: -0.0125em; color: #f2f2f2; }
 .pj-text { margin: 0; max-width: calc(325 * var(--u)); font: 400 calc(24 * var(--u))/1.42 'Nohemi', var(--display); color: #f2f2f2; }
 
-/* galéria: a JS pozícionálja a kártyákat (hengeres szélek); a .pj-pin-ben középre ragad, amíg körbe nem forog */
+/* galéria: egy síkban, a rács szélénél vágva; a .pj-pin-ben középre ragad, amíg a végére nem lapoz */
 .pj-pin { position: relative; }
 .pj-pin > .r3 { position: sticky; }
-.pj-gallery { position: relative; height: calc(464 * var(--u)); perspective: 1100px; transform-style: preserve-3d; }
-.gal-item { position: absolute; left: 0; top: 0; width: calc(325 * var(--u)); height: 100%; will-change: transform, opacity; }
-.gal-card { height: 100%; border-radius: 20px; overflow: hidden; }
-.gal-card img { width: 100%; height: 100%; object-fit: cover; opacity: 0.95; display: block; }
-.gal-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 35.9px -6px rgba(255, 255, 255, 0.45); pointer-events: none; }
-.gal-card.ph { background: linear-gradient(160deg, #6a45b8 0%, #3b2a86 55%, #c2307e 100%); }
+.pj-gallery { position: relative; height: calc(464 * var(--u)); overflow: hidden; }
+.gal-item { position: absolute; left: 0; top: 0; width: calc(325 * var(--u)); height: 100%; will-change: transform; }
+.gal-card { height: 100%; border-radius: 20px; }
+/* a kép az üvegkereten belül ül (a perem körülötte törik) */
+.gal-media { position: absolute; inset: calc(9 * var(--u)); border-radius: 13px; overflow: hidden; }
+.gal-media img { width: 100%; height: 100%; object-fit: cover; opacity: 0.95; display: block; }
+.gal-media.ph { background: linear-gradient(160deg, #6a45b8 0%, #3b2a86 55%, #c2307e 100%); opacity: 0.92; }
 
 /* megjelenés: sorban, folyékonyan (elmosódásból, kicsit alulról, rugósan) */
 .project .anim { opacity: 0; transform: translateY(28px) scale(0.94); filter: blur(12px); }
