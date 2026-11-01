@@ -7,11 +7,19 @@ Patrik grafikus hallgató (Eszterházy Károly Egyetem, Eger) és szabadúszó t
 - A UI/UX javaslatokat irányként kezeli, nem kész megoldásként.
 
 ## Felépítés
-- Statikus oldal, build lépés nincs: `index.html`, `styles.css`, `main.js`.
-- Three.js 0.149 CDN-ről (jsDelivr, UMD `three.min.js`, globális `THREE`), Google Fonts: Archivo (display), Geist Mono (UI-címkék).
+- Statikus oldal, build lépés nincs. `index.html` a gyökérben, `css/styles.css`, `assets/cover.jpg`, a JS natív ES modulokban (`<script type="module" src="js/main.js">`).
+- Three.js 0.149 CDN-ről (jsDelivr, UMD `three.min.js`, globális `THREE`, a modulok előtt töltődik be), Google Fonts: Archivo (display), Geist Mono (UI-címkék).
+- `js/main.js`: belépési pont, kockánkénti sorrend: pillek → zenei reakció → idősáv → lejátszó.
+- `js/config.js`: `PROJECTS`, `DEFAULTS`, aktuális beállítások (`S`), pill-méretek (`PW`, `PH`, `SP`), `LOGO_PATHS`.
+- `js/scene.js`: renderer, kamera, render target, rétegek, közös üveg-uniformok (`U`), méretezés, render loop (`startLoop`).
+- `js/pills.js`: pill-geometria, címke-textúrák, üveg, hover, görgetés. `js/waves.js`: hullám-anyag és `WU` uniformok.
+- `js/audio.js`: demó loop, fájlbetöltés, analyser, basszus-detektor, BPM-becslés, zenei reakció (`updateAudio`). `js/logo.js`: MP logó.
+- `js/player.js`: blob lejátszó (idővonal, rugók, SDF üveg, hangerő, előző/következő, tekerés). `js/panel.js`: Glass panel csúszkái.
+- `js/shaders/*.js`: GLSL template stringként (`glass`, `waves`, `player`, `fullscreen`).
+- Az importok egy irányba mennek, körkörös import nincs. Egy modul csak a saját `let` változóit írhatja (az importált binding csak olvasható): ha más modulnak kell állítania, függvényt exportál (pl. `setVol`, `requestGeoRebuild`).
 - A kódban a kommentek magyarul vannak, maradjanak is.
 
-## Ami az oldalon van (main.js)
+## Ami az oldalon van
 - **Pill-torony:** 6 forgó, vastag 3D pill (ExtrudeGeometry, simított perem-normálok) saját liquid glass shaderrel: képernyőtérbeli fénytörés a 3D normálokból, diszperzió, fresnel, stúdió-env reflexió. A sík előlap tiszta, csak a perem tör. A címkék a pill belsejében vannak (render target → az üveg megtöri).
 - **Rétegek:** 1 = háttér + címkék (render targetbe, ezt töri az üveg), 2 = pillek üvege, 3 = blit, 4 = lejátszó üvege.
 - **Görgetés:** végtelen dob, lendület + súrlódás + ráugrás a legközelebbi pillre; gyors görgetésnél dőlés és gyorsabb forgás. Hover: a pill szembefordul, a többi szétcsúszik.
@@ -19,7 +27,7 @@ Patrik grafikus hallgató (Eszterházy Károly Egyetem, Eger) és szabadúszó t
 - **Zenei reakció:** saját basszus-detektor (30–150 Hz, a pillanatnyi átlaghoz mérve) → „pak–húz” lefelé rántás (`uFlowY`), folyamatos áramlás a basszussal; hangsávok helyben kidomborítják a szalagot; opcionális BPM-szinkron tempóbecsléssel.
 - **MP logó** fent középen: a szárai a zenére rövidülnek (1 mély, 2 közép, 3 hangerő, 4 magas).
 - **Blob lejátszó** bal alul: csukva hangszóró-kör; hoverre rugós, folyékony nyitás (jobbra nyúlik → középen felnő egy csepp → kétfelé válik → felül kinyílik), csukás pontosan visszafelé. Az alakot WebGL rajzolja SDF smooth-unionnal, liquid glass-szal. Hangerő-pill, előző/lejátszás/következő, idősáv, saját zene a borítóra kattintva.
-- **Glass panel** (jobb felső gomb): a Figma Glass effekt csúszkái (Light, Intensity, Refraction, Depth, Dispersion, Frost, Splay) + Forgás + Hullám (stílus, Reakció, Fényerő, Behúzás, Áramlás, Lendület, BPM-szinkron). Alapértékek: `DEFAULTS` a `main.js` elején.
+- **Glass panel** (jobb felső gomb): a Figma Glass effekt csúszkái (Light, Intensity, Refraction, Depth, Dispersion, Frost, Splay) + Forgás + Hullám (stílus, Reakció, Fényerő, Behúzás, Áramlás, Lendület, BPM-szinkron). Alapértékek: `DEFAULTS` a `js/config.js`-ben.
 
 ## Design-irány
 - Fekete háttér, monokróm, finom fehér fények; üveg (Apple liquid glass) és fémes hatások.
@@ -32,3 +40,4 @@ Patrik grafikus hallgató (Eszterházy Károly Egyetem, Eger) és szabadúszó t
 - A `PROJECTS` lista placeholder (Water, MP, Chime, Időkövető, Backrooms, Csarnok) — a valódi projektek és képek még jönnek.
 - A lejátszó borítója a Figma-designból kivágott kép, minden számnál ugyanaz.
 - Teljesítmény: a hullám- és üveg-shaderek nehezek; ha gyenge gépen akad, könnyített mód kell.
+- Betűtípus-verseny a címkéknél: a pill-címkék újrarajzolása csak az Archivo/Geist Mono *latin* részét várja meg (`document.fonts.load`), a latin-ext részt (Ő, Ű) nem, így a betöltés sorrendjétől függ, hogy az „IDŐKÖVETŐ” / „BETŰKÉSZLET” ékezetes betűje a webfonttal vagy tartalék betűvel rajzolódik. Javítás: a `load` hívásokba a tényleges szöveget is át kell adni.
