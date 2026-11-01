@@ -3,6 +3,7 @@ import { S, DEFAULTS } from './config.js';
 import { canvas, U } from './scene.js';
 import { WU } from './waves.js';
 import { requestGeoRebuild } from './pills.js';
+import { requestCardRebuild } from './project.js';
 
 const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
 const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
@@ -14,6 +15,7 @@ function applySettings() {
   U.uFrost.value = S.frost / 100;
   U.uSplay.value = S.splay / 100;
   requestGeoRebuild();
+  requestCardRebuild();                       // a projekt-kártyák (a galéria is) ugyanazt a peremet kapják
   document.getElementById('c-bpm').checked = S.bpmSync;
   WU.uStyle.value = S.wstyle;
   [0, 1].forEach(v => document.getElementById('ws-' + v).setAttribute('aria-pressed', String(S.wstyle === v)));
