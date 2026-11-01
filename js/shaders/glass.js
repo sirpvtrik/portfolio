@@ -75,6 +75,13 @@ export const glassFS = /* glsl */`
 
     col *= mix(vec3(1.0), vec3(0.9, 0.93, 0.98), g);     // vastagabb üveg a peremen
     col = mix(col, vec3(0.2), uFrost * 0.22);
+    // projekt-szín hoverre (mint egy színes üveg billentyű): az üvegen át látott fény színeződik, a vastag részek
+    // (perem, oldalfal) izzanak; a fehér tükröződések és csillanások ezután kerülnek rá, így fehérek maradnak
+    if (uTintK > 0.001) {
+      float thick = max(w, smoothstep(0.35, 0.95, g));
+      vec3 tcol = col * uTint * 1.6 + uTint * (0.04 + 0.45 * pow(thick, 1.3));
+      col = mix(col, tcol, uTintK);
+    }
 
     float la = radians(uLightAng);
     vec3 Ld = normalize(vec3(-cos(la), -sin(la), 0.7));
@@ -86,6 +93,5 @@ export const glassFS = /* glsl */`
     col += pow(max(dot(N, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt;  // csillanás
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost;             // vékony világos kontúr
 
-    col = mix(col, col * uTint * 1.5 + uTint * 0.07, uTintK * 0.5);   // projekt-szín (hoverre kicsit beszíneződik)
     gl_FragColor = vec4(col, 1.0);
   }`;
