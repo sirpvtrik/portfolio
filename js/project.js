@@ -22,16 +22,53 @@ let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 
-/* ---------- Vágás a rács szélén (a galéria kártyáinál): a pillek üveg-shadere + a Three.js vágósík-darabjai ---------- */
-renderer.localClippingEnabled = true;
-const clipL = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0), clipR = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
-const CLIP = [clipL, clipR];
-const clipVS = glassVS
-  .replace('void main() {', '#include <clipping_planes_pars_vertex>\n  void main() {')
-  .replace('vec4 mv = modelViewMatrix * vec4(position, 1.0);', 'vec4 mv = modelViewMatrix * vec4(position, 1.0);\n    vec4 mvPosition = mv;\n    #include <clipping_planes_vertex>');
-const clipFS = glassFS
-  .replace('void main() {', '#include <clipping_planes_pars_fragment>\n  void main() {\n    #include <clipping_planes_fragment>');
+/* ---------- Galéria-henger a csúcspont-shaderben ----------
+   A galéria kártyái hajlékony lapként simulnak a hengerre: a középső sík sávon (F) kívül a felület egy Rw sugarú
+   ívre hajlik hátra, és pontosan a rács szélénél fordul 90°-ra; ami ezen túl esne, az a henger hátoldalán van (eldobjuk).
+   Így semmi nem lóg ki a rács szélén, és nem kell vágómaszk. uWarp = (a henger tengelye világ-x-ben, F, Rw). */
+const WARP = { value: new THREE.Vector3(0, 1e4, 1) };
+const WARP_GLSL = `
+  uniform vec3 uWarp;
+  varying float vFold;
+  // világ-koordinátájú pont (és normál) a hengerre hajlítva
+  vec4 warpPoint(vec4 wp, inout vec3 wn) {
+    float dx = wp.x - uWarp.x, ax = abs(dx), sg = dx < 0.0 ? -1.0 : 1.0;
+    vFold = 0.0;
+    if (ax > uWarp.y) {
+      float th = (ax - uWarp.y) / max(uWarp.z, 1e-4);
+      vFold = th;
+      float t = min(th, 3.14159);
+      wp.x = uWarp.x + sg * (uWarp.y + uWarp.z * sin(t));
+      wp.z -= uWarp.z * (1.0 - cos(t));
+      float a = sg * t;
+      wn = vec3(wn.x * cos(a) + wn.z * sin(a), wn.y, -wn.x * sin(a) + wn.z * cos(a));
+    }
+    return wp;
+  }`;
+const warpVS = WARP_GLSL + `
+  varying vec3 vN;
+  varying vec3 vV;
+  varying float vEdge;
+  void main() {
+    vec3 wn = normalize(mat3(modelMatrix) * normal);
+    vec4 wp = warpPoint(modelMatrix * vec4(position, 1.0), wn);
+    vec4 mv = viewMatrix * wp;
+    vN = normalize(mat3(viewMatrix) * wn);
+    vEdge = clamp((1.0 - abs(normal.z)) * 5.0, 0.0, 1.0);
+    vV = mv.xyz;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const warpFS = glassFS.replace('void main() {', 'varying float vFold;\n  void main() {\n    if (vFold > 1.5708) discard;   // a henger hátoldala');
+// a tartalom-síkok (MeshBasicMaterial) ugyanígy hajlanak
+function warpBasic(shader) {
+  shader.uniforms.uWarp = WARP;
+  shader.vertexShader = shader.vertexShader
+    .replace('void main() {', WARP_GLSL + '\nvoid main() {')
+    .replace('#include <project_vertex>', 'vec3 wnD = vec3(0.0, 0.0, 1.0);\n  vec4 mvPosition = viewMatrix * warpPoint(modelMatrix * vec4(transformed, 1.0), wnD);\n  gl_Position = projectionMatrix * mvPosition;');
+  shader.fragmentShader = shader.fragmentShader.replace('void main() {', 'varying float vFold;\nvoid main() {\n  if (vFold > 1.5708) discard;');
+}
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const smooth01 = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 
 /* ---------- Elrendezés (képernyő-pixelben; a 3D-be visH / képernyőmagasság szorzóval kerül) ---------- */
 const measure = document.createElement('canvas').getContext('2d');
@@ -113,11 +150,11 @@ function galleryDrawer(src) {
 }
 
 /* ---------- Egy kártya: vastag üveglap + a belsejében a tartalom (mint a pill és a címkéje) ---------- */
-function makeCard(wpx, hpx, k, depth01, draw, order, clip) {
+function makeCard(wpx, hpx, k, depth01, draw, order, warp) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
   const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10);
-  const mat = new THREE.ShaderMaterial({ vertexShader: clip ? clipVS : glassVS, fragmentShader: clip ? clipFS : glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
-  if (clip) { mat.clipping = true; mat.clippingPlanes = CLIP; }
+  const mat = new THREE.ShaderMaterial({ vertexShader: warp ? warpVS : glassVS, fragmentShader: warp ? warpFS : glassFS,
+    uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }, warp ? { uWarp: WARP } : {}) });
   const holder = new THREE.Group(), spin = new THREE.Group();
   holder.add(spin);
   spin.add(onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS));
@@ -131,7 +168,8 @@ function makeCard(wpx, hpx, k, depth01, draw, order, clip) {
     card.redraw = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); draw(g, wpx, hpx, q, b / k, card); tex.needsUpdate = true; };
     card.redraw();
     card.pgeo = remapUV(new THREE.ShapeGeometry(roundedRect(w, h, b), 8));
-    card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, clippingPlanes: clip ? CLIP : null });
+    card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
+    if (warp) card.pmat.onBeforeCompile = warpBasic;
     const plane = onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_BG); plane.position.z = 0.002;
     spin.add(plane);
   }
@@ -272,25 +310,22 @@ export function updateProject(dt) {
     c.holder.position.y -= (1 - Math.min(1, a)) * 60 * k;
     if (c.pmat) c.pmat.opacity = Math.min(1, a);
   });
-  // galéria: indításkor egyenes sor (az első kép szemből, mint a terven), görgetés közben henger (függőleges tengely,
-  // sugár = a rács fél szélessége), a végén újra egyenes (az utolsó kép szemből). A rács szélén túl levágjuk.
+  // galéria: a kártyák egy sík sávon csúsznak, a hajlást a csúcspont-shader adja (WARP): indításkor egyenes (az első
+  // kép szemből, mint a terven), görgetés közben a két szél hátrahajlik a hengerre, a végén újra egyenes.
   const gsc = drum(galHolder, gridX + L.gw / 2, L.galY - v - L.vh / 2, k, tilt);
   galHolder.scale.setScalar(gsc);
+  // hajlás: nyugalmi helyzetben (elején/végén) egyenes, a rács szélén a terv szerint levágva (Rw ≈ 0 → a túllógó rész
+  // azonnal „hátrafordul”, eltűnik); görgetés közben a szélek egyre nagyobb sugarú ívre hajlanak hátra
   const prog = L.travel > 0 ? off / L.travel : 0;
-  const bend = Math.pow(Math.sin(Math.PI * prog), 0.6);           // 0 az elején és a végén, közben 1
-  const half = (L.gw / 2) * k * gsc;
-  clipL.constant = -(galHolder.position.x - half);                  // x ≥ bal szél
-  clipR.constant = galHolder.position.x + half;                     // x ≤ jobb szél
-  const Rh = L.gw / 2;
+  const bend = smooth01(prog / 0.12) * (1 - smooth01((prog - 0.88) / 0.12));
+  const half = L.gw / 2, F = half - bend * (half - L.cw / 2), Rw = Math.max(0.5, half - F);
+  WARP.value.set(galHolder.position.x, F * k * gsc, Rw * k * gsc);
   gal.forEach((c, i) => {
     appear(c, dt);
-    const u = i * L.p - off - (L.gw / 2 - L.cw / 2);                 // a kártya közepe a rács közepétől (ívhossz)
-    const al = u / Rh, alC = clamp(al, -Math.PI, Math.PI);
-    const X = u + (Rh * Math.sin(alC) - u) * bend, Z = -Rh * (1 - Math.cos(alC)) * bend;
-    const onCyl = Math.abs(al) < Math.PI / 2 + (L.cw / 2) / Rh;       // hengeren: a hátoldal nem látszik
-    c.spin.visible = Math.abs(X) - L.cw / 2 < L.gw / 2 + 1 && (bend < 0.5 || onCyl);
-    c.spin.position.set(X * k, 0, Z * k);
-    c.spin.rotation.y = alC * bend;
+    const u = i * L.p - off - (L.gw / 2 - L.cw / 2);                 // a kártya közepe a rács közepétől
+    c.spin.visible = Math.abs(u) - L.cw / 2 < F + Rw * Math.PI / 2 + 1;   // ami a henger hátoldalán van teljesen, azt nem rajzoljuk
+    c.spin.position.set(u * k, 0, 0);
+    c.spin.rotation.y = 0;
     const a = Math.max(0, c.a);
     c.holder.scale.setScalar(Math.max(0.0001, a));
     c.holder.position.y = -(1 - Math.min(1, a)) * 60 * k;
