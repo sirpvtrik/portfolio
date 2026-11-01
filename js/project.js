@@ -99,12 +99,13 @@ window.addEventListener('resize', layout);
 export function updateProject(dt) {
   updateCardGlass(isOpen);
   if (!isOpen) return;
-  // domború sorok: a képernyő közepén a legnagyobbak, felé és lefelé kisebbek és hátradőlnek
+  // domború sorok, mint egy vízszintes tengelyű dob: a képernyő közepén teljes magasságúak, felé és lefelé
+  // rövidülnek (alacsonyabbak), de a szélességük nem változik → a kártyák szélei egy függőleges vonalban maradnak
   const vh = scroller.clientHeight, top = scroller.scrollTop, sTop = scroller.getBoundingClientRect().top;
   for (const r of rows) {
     const b = r.getBoundingClientRect(), c = b.top + b.height / 2 - sTop;   // a ragadó galériánál is a valódi helyzet
     const d = Math.max(-1, Math.min(1, (c - vh / 2) / (vh / 2 + r.offsetHeight / 2)));
-    r.style.transform = 'perspective(1400px) rotateX(' + (-d * 16).toFixed(2) + 'deg) scale(' + (1 - 0.14 * d * d).toFixed(4) + ')';
+    r.style.transform = 'scaleY(' + Math.cos(d * 0.62).toFixed(4) + ')';   // ±35° → a szélén ~82% magas
   }
   // galéria: amíg középre ragadva áll, a görgetés jobbra lapozza (a sor balra csúszik), a végén a lap megy tovább
   const prog = travel > 0 ? Math.max(0, Math.min(1, (top - (pin.offsetTop - stickTop)) / travel)) : 0;
