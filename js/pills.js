@@ -3,51 +3,14 @@ import { PROJECTS, N, S, PW, PH, SP } from './config.js';
 import { renderer, camera, scene, canvas, onLayer, LAYER_BG, LAYER_GLASS, U, visH } from './scene.js';
 import { glassVS, glassFS } from './shaders/glass.js';
 import { damp } from './util.js';
+import { stadium, glassSlab, remapUV } from './glassgeo.js';
 
 /* ---------- 3D pill geometria ---------- */
-function stadium(w, h) {
-  const r = h / 2, x = w / 2 - r, s = new THREE.Shape();
-  s.moveTo(-x, -r); s.lineTo(x, -r);
-  s.absarc(x, 0, r, -Math.PI / 2, Math.PI / 2, false);
-  s.lineTo(-x, r);
-  s.absarc(-x, 0, r, Math.PI / 2, Math.PI * 1.5, false);
-  return s;
-}
-// Az oldalfal + perem normáljait kisimítjuk (az előlap marad sík → tiszta közép)
-function smoothSides(geo) {
-  const p = geo.attributes.position, n = geo.attributes.normal;
-  const side = geo.groups[1] || { start: 0, count: p.count };
-  const key = i => Math.round(p.getX(i) * 1e4) + '_' + Math.round(p.getY(i) * 1e4) + '_' + Math.round(p.getZ(i) * 1e4);
-  const acc = new Map();
-  for (let i = side.start; i < side.start + side.count; i++) {
-    const k = key(i); let a = acc.get(k);
-    if (!a) { a = [0, 0, 0]; acc.set(k, a); }
-    a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i);
-  }
-  for (let i = side.start; i < side.start + side.count; i++) {
-    const a = acc.get(key(i)), l = Math.hypot(a[0], a[1], a[2]) || 1;
-    n.setXYZ(i, a[0] / l, a[1] / l, a[2] / l);
-  }
-  n.needsUpdate = true;
-  return geo;
-}
 function buildPillGeo(depth01) {
-  const b = 0.05 + depth01 * 0.32;           // perem mérete = Depth
-  const geo = new THREE.ExtrudeGeometry(stadium(PW - 2 * b, PH - 2 * b), {
-    depth: 0.18, bevelEnabled: true, bevelThickness: b * 0.95, bevelSize: b, bevelSegments: 16, curveSegments: 72,
-  });
-  geo.center();
-  return smoothSides(geo);
+  return glassSlab(stadium, PW, PH, depth01, 72);   // perem mérete = Depth
 }
 let pillGeo = buildPillGeo(S.depth / 100);
 const LW = PW - 0.56, LH = PH - 0.46;
-function remapUV(geo) {
-  geo.computeBoundingBox();
-  const bb = geo.boundingBox, p = geo.attributes.position, uv = geo.attributes.uv;
-  const w = bb.max.x - bb.min.x, h = bb.max.y - bb.min.y;
-  for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) - bb.min.x) / w, (p.getY(i) - bb.min.y) / h);
-  uv.needsUpdate = true; return geo;
-}
 const labelGeo = remapUV(new THREE.ShapeGeometry(stadium(LW, LH), 48));
 
 /* ---------- Címke textúrák (a pill belsejében ülnek) ---------- */

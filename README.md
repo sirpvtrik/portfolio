@@ -18,7 +18,8 @@ Statikus weboldal: forgó, 3D liquid glass pillek a projektekkel, a két szélen
 | `js/logo.js` | A zenére reagáló MP logó |
 | `js/player.js` | Blob lejátszó: nyitás/csukás idővonala, rugók, SDF üveg, hangerő, előző/következő, tekerés |
 | `js/panel.js` | A Glass panel csúszkái |
-| `js/project.js` | Projekt-aloldal: pillre kattintva nyílik; kártyák, domború sorok, végtelen hengeres galéria |
+| `js/project.js` | Projekt-aloldal 3D-ben: üvegkártyák (mint a pillek), dob-görgetés, hengeres galéria |
+| `js/glassgeo.js` | Közös üveg-geometria a pilleknek és a kártyáknak |
 | `js/util.js` | Kis segédfüggvények (`damp`) |
 | `js/shaders/*.js` | GLSL shaderek template stringként: `glass`, `waves`, `player`, `fullscreen` |
 
