@@ -48,6 +48,8 @@ function cleanShape(shape, segs) {
 }
 // perem mérete a Depth csúszkából (0..1)
 export const bevelOf = depth01 => 0.05 + depth01 * 0.32;
+// az előlap távolsága a lap közepétől (kihúzás 0,18 + a perem vastagsága); ide kerül a szöveg (LAYER_TEXT)
+export const faceZ = depth01 => 0.09 + bevelOf(depth01) * 0.95;
 // vastag üveglap az alakból: shapeFn(belső szélesség, belső magasság) → Shape
 export function glassSlab(shapeFn, w, h, depth01, curveSegments) {
   const b = bevelOf(depth01);

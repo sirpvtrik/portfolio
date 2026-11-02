@@ -4,10 +4,10 @@
 // Galéria: valódi 3D henger, a sugara a rács fél szélessége (nem lóg ki a rács szélén). Amikor középre ér, az egész lap
 // megáll, és a görgetés a hengert forgatja; ha az utolsó kép is beért, a lap megy tovább.
 import { S, reduced, DETAIL_TEST, PROJECTS } from './config.js';
-import { scene, renderer, onLayer, LAYER_BG, LAYER_GLASS, U, visH, setCameraLift } from './scene.js';
+import { scene, renderer, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH, setCameraLift } from './scene.js';
 import { glassVS, glassFS } from './shaders/glass.js';
-import { roundedRect, glassSlab, remapUV, bevelOf } from './glassgeo.js';
-import { onSelect, restorePills } from './pills.js';
+import { roundedRect, glassSlab, remapUV, bevelOf, faceZ } from './glassgeo.js';
+import { onSelect, restorePills, paletteOf } from './pills.js';
 import { setWavesCentered, setWaveColor } from './waves.js';
 import { damp } from './util.js';
 
@@ -103,8 +103,10 @@ function galleryDrawer(src) {
   };
 }
 
-/* ---------- Egy kártya: vastag üveglap + a belsejében a tartalom (mint a pill és a címkéje) ---------- */
-function makeCard(wpx, hpx, k, depth01, draw, order) {
+/* ---------- Egy kártya: vastag üveglap + a tartalom ----------
+   A kép a lap belsejében ül (az üveg pereme megtöri); a szöveg (onTop) az előlapon, az üveg után rajzolódik:
+   így a Frost nem mossa el, és a peremen / oldalról sem látszik tükrözve. */
+function makeCard(wpx, hpx, k, depth01, draw, order, onTop) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
   const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10);
   const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
@@ -122,7 +124,8 @@ function makeCard(wpx, hpx, k, depth01, draw, order) {
     card.redraw();
     card.pgeo = remapUV(new THREE.ShapeGeometry(roundedRect(w, h, b), 8));
     card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
-    const plane = onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_BG); plane.position.z = 0.002;
+    const plane = onTop ? onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_TEXT) : onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_BG);
+    plane.position.z = onTop ? faceZ(depth01) + 0.004 : 0.002;
     spin.add(plane);
   }
   return card;
@@ -135,7 +138,7 @@ function build() {
   group = new THREE.Group(); scene.add(group);
   cards = L.list.map(c => {
     const draw = c.kind === 'intro' ? drawIntro : c.kind === 'text' ? drawText : null;
-    const card = makeCard(c.w, c.h, k, depth01, draw, c.order);
+    const card = makeCard(c.w, c.h, k, depth01, draw, c.order, !!draw);   // a szöveges kártyák tartalma az üveg elé kerül
     group.add(card.holder); return card;
   });
   galHolder = new THREE.Group(); group.add(galHolder);
@@ -157,7 +160,7 @@ function dispose() {
 
 /* ---------- Nyitás / zárás ---------- */
 function open(i) {
-  setWaveColor(PROJECTS[i] && PROJECTS[i].color);                // saját színű projektnél a hullámok fentről lefelé átszíneződnek
+  setWaveColor(paletteOf(i));                                    // a projekt képének árnyalataira (vagy a saját színére) vált, fentről lefelé
   isOpen = true; closing = false; s = 0; vel = 0; openT = 0;
   build();
   root.hidden = false;

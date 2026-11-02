@@ -22,7 +22,7 @@ Statikus weboldal: forgó, 3D liquid glass pillek a projektekkel, a két szélen
 | `js/project.js` | Projekt-aloldal 3D-ben: üvegkártyák (mint a pillek), dob-görgetés, hengeres galéria |
 | `js/glassgeo.js` | Közös üveg-geometria a pilleknek és a kártyáknak |
 | `js/util.js` | Kis segédfüggvények (`damp`) |
-| `js/shaders/*.js` | GLSL shaderek template stringként: `glass`, `waves`, `player`, `fullscreen` |
+| `js/shaders/*.js` | GLSL shaderek template stringként: `glass`, `waves`, `player`, `fullscreen`, `pillimage` |
 
 A JS natív ES modul (`<script type="module">`), build lépés nincs. Külső függőség csak CDN-ről jön: Three.js 0.149 (jsDelivr, UMD build, globális `THREE`, a modulok előtt töltődik be) és Google Fonts (Archivo, Geist Mono).
 
@@ -43,7 +43,8 @@ Vercelen: **Add New → Project → Import** ezt a repót, a Framework Preset le
 ## Hol mit állíts
 
 - **Betöltő és belépés időzítése:** `intro.js` elején a `LOADER` (körvonal, kitöltés, kitartás) és a `POST` (felúszás, hullámok, pillek, felület) objektum.
-- **Projektek:** `js/config.js`, `PROJECTS` lista (jelenleg placeholderek). A pillek címke-rajzolata (motívumok) a `js/pills.js`-ben, a `drawMotif`-ban van.
+- **Projektek:** `js/config.js`, `PROJECTS` lista (jelenleg részben placeholderek). A pill felirata a `name` és a `cat` (a `js/pills.js` `drawLabel`-je rajzolja).
+- **Projektkép a pillben:** `image: 'assets/projects/<projekt>/cover.webp'` a `PROJECTS`-ben (széles kép, kb. 1600 px), `focus: [x, y]` (0..1) a kép középre kerülő pontja. A hullámok kattintásra a kép árnyalataira váltanak; `palette: [[r,g,b], [r,g,b], [r,g,b]]` kézzel felülírja.
 - **Alapbeállítások:** `js/config.js`, `DEFAULTS` objektum (üveg, hullám, reakció).
 - **Projekt-aloldal tartalma:** `js/config.js`, `DETAIL_TEST` (szövegek, `gallery` képlista; üresen helyőrzők).
 - **Shaderek:** `js/shaders/` — a pill üvege a `glass.js`, a hullámok a `waves.js`, a lejátszó a `player.js`.

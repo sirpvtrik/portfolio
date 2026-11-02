@@ -3,7 +3,7 @@
 export const waveFS = /* glsl */`
   precision highp float;
   uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise, uFlash;
-  uniform vec3 uColA, uColB;   // régi és új szín; a front (0 → 1.2) fentről lefelé viszi át
+  uniform vec3 uPalA[3], uPalB[3];   // régi és új paletta (szalagonként egy árnyalat); a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
   // a spektrum 6 sávból, harang-görbékkel összemosva → teljesen sima, nincs lépcső a vonalon
@@ -44,6 +44,8 @@ export const waveFS = /* glsl */`
     float beat = uBeat * uReact;
     float env = pow(sin(3.14159265 * clamp(y, 0.0, 1.0)), 1.4);       // a végein sötétbe fut
     vec3 sum = vec3(0.0);
+    float yt = 1.0 - px.y / H;                                         // 0 fent, 1 lent (képernyő)
+    float colMix = 1.0 - smoothstep(uColFront - 0.18, uColFront, yt);
     for (int i = 0; i < 3; i++) {
       float k = float(i);
       const float e = 0.003;
@@ -66,7 +68,7 @@ export const waveFS = /* glsl */`
       float ws = H * (0.015 + 0.055 * pow(0.5 + 0.5 * sin(yy * 3.0 + t * 0.5 + k * 2.0), 2.0)) * (1.0 + beat * 0.5 + sp * 0.4);
       float bs = H * 0.035;
       float bloom = exp(-(d * d) / (bs * bs)) * 0.06;                  // széles, halvány ragyogás
-      vec3 c;
+      vec3 spine; float veil;
       if (uStyle < 0.5) {
         // FÉNYSZALAG: lágy gerinc + egyoldalú selymes fátyol
         float lw = max(1.4, H * 0.0015) * (0.75 + 0.5 * bl) * depth * (1.0 + beat * 0.3);
@@ -74,7 +76,8 @@ export const waveFS = /* glsl */`
         float hs = H * 0.005 * depth;
         float inner = exp(-(d * d) / (hs * hs)) * 0.22;
         float sheet = (exp(-(g * g) / (ws * ws)) * 0.32 + exp(-g / (ws * 0.25)) * 0.16) * smoothstep(-lw * 3.0, lw * 3.0, d * dir);
-        c = vec3(core * 0.95 + inner + bloom + sheet);
+        spine = vec3(core * 0.95 + inner);
+        veil = bloom + sheet;
       } else {
         // ÜVEG: kettős kontúr diszperzióval, fresnel, csillanás, kausztika
         float lw = max(1.2, H * 0.0011) * depth;
@@ -89,8 +92,12 @@ export const waveFS = /* glsl */`
         float hs = H * 0.006 * depth;
         float inner = exp(-(d * d) / (hs * hs)) * 0.16;
         float sheet = (exp(-(g * g) / (ws * ws)) * 0.36 + exp(-g / (ws * 0.25)) * 0.16) * smoothstep(-W, W * 2.0, d * dir);
-        c = glass + vec3(inner + bloom + sheet);
+        spine = glass;
+        veil = inner + bloom + sheet;
       }
+      // szín: a szalag árnyalata a palettából (a színhatár fentről lefelé fut); a gerinc világosabb marad, a fátyol színes
+      vec3 pc = mix(uPalA[i], uPalB[i], colMix);
+      vec3 c = spine * mix(pc, vec3(1.0), 0.5) + veil * pc;
       sum += c * bl * (1.0 - k * 0.2);
     }
     return sum * env * (1.0 - smoothstep(0.7, 1.3, xe - sh * env));   // fokozatos elhalványulás, nincs éles határ
@@ -106,6 +113,5 @@ export const waveFS = /* glsl */`
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
-    vec3 tint = mix(uColA, uColB, 1.0 - smoothstep(uColFront - 0.18, uColFront, yt));
-    gl_FragColor = vec4(tint * max(v, 0.0), 1.0);
+    gl_FragColor = vec4(max(v, 0.0), 1.0);
   }`;

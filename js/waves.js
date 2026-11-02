@@ -8,7 +8,7 @@ import { fullscreenVS } from './shaders/fullscreen.js';
 import { waveFS } from './shaders/waves.js';
 
 export const WU = { uTime: { value: 0 }, uAmp: { value: 0 }, uPush: { value: 0 }, uGain: { value: 1 }, uReact: { value: 1.2 }, uBeat: { value: 0 }, uRes: U.uRes, uBands: { value: [0, 0, 0, 0, 0, 0] }, uFlowY: { value: 0 }, uStyle: { value: 0 }, uShift: { value: 0 },
-  uColA: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColB: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColFront: { value: 1.2 }, uRise: { value: 0 }, uFlash: { value: 0 } };
+  uPalA: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uPalB: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uColFront: { value: 1.2 }, uRise: { value: 0 }, uFlash: { value: 0 } };
 const waveMat = new THREE.ShaderMaterial({
   uniforms: WU, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   extensions: { derivatives: true },
@@ -30,18 +30,20 @@ export function updateWaves(dt) {
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
 }
 
-/* ---------- Hullám-szín: projekt-színre vált (fentről lefelé végigfutó átmenettel), visszalépéskor vissza fehérre ---------- */
+/* ---------- Hullám-szín: a projekt palettájára vált (fentről lefelé végigfutó átmenettel), visszalépéskor vissza fehérre ----------
+   pal: 3 árnyalat [[r,g,b] ×3] (szalagonként egy: elöl a legvilágosabb), egyetlen [r,g,b] szín, vagy null = fehér */
 const WHITE = [0.95, 0.96, 1.0];
 const FLASH = 1;   // a kattintáskori felvillanás erőssége (0 = nincs)
-let colTarget = WHITE.join(), frontV = 1.2;
-export function setWaveColor(rgb) {
-  const c = rgb || WHITE;
-  if (c.join() === colTarget) return;
-  colTarget = c.join();
+let colTarget = JSON.stringify([WHITE, WHITE, WHITE]), frontV = 1.2;
+export function setWaveColor(pal) {
+  const p = !pal ? [WHITE, WHITE, WHITE] : Array.isArray(pal[0]) ? pal : [pal, pal, pal];
+  const key = JSON.stringify(p);
+  if (key === colTarget) return;
+  colTarget = key;
   // a most látszó színből indul (ha épp átmenet közben van, a front alatti rész az A-szín)
-  if (frontV > 0.6) WU.uColA.value.copy(WU.uColB.value);       // (ha egy átmenet még az elején jár, a régi alapszín marad)
-  WU.uColB.value.set(c[0], c[1], c[2]);
-  WU.uFlash.value = rgb ? FLASH : 0;                           // kattintásra (projekt-színre váltáskor) felvillan, visszalépéskor nem
+  if (frontV > 0.6) WU.uPalA.value.forEach((v, k) => v.copy(WU.uPalB.value[k]));   // (ha egy átmenet még az elején jár, a régi alapszín marad)
+  WU.uPalB.value.forEach((v, k) => v.fromArray(p[k]));
+  WU.uFlash.value = pal ? FLASH : 0;                           // kattintásra (projekt-színre váltáskor) felvillan, visszalépéskor nem
   frontV = 0;
 }
 export function updateWaveColor(dt) {

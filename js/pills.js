@@ -1,9 +1,10 @@
 // Pill-torony: geometria, címke-textúrák, üveg, hover, görgetés
 import { PROJECTS, N, S, PW, PH, SP, TOWER_Y } from './config.js';
-import { renderer, camera, scene, canvas, onLayer, LAYER_BG, LAYER_GLASS, U, visH } from './scene.js';
+import { renderer, camera, scene, canvas, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH } from './scene.js';
 import { glassVS, glassFS } from './shaders/glass.js';
 import { damp } from './util.js';
-import { stadium, glassSlab, remapUV } from './glassgeo.js';
+import { stadium, glassSlab, remapUV, faceZ } from './glassgeo.js';
+import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
 import { pillRise } from './entrance.js';
 
 /* ---------- 3D pill geometria ---------- */
@@ -14,58 +15,89 @@ let pillGeo = buildPillGeo(S.depth / 100);
 const LW = PW - 0.56, LH = PH - 0.46;
 const labelGeo = remapUV(new THREE.ShapeGeometry(stadium(LW, LH), 48));
 
-/* ---------- Címke textúrák (a pill belsejében ülnek) ---------- */
+/* ---------- Felirat (az üveg előlapján, LAYER_TEXT: a Frost nem mossa el, a perem nem töri meg) ----------
+   Középre zárt, Nohemi: nagy cím, alatta a kategória nagybetűvel (Patrik terve). A méretek a pill magasságához mérve. */
 const TW = 1240, TH = Math.round(TW * LH / LW);
-function drawMotif(g, i) {
-  g.save();
-  g.strokeStyle = 'rgba(255,255,255,0.45)'; g.fillStyle = 'rgba(255,255,255,0.45)'; g.lineWidth = 3;
-  const x0 = 790, x1 = 1060, cy = TH / 2;
-  if (i === 0) {
-    for (let k = 0; k < 5; k++) { g.beginPath();
-      for (let x = x0; x <= x1; x += 4) { const y = cy - 70 + k * 35 + Math.sin((x - x0) / 34 + k * 0.9) * 14; x === x0 ? g.moveTo(x, y) : g.lineTo(x, y); }
-      g.stroke(); }
-  } else if (i === 1) {
-    for (let k = 0; k < 4; k++) { const x = x0 + 20 + k * 58; g.beginPath();
-      g.moveTo(x + 40, cy - 66); g.lineTo(x + 76, cy - 66); g.lineTo(x + 36, cy + 66); g.lineTo(x, cy + 66); g.closePath(); g.fill(); }
-  } else if (i === 2) {
-    for (let k = 1; k <= 5; k++) { g.beginPath(); g.arc(x0 + 30, cy, k * 25, -0.9, 0.9); g.stroke(); }
-  } else if (i === 3) {
-    const cx = (x0 + x1) / 2 + 10;
-    for (let k = 0; k < 60; k++) { const a = k / 60 * Math.PI * 2, r0 = k % 5 ? 70 : 54;
-      g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * 82, cy + Math.sin(a) * 82); g.stroke(); }
-  } else if (i === 4) {
-    const vx = (x0 + x1) / 2, vy = cy;
-    for (let k = -4; k <= 4; k++) { g.beginPath(); g.moveTo(vx, vy); g.lineTo(vx + k * 60, cy + 110); g.stroke();
-      g.beginPath(); g.moveTo(vx, vy); g.lineTo(vx + k * 60, cy - 110); g.stroke(); }
-    for (let k = 1; k <= 4; k++) { const d = k * k * 6.5; g.strokeRect(vx - d * 2.4, vy - d, d * 4.8, d * 2); }
-  } else if (i === 5) {
-    for (let x = x0; x <= x1; x += 22) { g.beginPath(); g.moveTo(x, cy - 78); g.lineTo(x, cy + 78); g.stroke(); }
-  } else {                                           // oldalra fújt, elvékonyodó szélvonalak
-    for (let k = 0; k < 6; k++) {
-      const y0 = cy - 75 + k * 30, len = 150 + (k % 3) * 45;
-      for (let s = 0; s < 3; s++) { g.lineWidth = 4 - s * 1.2; g.globalAlpha = 1 - s * 0.3; g.beginPath();
-        for (let t = 0; t <= 1.0001; t += 0.05) { const x = x0 + (s * len / 3) + t * len / 3, y = y0 + Math.sin(t * 3.14 + k + s * 1.1) * 7 - t * 6;
-          t === 0 ? g.moveTo(x, y) : g.lineTo(x, y); } g.stroke(); }
-      g.globalAlpha = 1;
-    }
-  }
-  g.restore();
-}
-function drawLabel(c, p, i) {
+const PX = TH / LH;                                  // pixel / 3D egység a feliratban
+const TITLE = 0.22 * PH * PX, CAT = 0.1 * PH * PX;   // betűméret: a cím a pill magasságának 22%-a, a kategória 10%-a
+const FONT = "Nohemi, Archivo, 'Helvetica Neue', Arial, sans-serif";
+function drawLabel(c, p) {
   const g = c.getContext('2d');
   g.clearRect(0, 0, TW, TH);
-  drawMotif(g, i);
-  const cy = TH / 2;
-  g.fillStyle = 'rgba(255,255,255,0.72)';
-  g.font = '500 28px "Geist Mono", ui-monospace, monospace';
-  g.fillText(p.id, 215, cy - 92);
-  g.fillText((p.cat + '  ·  ' + p.meta).toUpperCase(), 215, cy + 118);
+  const cx = TW / 2, cy = TH / 2;
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
   g.fillStyle = '#ffffff';
-  let size = 140;
-  g.font = `800 ${size}px Archivo, "Helvetica Neue", Arial, sans-serif`;
-  const w = g.measureText(p.name.toUpperCase()).width, maxW = 540;
-  if (w > maxW) { size = Math.floor(size * maxW / w); g.font = `800 ${size}px Archivo, "Helvetica Neue", Arial, sans-serif`; }
-  g.fillText(p.name.toUpperCase(), 210, cy + 52);
+  let size = TITLE;
+  g.font = `500 ${size}px ${FONT}`;
+  if ('letterSpacing' in g) g.letterSpacing = (-0.01 * size) + 'px';
+  const w = g.measureText(p.name).width, maxW = TW * 0.86;
+  if (w > maxW) { size = Math.floor(size * maxW / w); g.font = `500 ${size}px ${FONT}`; }
+  g.fillText(p.name, cx, cy + 0.012 * PH * PX);
+  g.fillStyle = 'rgba(255,255,255,0.62)';
+  g.font = `400 ${CAT}px ${FONT}`;
+  if ('letterSpacing' in g) g.letterSpacing = (0.02 * CAT) + 'px';
+  g.fillText(p.cat.toUpperCase(), cx, cy + 0.18 * PH * PX);
+}
+
+/* ---------- Projektkép a pill belsejében (hoverre középről kinyílik; az üveg pereme megtöri) ---------- */
+const IW = PW - 0.06, IH = PH - 0.06;
+const imageGeo = remapUV(new THREE.ShapeGeometry(stadium(IW, IH), 72));
+const palettes = [];                                  // projektenként a képből vett 3 árnyalat (a hullámokhoz)
+export const paletteOf = i => PROJECTS[i].palette || palettes[i] || (PROJECTS[i].color ? [PROJECTS[i].color, PROJECTS[i].color, PROJECTS[i].color] : null);
+
+// 3 jellemző árnyalat a képből (k-közép a telített képpontokon), világostól sötétig, fényként használható fényerőre hozva
+function extractPalette(img) {
+  const W = 48, H = Math.max(8, Math.round(48 * img.height / img.width));
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'); g.drawImage(img, 0, 0, W, H);
+  const d = g.getImageData(0, 0, W, H).data, px = [];
+  for (let k = 0; k < d.length; k += 4) {
+    const r = d[k] / 255, gg = d[k + 1] / 255, b = d[k + 2] / 255, mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+    if (mx > 0.1 && (mx - mn) / mx > 0.15) px.push([r, gg, b]);          // a szürkéket és a feketét kihagyjuk
+  }
+  if (px.length < 20) return null;
+  let cs = [0, 0.33, 0.66, 0.99].map(t => px[Math.floor(t * (px.length - 1))].slice());
+  for (let it = 0; it < 8; it++) {
+    const acc = cs.map(() => [0, 0, 0, 0]);
+    for (const q of px) {
+      let bi = 0, bd = 1e9;
+      cs.forEach((c, ci) => { const dd = (q[0] - c[0]) ** 2 + (q[1] - c[1]) ** 2 + (q[2] - c[2]) ** 2; if (dd < bd) { bd = dd; bi = ci; } });
+      const a = acc[bi]; a[0] += q[0]; a[1] += q[1]; a[2] += q[2]; a[3]++;
+    }
+    cs = acc.map((a, ci) => a[3] ? [a[0] / a[3], a[1] / a[3], a[2] / a[3], a[3]] : cs[ci]);
+  }
+  const top = cs.filter(c => c[3]).sort((a, b) => b[3] - a[3]).slice(0, 3);
+  while (top.length < 3) top.push(top[top.length - 1]);
+  const lum = c => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  top.sort((a, b) => lum(b) - lum(a));
+  // fényként: a telítettség visszafogva, a fényerő elöl (0. szalag) a legnagyobb
+  return top.map((c, k) => {
+    const mx = Math.max(c[0], c[1], c[2]) || 1, mn = Math.min(c[0], c[1], c[2]);
+    const sat = Math.min(0.72, (mx - mn) / mx), v = [1.0, 0.86, 0.72][k];
+    return [0, 1, 2].map(j => { const n = c[j] / mx; return v * (1 - sat + sat * (n - mn / mx) / Math.max(1e-3, 1 - mn / mx)); });
+  });
+}
+
+function makeImage(p, i) {
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: pillImageVS, fragmentShader: pillImageFS,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: {
+      uMap: { value: null }, uReveal: { value: 0 }, uAspect: { value: IW / IH }, uImgAspect: { value: 1.5 },
+      uFocus: { value: new THREE.Vector2().fromArray(p.focus || [0.5, 0.5]) }, uTexSize: { value: new THREE.Vector2(1600, 1000) },
+      uTime: { value: 0 }, uDim: { value: 0.5 }, uFrostC: { value: 4.2 }, uFrostE: { value: 1.2 },
+    },
+  });
+  new THREE.TextureLoader().load(p.image, tex => {
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    mat.uniforms.uMap.value = tex;
+    mat.uniforms.uImgAspect.value = tex.image.width / tex.image.height;
+    mat.uniforms.uTexSize.value.set(tex.image.width, tex.image.height);
+    try { palettes[i] = extractPalette(tex.image); } catch (_) {}
+  });
+  const mesh = onLayer(new THREE.Mesh(imageGeo, mat), LAYER_BG);
+  mesh.visible = false;                              // csak amíg kinyílik / nyitva van
+  return { mesh, mat };
 }
 
 /* ---------- Pillek ---------- */
@@ -77,7 +109,7 @@ const hitGeo = new THREE.PlaneGeometry(PW, PH * 0.98);
 
 PROJECTS.forEach((p, i) => {
   const c = document.createElement('canvas'); c.width = TW; c.height = TH;
-  drawLabel(c, p, i);
+  drawLabel(c, p);
   const tex = new THREE.CanvasTexture(c);
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.FrontSide });
@@ -91,8 +123,12 @@ PROJECTS.forEach((p, i) => {
   holder.add(spin);
   const glass = onLayer(new THREE.Mesh(pillGeo, glassMat), LAYER_GLASS);
   spin.add(glass);
-  const lf = onLayer(new THREE.Mesh(labelGeo, labelMat), LAYER_BG); lf.position.z = 0.002; spin.add(lf);
-  const lb = onLayer(new THREE.Mesh(labelGeo, labelMat), LAYER_BG); lb.position.z = -0.002; lb.rotation.y = Math.PI; spin.add(lb);
+  // a felirat mindkét előlapon, kicsivel az üveg előtt (LAYER_TEXT); a mélységteszt miatt a takart rész nem látszik
+  const fz = faceZ(S.depth / 100) + 0.004;
+  const lf = onLayer(new THREE.Mesh(labelGeo, labelMat), LAYER_TEXT); lf.position.z = fz; spin.add(lf);
+  const lb = onLayer(new THREE.Mesh(labelGeo, labelMat), LAYER_TEXT); lb.position.z = -fz; lb.rotation.y = Math.PI; spin.add(lb);
+  const img = p.image ? makeImage(p, i) : null;
+  if (img) spin.add(img.mesh);
 
   const hit = new THREE.Mesh(hitGeo, new THREE.MeshBasicMaterial());
   hit.visible = false; hit.userData.index = i;
@@ -101,15 +137,15 @@ PROJECTS.forEach((p, i) => {
   const baseY = ((N - 1) / 2 - i) * SP;
   holder.position.y = baseY;
   stack.add(holder);
-  pills.push({ holder, spin, glass, mat: glassMat, canvas: c, tex, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0,
+  pills.push({ holder, spin, glass, mat: glassMat, canvas: c, tex, lf, lb, img, rv: 0, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0,
     dy: 0, dvy: 0, dz: 0, drz: 0, dvrz: 0, ds: 1, delay: 0 });   // d*: leesés / visszaesés (dz: hátra, a projekt-kártyák mögé)
 });
 
 if (document.fonts && document.fonts.load) {
   // a tényleges szöveggel töltjük be (az ékezetes latin-ext rész is, pl. Ő, Ű, Ú), különben tartalék betűvel rajzolódhat
-  const names = PROJECTS.map(p => p.name.toUpperCase()).join(' '), metas = PROJECTS.map(p => (p.id + ' ' + p.cat + ' ' + p.meta).toUpperCase()).join(' ');
-  Promise.all([document.fonts.load('800 100px Archivo', names), document.fonts.load('500 28px "Geist Mono"', metas)])
-    .then(() => pills.forEach((pl, i) => { drawLabel(pl.canvas, PROJECTS[i], i); pl.tex.needsUpdate = true; }))
+  const names = PROJECTS.map(p => p.name).join(' '), cats = PROJECTS.map(p => p.cat.toUpperCase()).join(' ');
+  Promise.all([document.fonts.load('500 100px Nohemi', names), document.fonts.load('400 40px Nohemi', cats)])
+    .then(() => pills.forEach((pl, i) => { drawLabel(pl.canvas, PROJECTS[i]); pl.tex.needsUpdate = true; }))
     .catch(() => {});
 }
 
@@ -121,7 +157,8 @@ function rebuildGeo() {
   builtDepth = S.depth;
   const old = pillGeo;
   pillGeo = buildPillGeo(S.depth / 100);
-  pills.forEach(pl => { pl.glass.geometry = pillGeo; });
+  const fz = faceZ(S.depth / 100) + 0.004;          // a felirat az új előlapra kerül
+  pills.forEach(pl => { pl.glass.geometry = pillGeo; pl.lf.position.z = fz; pl.lb.position.z = -fz; });
   old.dispose();
 }
 export function requestGeoRebuild() {
@@ -132,6 +169,7 @@ export function requestGeoRebuild() {
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 let pointerIn = false, mx = 0, my = 0, hovered = -1;
+const touchUI = matchMedia('(hover: none)').matches;   // érintőképernyőn nincs hover: a középen álló pill mutatja a képét
 canvas.addEventListener('pointermove', e => {
   if (e.pointerType === 'touch') return;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
@@ -286,6 +324,12 @@ export function updatePills(dt) {
   const spinSpeed = (S.spin / 100) * 0.75 + speed * 0.4;
   const any = hovered >= 0;
   const yh = any ? wrapY(pills[hovered].baseY + scrollPos) : 0;
+  let centerIdx = -1;                               // érintőképernyőn: a középen nyugvó pill
+  if (touchUI && mode === 'tower' && !dragging && Math.abs(scrollVel) < 0.6) {
+    let best = 1e9;
+    pills.forEach((pl, i) => { const a = Math.abs(wrapY(pl.baseY + scrollPos)); if (a < best) { best = a; centerIdx = i; } });
+    if (best > SP * 0.3) centerIdx = -1;
+  }
   pills.forEach((pl, i) => {
     const isH = i === hovered;
     if (isH) {
@@ -302,7 +346,14 @@ export function updatePills(dt) {
     pl.s = damp(pl.s, isH ? 1.07 : (any ? 0.96 : 1), 6, dt);
     pl.hv = damp(pl.hv, isH ? 1 : 0, 6, dt);
     pl.mat.uniforms.uHover.value = pl.hv;
-    if (PROJECTS[i].color) pl.mat.uniforms.uTintK.value = pl.hv;   // saját színű projekt: hoverre kicsit beszíneződik
+    if (pl.img) {                                   // projektkép: hoverre középről kinyílik, elengedve visszahúzódik
+      const on = i === hovered || (touchUI && i === centerIdx);
+      pl.rv = damp(pl.rv, on ? 1 : 0, on ? 2.4 : 3.2, dt);
+      if (pl.rv < 0.002 && !on) pl.rv = 0;
+      const u = pl.img.mat.uniforms;
+      u.uReveal.value = pl.rv; u.uTime.value += dt;
+      pl.img.mesh.visible = pl.rv > 0.002;
+    }
     // dob-hatás: a szélek felé kisebb, hátrébb és megdől; a hurok varrata láthatatlan
     const r = Math.min(1, Math.abs(yw) / YMAX);
     const depth = r * r;
