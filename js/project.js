@@ -18,21 +18,11 @@ const backBtn = document.getElementById('projectBack');
 
 export let isOpen = false;
 let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = -1, depthPending = false;
-let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4, bendS = 0;
+let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 
-/* ---------- Vágás a rács szélén (a galéria kártyáinál): a pillek üveg-shadere + a Three.js vágósík-darabjai ---------- */
-renderer.localClippingEnabled = true;
-const clipL = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0), clipR = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
-const CLIP = [clipL, clipR];
-const clipVS = glassVS
-  .replace('void main() {', '#include <clipping_planes_pars_vertex>\n  void main() {')
-  .replace('vec4 mv = modelViewMatrix * vec4(position, 1.0);', 'vec4 mv = modelViewMatrix * vec4(position, 1.0);\n    vec4 mvPosition = mv;\n    #include <clipping_planes_vertex>');
-const clipFS = glassFS
-  .replace('void main() {', '#include <clipping_planes_pars_fragment>\n  void main() {\n    #include <clipping_planes_fragment>');
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const smooth01 = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 
 /* ---------- Elrendezés (képernyő-pixelben; a 3D-be visH / képernyőmagasság szorzóval kerül) ---------- */
 const measure = document.createElement('canvas').getContext('2d');
@@ -67,7 +57,7 @@ function computeLayout() {
   }
   const cw = mob ? gw * 0.62 : 325 * u, ch = cw * 464 / 325, p = cw + g;
   const n = Math.max(1, (DETAIL_TEST.gallery.length || 4));
-  const travel = Math.max(0, (n - 1) * p - (gw - cw));   // az első kártya bal szélről indul, az utolsó a jobb szélre ér
+  const travel = (n - 1) * p;                            // az első kép középről indul, az utolsó középen áll meg
   const galY = y + ch / 2;
   const sG = Math.max(0, galY - vh / 2);                  // ennél a görgetésnél van a galéria középen
   const spin = travel * 1.6;                             // ennyi görgetés forgatja végig a hengert (lassabb, mint a lap)
@@ -114,11 +104,10 @@ function galleryDrawer(src) {
 }
 
 /* ---------- Egy kártya: vastag üveglap + a belsejében a tartalom (mint a pill és a címkéje) ---------- */
-function makeCard(wpx, hpx, k, depth01, draw, order, clip) {
+function makeCard(wpx, hpx, k, depth01, draw, order) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
   const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10);
-  const mat = new THREE.ShaderMaterial({ vertexShader: clip ? clipVS : glassVS, fragmentShader: clip ? clipFS : glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
-  if (clip) { mat.clipping = true; mat.clippingPlanes = CLIP; }
+  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
   const holder = new THREE.Group(), spin = new THREE.Group();
   holder.add(spin);
   spin.add(onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS));
@@ -132,7 +121,7 @@ function makeCard(wpx, hpx, k, depth01, draw, order, clip) {
     card.redraw = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); draw(g, wpx, hpx, q, b / k, card); tex.needsUpdate = true; };
     card.redraw();
     card.pgeo = remapUV(new THREE.ShapeGeometry(roundedRect(w, h, b), 8));
-    card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, clippingPlanes: clip ? CLIP : null });
+    card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
     const plane = onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_BG); plane.position.z = 0.002;
     spin.add(plane);
   }
@@ -151,7 +140,7 @@ function build() {
   });
   galHolder = new THREE.Group(); group.add(galHolder);
   const pics = d.gallery.length ? d.gallery : [null, null, null, null];
-  gal = pics.map((src, i) => { const c = makeCard(L.cw, L.ch, k, depth01, galleryDrawer(src), 4 + Math.min(i, 3), true); galHolder.add(c.holder); return c; });
+  gal = pics.map((src, i) => { const c = makeCard(L.cw, L.ch, k, depth01, galleryDrawer(src), 4 + Math.min(i, 3)); galHolder.add(c.holder); return c; });
   srText.textContent = d.label + '. ' + d.intro + ' ' + d.text;
   // a betűket a tényleges szöveggel töltjük be (az ékezetes latin-ext rész is), utána újrarajzolunk
   if (document.fonts && document.fonts.load) {
@@ -169,7 +158,7 @@ function dispose() {
 /* ---------- Nyitás / zárás ---------- */
 function open(i) {
   setWaveColor(PROJECTS[i] && PROJECTS[i].color);                // saját színű projektnél a hullámok fentről lefelé átszíneződnek
-  isOpen = true; closing = false; s = 0; vel = 0; openT = 0; bendS = 0;
+  isOpen = true; closing = false; s = 0; vel = 0; openT = 0;
   build();
   root.hidden = false;
   document.body.classList.add('project-open');
@@ -273,30 +262,18 @@ export function updateProject(dt) {
     c.holder.position.y -= (1 - Math.min(1, a)) * 60 * k;
     if (c.pmat) c.pmat.opacity = Math.min(1, a);
   });
-  // galéria: indításkor egyenes sor (az első kép szemből, mint a terven), görgetés közben henger (függőleges tengely,
-  // sugár = a rács fél szélessége), a végén újra egyenes (az utolsó kép szemből). A rács szélén túl levágjuk.
+  // galéria: mindig henger (függőleges tengely, sugár = a rács fél szélessége), vágás nélkül.
+  // Érkezéskor az első kép középen, szemből; görgetésre a henger forog (az első hátrafordul), a végén az utolsó áll középen.
   const gsc = drum(galHolder, gridX + L.gw / 2, L.galY - v - L.vh / 2, k, tilt);
   galHolder.scale.setScalar(gsc);
-  const prog = L.travel > 0 ? off / L.travel : 0;
-  // a hajlás a lapozás első/utolsó negyedén át lassan nő/csökken, és időben is simítjuk (egy kis oda-vissza görgetés
-  // nem kapcsolja ki-be). A vágás csak nyugalmi helyzetben van a rács szélén (mint a terven); hajlás közben kifelé
-  // tolódik, így az elforduló kártyák teljes egészükben látszanak.
-  const bendT = smooth01(prog / 0.25) * (1 - smooth01((prog - 0.75) / 0.25));
-  bendS = reduced ? bendT : damp(bendS, bendT, 5, dt);
-  const bend = bendS;
-  const half = (L.gw / 2 + bendS * L.cw) * k * gsc;
-  clipL.constant = -(galHolder.position.x - half);                  // x ≥ bal szél
-  clipR.constant = galHolder.position.x + half;                     // x ≤ jobb szél
   const Rh = L.gw / 2;
   gal.forEach((c, i) => {
     appear(c, dt);
-    const u = i * L.p - off - (L.gw / 2 - L.cw / 2);                 // a kártya közepe a rács közepétől (ívhossz)
-    const al = u / Rh, alC = clamp(al, -Math.PI, Math.PI);
-    const X = u + (Rh * Math.sin(alC) - u) * bend, Z = -Rh * (1 - Math.cos(alC)) * bend;
-    const onCyl = Math.abs(al) < Math.PI / 2 + (L.cw / 2) / Rh;       // hengeren: a hátoldal nem látszik
-    c.spin.visible = Math.abs(X) - L.cw / 2 < L.gw / 2 + bend * L.cw + 1 && (bend < 0.5 || onCyl);
-    c.spin.position.set(X * k, 0, Z * k);
-    c.spin.rotation.y = alC * bend;
+    const u = i * L.p - off;                                          // a kártya közepe a henger elejétől (ívhossz)
+    const al = u / Rh;
+    c.spin.visible = Math.abs(al) < Math.PI / 2 + (L.cw / 2) / Rh;    // a henger hátoldala nem látszik
+    c.spin.position.set(Rh * Math.sin(al) * k, 0, -Rh * (1 - Math.cos(al)) * k);
+    c.spin.rotation.y = al;
     const a = Math.max(0, c.a);
     c.holder.scale.setScalar(Math.max(0.0001, a));
     c.holder.position.y = -(1 - Math.min(1, a)) * 60 * k;
