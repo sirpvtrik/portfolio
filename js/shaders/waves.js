@@ -2,7 +2,7 @@
 
 export const waveFS = /* glsl */`
   precision highp float;
-  uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise;
+  uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise, uFlash;
   uniform vec3 uColA, uColB;   // régi és új szín; a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
@@ -98,9 +98,14 @@ export const waveFS = /* glsl */`
   void main() {
     vec2 px = gl_FragCoord.xy;
     vec3 l = (ribbons(px, -1.0) + ribbons(px, 1.0)) * uGain * (uStyle < 0.5 ? 0.75 : 1.0);
+    float yt = 1.0 - gl_FragCoord.y / uRes.y;                         // 0 fent, 1 lent
+    // felvillanás kattintáskor: a lefelé futó színhatár előtt fényes sáv, közben az egész kicsit felragyog, majd lecseng
+    float f = uColFront;
+    float band = exp(-pow((yt - f + 0.06) / 0.1, 2.0)) * (1.0 - smoothstep(1.0, 1.2, f));
+    float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
+    l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
-    float yt = 1.0 - gl_FragCoord.y / uRes.y;                         // 0 fent, 1 lent
     vec3 tint = mix(uColA, uColB, 1.0 - smoothstep(uColFront - 0.18, uColFront, yt));
     gl_FragColor = vec4(tint * max(v, 0.0), 1.0);
   }`;
