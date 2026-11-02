@@ -3,11 +3,12 @@
 import { S } from './config.js';
 import { scene, onLayer, LAYER_BG, U } from './scene.js';
 import { damp } from './util.js';
+import { wavesRise } from './entrance.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { waveFS } from './shaders/waves.js';
 
 export const WU = { uTime: { value: 0 }, uAmp: { value: 0 }, uPush: { value: 0 }, uGain: { value: 1 }, uReact: { value: 1.2 }, uBeat: { value: 0 }, uRes: U.uRes, uBands: { value: [0, 0, 0, 0, 0, 0] }, uFlowY: { value: 0 }, uStyle: { value: 0 }, uShift: { value: 0 },
-  uColA: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColB: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColFront: { value: 1.2 } };
+  uColA: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColB: { value: new THREE.Vector3(0.95, 0.96, 1.0) }, uColFront: { value: 1.2 }, uRise: { value: 0 } };
 const waveMat = new THREE.ShaderMaterial({
   uniforms: WU, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   extensions: { derivatives: true },
@@ -25,6 +26,7 @@ export function setWavesCentered(on) { shiftTarget = on ? 1 : 0; }
 export function updateWaves(dt) {
   updateWaveColor(dt);
   shiftK = damp(shiftK, shiftTarget, 2.2, dt);
+  WU.uRise.value = wavesRise();   // belépés: a szalagok alulról úsznak fel (a pillekkel együtt)
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
 }
 

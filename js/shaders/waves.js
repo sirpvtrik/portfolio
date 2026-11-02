@@ -2,7 +2,7 @@
 
 export const waveFS = /* glsl */`
   precision highp float;
-  uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront;
+  uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise;
   uniform vec3 uColA, uColB;   // régi és új szín; a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
@@ -36,7 +36,7 @@ export const waveFS = /* glsl */`
   // uStyle: 0 = fényszalag, 1 = üvegrúd
   vec3 ribbons(vec2 px, float side) {
     float H = uRes.y;
-    float y = px.y / H;
+    float y = px.y / H + uRise;                                         // uRise: belépéskor lejjebbről úszik fel
     float xe = (side < 0.0 ? px.x : uRes.x - px.x) / H;
     float sh = shiftH();
     if (xe > 1.3 + sh) return vec3(0.0);                                   // messze a széltől nincs mit számolni

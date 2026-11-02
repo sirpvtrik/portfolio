@@ -13,13 +13,14 @@ export const N = PROJECTS.length;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: -45, int: 80, refr: 40, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, wshift: 90, bpmSync: false, wstyle: 0 };
+export const DEFAULTS = { ang: -45, int: 80, refr: 40, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: false, wstyle: 0 };
 // az aktuális beállítások (a Glass panel írja, mindenki más olvassa)
 export const S = Object.assign({}, DEFAULTS);
 
 /* ---------- Pill méretek ---------- */
 export const PW = 3.6, PH = 1.48;   // egy pill szélessége / magassága
 export const SP = 1.56;             // a pillek távolsága a toronyban
+export const TOWER_Y = -0.45;       // a torony függőleges eltolása (negatív = lejjebb; alul már nincs felirat)
 
 /* ---------- MP logó útvonalai ---------- */
 export const LOGO_PATHS = [

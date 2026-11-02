@@ -15,9 +15,16 @@ export const introPost = INTRO ? INTRO.post : null;
 export const easeOut4 = x => 1 - Math.pow(1 - x, 4);
 export const easeInOut = x => x * x * (3 - 2 * x);
 
+// Felúszás: a hullámok és a pillek azonos kezdősebességgel indulnak (easeOut4 kezdősebessége 4 × táv / idő),
+// így együtt mozognak; a hosszabb utat bejáró pill tovább fut.
+const P = introPost;
+const pillsDur = P ? P.wavesDur * P.pillsDist / P.wavesDist : 0;
+
 // a hullámok fényereje (0 → 1)
-export const wavesIn = () => introPost ? easeInOut(introK(introPost.waves, introPost.wavesDur)) : 1;
-// az i. pill felúszása (0 = egy képernyőnyivel lejjebb, 1 = a helyén); felülről lefelé, kis késéssel egymás után
-export const pillIn = i => introPost ? easeOut4(introK(introPost.pills + i * introPost.pillsStagger, introPost.pillsDur)) : 1;
+export const wavesIn = () => P ? easeInOut(introK(P.rise, P.wavesFade)) : 1;
+// a hullámok még hátralévő emelkedése (képernyőmagasságban; 0 = a helyén)
+export const wavesRise = () => P ? P.wavesDist * (1 - easeOut4(introK(P.rise, P.wavesDur))) : 0;
+// az i. pill még hátralévő emelkedése (képernyőmagasságban)
+export const pillRise = i => P ? P.pillsDist * (1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur))) : 0;
 // a lejátszó-blob átlátszósága (a HTML felülettel együtt jelenik meg)
-export const uiIn = () => introPost ? introK(introPost.ui / 1000, introPost.uiDur / 1000) : 1;
+export const uiIn = () => P ? introK(P.ui / 1000, P.uiDur / 1000) : 1;

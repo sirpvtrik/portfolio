@@ -23,8 +23,13 @@
     fly: 900, flyEase: 'cubic-bezier(0.65, 0, 0.35, 1)',   // a logó felúszik a fejlécbe
     ui: 1800, uiDur: 600,                                    // a sarkokban lévő feliratok és a lejátszó
     // a js/entrance.js ezeket olvassa (másodpercben):
-    waves: 0.45, wavesDur: 1.6,                               // a két szélső hullám beúszik
-    pills: 0.45, pillsDur: 1.6, pillsStagger: 0.07,           // a pillek a hullámokkal együtt alulról felúsznak, felülről lefelé egymás után
+    // a pillek és a két szélső hullám együtt, azonos sebességgel indulnak alulról; a hullám előbb ér a helyére,
+    // a pill tovább fut, mert messzebbről jön (fentebb ér véget). Távolság képernyőmagasságban.
+    rise: 0.45,                       // indulás a betöltő vége után
+    wavesDist: 0.6, wavesDur: 1.3,    // a hullámok ennyivel lejjebbről úsznak fel, ennyi idő alatt
+    wavesFade: 0.5,                   // közben ennyi idő alatt halványodnak be
+    pillsDist: 1.0,                   // a pillek egy teljes képernyőnyivel lejjebbről (az idejük ebből és a hullámok sebességéből adódik)
+    pillsStagger: 0,                  // >0: a pillek felülről lefelé, ennyi késéssel egymás után
   };
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
