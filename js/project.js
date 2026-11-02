@@ -263,16 +263,19 @@ export function updateProject(dt) {
     if (c.pmat) c.pmat.opacity = Math.min(1, a);
   });
   // galéria: mindig henger (függőleges tengely, sugár = a rács fél szélessége), vágás nélkül.
-  // Érkezéskor az első kép középen, szemből; görgetésre a henger forog (az első hátrafordul), a végén az utolsó áll középen.
+  // A henger tengelye vándorol: érkezéskor az első kép szemből, a rács bal szélétől indul; görgetésre a henger forog
+  // (az első hátrafordul), a végén az utolsó kép szemből a rács jobb szélénél végződik.
   const gsc = drum(galHolder, gridX + L.gw / 2, L.galY - v - L.vh / 2, k, tilt);
   galHolder.scale.setScalar(gsc);
   const Rh = L.gw / 2;
+  const prog = L.travel > 0 ? off / L.travel : 0;
+  const axisX = -L.gw / 2 + L.cw / 2 + prog * (L.gw - L.cw);       // a szemből látszó kép közepe a rács közepétől
   gal.forEach((c, i) => {
     appear(c, dt);
     const u = i * L.p - off;                                          // a kártya közepe a henger elejétől (ívhossz)
     const al = u / Rh;
     c.spin.visible = Math.abs(al) < Math.PI / 2 + (L.cw / 2) / Rh;    // a henger hátoldala nem látszik
-    c.spin.position.set(Rh * Math.sin(al) * k, 0, -Rh * (1 - Math.cos(al)) * k);
+    c.spin.position.set((axisX + Rh * Math.sin(al)) * k, 0, -Rh * (1 - Math.cos(al)) * k);
     c.spin.rotation.y = al;
     const a = Math.max(0, c.a);
     c.holder.scale.setScalar(Math.max(0.0001, a));
