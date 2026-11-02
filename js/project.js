@@ -262,29 +262,26 @@ export function updateProject(dt) {
     c.holder.position.y -= (1 - Math.min(1, a)) * 60 * k;
     if (c.pmat) c.pmat.opacity = Math.min(1, a);
   });
-  // galéria: a kártyák egyenes sávon haladnak, és csak ott hajlanak hátra (merev lapként, hengerív mentén), ahol
-  // a rács szélét érnék. Az ív úgy van méretezve, hogy az elforduló kártya legkülső sarka is pontosan a rács széléig
-  // érjen: E = R·sinθ + c·cosθ maximuma sqrt(R² + c²), ezért a sík szakasz vége F = E − sqrt(R² + c²).
-  // Érkezéskor a bal oldal nem hajlik (az első kép szemből a bal vonalnál), a végén a jobb (az utolsó a jobb vonalnál).
+  // galéria: a kártyák egyenes sávon haladnak; ahol a rács szélét érnék, ott a vonalnál hátrafordulnak, mint egy
+  // zsanér: a külső élük a vonalon marad, a belső élük csúszik tovább, így a fordulás pontosan a görgetéssel arányos
+  // (nincs ugrás), és semmi nem lóg túl a vonalon. Élére fordulva eltűnik, a következő kártya veszi át a helyét.
   const gsc = drum(galHolder, gridX + L.gw / 2, L.galY - v - L.vh / 2, k, tilt);
   galHolder.scale.setScalar(gsc);
-  const prog = L.travel > 0 ? off / L.travel : 0;
-  const E = L.gw / 2, cH = L.cw / 2, Rmax = L.gw * 0.35;
-  const side = r => { const R = Rmax * clamp(r, 0, 1); return { R, F: E - Math.sqrt(R * R + cH * cH) }; };
-  const SL = side(prog / 0.2), SR = side((1 - prog) / 0.2);
+  const E = L.gw / 2, cH = L.cw / 2;
   gal.forEach((c, i) => {
     appear(c, dt);
     const u = -E + cH + i * L.p - off;                                // a kártya közepe a sávon (a rács közepétől)
+    const sg = u > 0 ? 1 : -1, inner = Math.abs(u) - cH;              // a belső él távolsága a középtől
     let X = u, Z = 0, th = 0;
-    const S = u > 0 ? SR : SL, sg = u > 0 ? 1 : -1, over = Math.abs(u) - S.F;
-    if (over > 0) {
-      th = S.R > 1 ? over / S.R : Math.PI;                             // R ≈ 0: ami túlérne, az azonnal eltűnik
-      const t = Math.min(th, Math.PI / 2);
-      X = sg * (S.F + S.R * Math.sin(t)); Z = -S.R * (1 - Math.cos(t));
+    if (inner + 2 * cH > E) {                                          // a külső él túlérne a vonalon → hátrafordul
+      const w = clamp(E - inner, 0, 2 * cH);                           // a vetített szélesség (belső él → vonal)
+      th = Math.acos(w / (2 * cH));
+      const sn = Math.sin(th);
+      X = sg * (inner + w / 2); Z = -cH * sn;
     }
-    c.spin.visible = th < Math.PI / 2;                                 // élére fordulva / a henger hátoldalán nem látszik
+    c.spin.visible = inner < E - 0.5;
     c.spin.position.set(X * k, 0, Z * k);
-    c.spin.rotation.y = sg * Math.min(th, Math.PI / 2);
+    c.spin.rotation.y = sg * th;
     const a = Math.max(0, c.a);
     c.holder.scale.setScalar(Math.max(0.0001, a));
     c.holder.position.y = -(1 - Math.min(1, a)) * 60 * k;
