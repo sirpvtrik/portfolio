@@ -9,6 +9,7 @@ Patrik grafikus hallgató (Eszterházy Károly Egyetem, Eger) és szabadúszó t
 ## Felépítés
 - Statikus oldal, build lépés nincs. `index.html` a gyökérben, `css/styles.css`, `assets/cover.jpg`, a JS natív ES modulokban (`<script type="module" src="js/main.js">`).
 - Three.js 0.149 CDN-ről (jsDelivr, UMD `three.min.js`, globális `THREE`, a modulok előtt töltődik be), Google Fonts: Archivo (display), Geist Mono (UI-címkék).
+- `intro.js` (gyökér, sima script, a Three.js előtt fut): betöltő animáció és a belépés időzítése (`LOADER`, `POST`), `window.MPIntro`-ban adja tovább. `js/entrance.js`: ebből számolja a hullámok fényerejét (`wavesIn`), a pillek felúszását (`pillIn`) és a lejátszó-blob átlátszóságát (`uiIn`).
 - `js/main.js`: belépési pont, kockánkénti sorrend: pillek → zenei reakció → idősáv → lejátszó.
 - `js/config.js`: `PROJECTS`, `DEFAULTS`, aktuális beállítások (`S`), pill-méretek (`PW`, `PH`, `SP`), `LOGO_PATHS`.
 - `js/scene.js`: renderer, kamera, render target, rétegek, közös üveg-uniformok (`U`), méretezés, render loop (`startLoop`).
@@ -27,6 +28,8 @@ Patrik grafikus hallgató (Eszterházy Károly Egyetem, Eger) és szabadúszó t
 - **Görgetés:** végtelen dob, lendület + súrlódás + ráugrás a legközelebbi pillre; gyors görgetésnél dőlés és gyorsabb forgás. Hover: a pill szembefordul, a többi szétcsúszik.
 - **Hullámok a két szélen:** teljes képernyős 2D shader, oldalanként 3 szalag. Két stílus a panelen váltható: *Fényszalag* (alap) és *Üveg* (kettős kontúr, diszperzió, csillanás).
 - **Zenei reakció:** saját basszus-detektor (30–150 Hz, a pillanatnyi átlaghoz mérve) → „pak–húz” lefelé rántás (`uFlowY`), folyamatos áramlás a basszussal; hangsávok helyben kidomborítják a szalagot; opcionális BPM-szinkron tempóbecsléssel.
+- **Betöltő** (Patrik Figma-animációja, 4,5 s): a logó körvonala az alsó csúcstól, a „\” szakasszal indulva egyetlen vonalként kirajzolódik (0,15 → 3,15 s, `cubic-bezier(0.42, 0, 0.22, 1)`), majd a fehér kitöltés lentről felfelé, vízszintes határral fedődik fel (3,15 → 3,75 s, `cubic-bezier(0.30, 0, 0.20, 1)`), a körvonal megmarad, 0,75 s kitartás. Közben a logó nem mozdul, nem változik a mérete (157,71 × 73 px). Utána felúszik a fejléc logójának helyére, a hullámokkal együtt alulról felúsznak a pillek (felülről lefelé, kis késéssel), végül megjelenik a felület. A körvonal a két `LOGO_PATHS` egyesítése (paper.js-szel számolva), az `index.html`-ben van.
+- A kiválasztott pill nevét nem írjuk ki alul (a pillen látszik); a `.caption` csak képernyőolvasónak marad (`sr-only`).
 - **MP logó** fent középen: a szárai a zenére rövidülnek (1 mély, 2 közép, 3 hangerő, 4 magas).
 - **Blob lejátszó** bal alul: csukva hangszóró-kör; hoverre rugós, folyékony nyitás (jobbra nyúlik → középen felnő egy csepp → kétfelé válik → felül kinyílik), csukás pontosan visszafelé. Az alakot WebGL rajzolja SDF smooth-unionnal, liquid glass-szal. Hangerő-pill, előző/lejátszás/következő, idősáv, saját zene a borítóra kattintva.
 - **Projekt-szín** (`color` a `PROJECTS`-ben, most a P07 „Oldalra fújva”: zöld): hoverre a pill üvege kicsit beszíneződik (`uTint`/`uTintK`), kattintásra a hullámok fentről lefelé futó átmenettel erre a színre váltanak (`setWaveColor`, `uColA/uColB/uColFront`), visszalépéskor ugyanígy vissza fehérre.

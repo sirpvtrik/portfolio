@@ -9,6 +9,7 @@ Statikus weboldal: forgó, 3D liquid glass pillek a projektekkel, a két szélen
 | `index.html` | Az oldal váza: fejléc, Glass panel, lejátszó |
 | `css/styles.css` | Minden stílus |
 | `assets/cover.jpg` | A lejátszó borítója |
+| `intro.js` | Betöltő animáció (logó körvonal → kitöltés) és a belépés időzítése; a `js/entrance.js` olvassa |
 | `js/main.js` | Belépési pont: betölti a modulokat, és kockánként ebben a sorrendben frissít: pillek → zenei reakció → idősáv → lejátszó |
 | `js/config.js` | `PROJECTS`, `DEFAULTS`, az aktuális beállítások (`S`), pill-méretek, `LOGO_PATHS` |
 | `js/scene.js` | Renderer, kamera, render target, rétegek, közös üveg-uniformok (`U`), méretezés, render loop |
@@ -41,6 +42,7 @@ Vercelen: **Add New → Project → Import** ezt a repót, a Framework Preset le
 
 ## Hol mit állíts
 
+- **Betöltő és belépés időzítése:** `intro.js` elején a `LOADER` (körvonal, kitöltés, kitartás) és a `POST` (felúszás, hullámok, pillek, felület) objektum.
 - **Projektek:** `js/config.js`, `PROJECTS` lista (jelenleg placeholderek). A pillek címke-rajzolata (motívumok) a `js/pills.js`-ben, a `drawMotif`-ban van.
 - **Alapbeállítások:** `js/config.js`, `DEFAULTS` objektum (üveg, hullám, reakció).
 - **Projekt-aloldal tartalma:** `js/config.js`, `DETAIL_TEST` (szövegek, `gallery` képlista; üresen helyőrzők).

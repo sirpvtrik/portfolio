@@ -6,7 +6,7 @@ export const playerFS = /* glsl */`
   uniform vec2 uRes;
   uniform vec4 uR[7];
   uniform vec4 uBox;
-  uniform float uScale, uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uK;
+  uniform float uScale, uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uK, uAlpha;
   float sdRB(vec2 p, vec4 r) {                     // pill alakú lekerekített téglalap
     vec2 h = r.zw * 0.5, c = r.xy + h;
     float rad = min(h.x, h.y);
@@ -59,5 +59,5 @@ export const playerFS = /* glsl */`
     float inner = smoothstep(uScale * 5.0, uScale * 1.5, dist) * (1.0 - rim);
     float band = pow(1.0 - t, 3.0);
     col += (rim * (0.14 + 1.0 * spec) + inner * spec * 0.12 + band * spec * 0.1) * uLightInt;
-    gl_FragColor = vec4(col, alpha);
+    gl_FragColor = vec4(col, alpha * uAlpha);
   }`;

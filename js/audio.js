@@ -6,6 +6,7 @@ import { WU } from './waves.js';
 import { scrollVel } from './pills.js';
 import { updateLogo } from './logo.js';
 import { damp } from './util.js';
+import { wavesIn } from './entrance.js';
 
 /* ---------- Audio ---------- */
 export let actx = null, master, analyser, freq;
@@ -291,7 +292,7 @@ export function updateAudio(dt) {
   WU.uAmp.value = musicAmt;
   WU.uReact.value = R;
   WU.uBeat.value = Math.max(pulse, syncPulse * 0.3) * 0.7;
-  WU.uGain.value = (S.wlight / 50) * (1.0 + musicAmt * (0.2 + pulse * 0.4 * R));
+  WU.uGain.value = (S.wlight / 50) * (1.0 + musicAmt * (0.2 + pulse * 0.4 * R)) * wavesIn();   // belépéskor beúszik
   reach = damp(reach, Math.min(1.2, musicAmt * (0.2 + pulse * 0.9 * R)), 4, dt);   // zenére beljebb úsznak
   scrollPush = damp(scrollPush, Math.min(1, Math.abs(scrollVel) / 7), 4, dt);   // görgetésre beljebb úsznak
   WU.uPush.value = (S.wpush / 100) * (0.2 + 0.8 * reach) + scrollPush * 0.3 + syncPulse * 0.02;

@@ -4,6 +4,7 @@ import { renderer, camera, scene, canvas, onLayer, LAYER_BG, LAYER_GLASS, U, vis
 import { glassVS, glassFS } from './shaders/glass.js';
 import { damp } from './util.js';
 import { stadium, glassSlab, remapUV } from './glassgeo.js';
+import { pillIn } from './entrance.js';
 
 /* ---------- 3D pill geometria ---------- */
 function buildPillGeo(depth01) {
@@ -305,7 +306,8 @@ export function updatePills(dt) {
     const r = Math.min(1, Math.abs(yw) / YMAX);
     const depth = r * r;
     const fade = 1 - THREE.MathUtils.smoothstep(r, 0.8, 1.0);
-    pl.holder.position.set(0, yw + pl.push + pl.dy, pl.z - depth * 1.8 + pl.dz);
+    const rise = (1 - pillIn(i)) * visH;            // belépés: egy képernyőnyivel lejjebbről úszik fel (js/entrance.js)
+    pl.holder.position.set(0, yw + pl.push + pl.dy - rise, pl.z - depth * 1.8 + pl.dz);
     pl.holder.scale.setScalar(Math.max(0.0001, pl.s * (1 - depth * 0.35) * fade * pl.ds));
     pl.holder.rotation.x = -(yw / YMAX) * 0.5 - scrollVel * 0.025;
     pl.holder.rotation.z = pl.drz;

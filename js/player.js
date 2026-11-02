@@ -3,6 +3,7 @@ import { reduced } from './config.js';
 import { scene, onLayer, LAYER_PL, rt, U, bufSize } from './scene.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { playerFS } from './shaders/player.js';
+import { uiIn } from './entrance.js';
 import { actx, mode, fileBuf, vol, setVol, togglePlay, switchTo, position, duration, seekTo } from './audio.js';
 
 /* ---------- Blob lejátszó: nyitás, hangerő, előző / következő ---------- */
@@ -81,7 +82,7 @@ applyVol();
 // a lejátszó üvegét rajzoló teljes képernyős réteg
 const plRects = [0, 1, 2, 3, 4, 5, 6].map(() => new THREE.Vector4());
 const plU = {
-  uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: plRects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 13 },
+  uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: plRects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 13 }, uAlpha: { value: 1 },
   uRefr: U.uRefr, uDisp: U.uDisp, uFrost: U.uFrost, uSplay: U.uSplay, uLightAng: U.uLightAng, uLightInt: U.uLightInt,
 };
 const plQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
@@ -129,6 +130,7 @@ export function plUpdate(dt) {
   const m = 30 * sc;
   plU.uBox.value.set(x0 - m, y0 - m, x1 + m, y1 + m);
   plU.uScale.value = sc;
+  plU.uAlpha.value = uiIn();   // belépéskor a felülettel együtt jelenik meg
 }
 
 /* ---------- Tekerés ---------- */
