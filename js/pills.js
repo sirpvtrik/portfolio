@@ -1,5 +1,5 @@
 // Pill-torony: geometria, címke-textúrák, üveg, hover, görgetés
-import { PROJECTS, N, S, PW, PH, SP, TOWER_Y } from './config.js';
+import { PROJECTS, N, S, PW, PH, SP, TOWER_Y, VIEW_N } from './config.js';
 import { renderer, camera, scene, canvas, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH } from './scene.js';
 import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { damp } from './util.js';
@@ -339,6 +339,7 @@ export function updatePills(dt) {
     }
   }
   const LOOP = N * SP, YMAX = LOOP / 2;
+  const YV = Math.min(YMAX, VIEW_N * SP / 2);   // a dob látható fele: ennél távolabb a pillek összezsugorodnak és eltűnnek (mint 7 pillnél)
   const wrapY = y => ((y + YMAX) % LOOP + LOOP) % LOOP - YMAX;
   const speed = Math.min(Math.abs(scrollVel), 12);
   const spinSpeed = (S.spin / 100) * 0.75 + speed * 0.4;
@@ -375,13 +376,13 @@ export function updatePills(dt) {
       pl.img.mesh.visible = pl.rv > 0.002;
     }
     // dob-hatás: a szélek felé kisebb, hátrébb és megdől; a hurok varrata láthatatlan
-    const r = Math.min(1, Math.abs(yw) / YMAX);
+    const r = Math.min(1, Math.abs(yw) / YV);
     const depth = r * r;
     const fade = 1 - THREE.MathUtils.smoothstep(r, 0.8, 1.0);
     const rise = pillRise(i) * visH;                 // belépés: alulról úszik fel a hullámokkal együtt (js/entrance.js)
     pl.holder.position.set(0, yw + pl.push + pl.dy - rise, pl.z - depth * 1.8 + pl.dz);
     pl.holder.scale.setScalar(Math.max(0.0001, pl.s * (1 - depth * 0.35) * fade * pl.ds));
-    pl.holder.rotation.x = -(yw / YMAX) * 0.5 - scrollVel * 0.025;
+    pl.holder.rotation.x = -(Math.max(-1, Math.min(1, yw / YV))) * 0.5 - scrollVel * 0.025;
     pl.holder.rotation.z = pl.drz;
     pl.spin.rotation.y = pl.angle;
   });

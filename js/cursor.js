@@ -33,7 +33,8 @@ export function updateCursor(dt) {
   const target = Math.min(1, speed / 1400);
   energy = damp(energy, target, target > energy ? 6 : 1.1, dt);
   // a kurzor kis fénye: egérrel mindig látszik (ha az ablakban van), érintésnél csak húzás közben
-  base = damp(base, (isTouch ? touching : inside) ? 1 : 0, 4, dt);
+  const ready = !window.MPIntro || window.MPIntro.t2 != null;   // a betöltő alatt nincs kurzor
+  base = damp(base, ready && (isTouch ? touching : inside) ? 1 : 0, 4, dt);
   // rugós nyom: az első pont a kurzort, a többi az előzőt követi, egyre lazábban
   const H = innerHeight, dpr = WU.uRes.value.y / H;
   for (let i = 0; i < N; i++) {
