@@ -133,23 +133,19 @@ export const glassFS = /* glsl */`
       // STÚDIÓ-ÜVEG (Patrik referenciája: üvegkorongok fekete háttéren) – a pilleken:
       //  1) nagy, lágy softbox a fény felől: a domború lapon fokozatos fényfolt (egyik oldalon fehér, a másik felé
       //     sötétbe fut), forgás közben végigsiklik; a lap többi része sötét és átlátszó marad
-      //  2) vékony csíkfény a túloldalról: a peremen és a lap szélén a Dispersion szerint szivárványra bomlik
+      //  2) vékony, fehér csíkfény a túloldalról a peremen és a lap szélén (a szivárványos változat Patriknak nem tetszett)
       //  3) tiszta, vékony szél
       float li = 0.45 + 0.55 * uLightInt;
       float face = 1.0 - w;
       float sb = smoothstep(0.15, 0.97, dot(R, Ld));
       col += vec3(sb * sb) * (0.42 * face + 0.85 * w * F + 0.1) * li * boost;
       vec3 Ls = normalize(vec3(cos(la) * 0.55, 0.8, 0.35));
-      float kd = 0.045 * uDisp + 0.006;                                  // a színekre bomlás szélessége
       float xs = dot(R, Ls);
-      vec3 strip = vec3(exp(-pow((xs + kd - 0.9) / 0.045, 2.0)), exp(-pow((xs - 0.9) / 0.045, 2.0)), exp(-pow((xs - kd - 0.9) / 0.045, 2.0)));
+      vec3 strip = vec3(exp(-pow((xs - 0.9) / 0.05, 2.0)));             // fehér csíkfény (szivárvány nélkül)
       vec2 eq = abs(vLocal) - (uHalf - uRad);
       float din = max(-(length(max(eq, 0.0)) + min(max(eq.x, eq.y), 0.0) - uRad), 0.0) / uHalf.y;
       float edgeZone = max(w, exp(-din / 0.18) * face);                  // a perem és a lap széle
       col += strip * (0.25 + 1.1 * edgeZone) * li * rimK;
-      // a softbox is színekre bomlik a peremen (a szivárványos szegély a referencián)
-      vec3 sbc = vec3(smoothstep(0.15 + kd, 0.97, dot(R, Ld)), sb, smoothstep(0.15 - kd, 0.97, dot(R, Ld)));
-      col += (sbc - vec3(sb)) * 0.9 * w * li * rimK;
       col += vec3(exp(-pow(din / 0.025, 2.0)) * 0.18 * face) * li;       // tiszta, vékony szél
       col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 140.0) * 1.4 * li * rimK;   // csillanás
     } else {
@@ -180,11 +176,11 @@ export const glassFS = /* glsl */`
   }`;
 
 // A pill belső, hátsó felülete (BackSide), a háttérbe (1-es réteg) rajzolva, csak fényként (additív): a túloldali perem
-// vékony fényvonala és a belső falak tükröződései szivárványos töréssel. Az elülső lap ezt az üvegen át, megtörve mutatja,
+// vékony fényvonala és a belső falak tükröződései (fehéren). Az elülső lap ezt az üvegen át, megtörve mutatja,
 // így látszik át a pill (ettől nem tömör test, mint a referencia üvegkorongjai).
 export const glassBackFS = /* glsl */`
   precision highp float;
-  uniform float uLightAng, uLightInt, uDisp, uRim;
+  uniform float uLightAng, uLightInt, uRim;
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
@@ -201,8 +197,8 @@ export const glassBackFS = /* glsl */`
     float li = 0.45 + 0.55 * uLightInt;
     float sb = smoothstep(0.2, 0.97, dot(R, Ld));
     vec3 Ls = normalize(vec3(cos(la) * 0.55, 0.8, 0.35));
-    float kd = 0.045 * uDisp + 0.006, xs = dot(R, Ls);
-    vec3 strip = vec3(exp(-pow((xs + kd - 0.9) / 0.06, 2.0)), exp(-pow((xs - 0.9) / 0.06, 2.0)), exp(-pow((xs - kd - 0.9) / 0.06, 2.0)));
+    float xs = dot(R, Ls);
+    vec3 strip = vec3(exp(-pow((xs - 0.9) / 0.06, 2.0)));      // fehér
     vec3 col = vec3(sb * sb) * (0.07 + 0.6 * w * g) + strip * (0.18 + 0.9 * w);
     col += vec3(smoothstep(0.55, 0.98, g)) * 0.32 * w;        // a túloldali perem vékony fényes vonala
     gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim), 1.0);
