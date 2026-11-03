@@ -113,24 +113,20 @@ export const waveFS = /* glsl */`
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
-    // fénycsóva alulról (Patrik Figma-terve, Desktop – 9): vékony, tiszta fehér fényvonal a képernyő közepén,
-    // lent a legfényesebb, felfelé elvékonyodik és halványan kifut; körülötte lágy derengés, lent szélesebb fényudvar.
-    // A pillek mögött van (render target): az üveg elmossa és megtöri (glass.js). uBeamH: a csúcs magassága (felnő).
+    // fénycsóva alulról (Patrik Figma-terve, Desktop – 9: fénykép-szerű csóva, „plus lighter”, 51%), tiszta fehérben.
+    // A profil Patrik referenciaképéből mérve: középen éles, telített mag, oldalra exponenciálisan, hosszan fut ki;
+    // a lecsengés hossza lent ~0,045, fent ~0,004 képernyőmagasság (lent széles, fent keskeny), így lágy, nem lézeres.
+    // A pillek mögött van (render target); az üveg ezt elmosva, sávként mutatja (glass.js). uBeamH: a csúcs magassága.
     if (uBeam > 0.001 && uBeamH > 0.001) {
       float H = uRes.y;
       float x = abs(px.x - uRes.x * 0.5) / H;
       float y = px.y / H;                                              // 0 lent, 1 fent
       float A = uBeamH * uBeamS;
       float s = clamp(1.0 - y / A, 0.0, 1.0);                          // 1 lent, 0 a csúcsnál
-      float tip = smoothstep(0.0, 0.25, s);                            // a csúcs lágyan fut ki
-      float wc = 0.0007 + 0.0011 * s;                                  // a mag: ~1–2 px
-      float core = exp(-(x * x) / (wc * wc)) * (0.3 + 0.7 * s) * tip;
-      float wg = 0.004 + 0.009 * s;
-      float glow = exp(-(x * x) / (wg * wg)) * s * tip;
-      float wh = 0.015 + 0.1 * s * s * s;
-      float haze = exp(-(x * x) / (wh * wh)) * s * s * s;
-      float b = (core * 1.0 + glow * 0.32 + haze * 0.22) * uBeam;
-      v = 1.0 - (1.0 - v) * exp(-b * 1.6);                             // lágy összeadás, nem ég ki
+      float tip = smoothstep(0.0, 0.14, s);                            // a csúcs lágyan fut ki
+      float d = 0.0038 + 0.041 * s * s;                                // a lecsengés hossza
+      float I = max(exp(-x / d), exp(-(x * x) / (0.0019 * 0.0019)));   // hosszú, lágy farok + éles mag
+      v = min(v + vec3(0.51 * I * tip * uBeam), vec3(1.0));             // „plus lighter”, 51%
     }
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
     gl_FragColor = vec4(max(v, 0.0), 1.0);

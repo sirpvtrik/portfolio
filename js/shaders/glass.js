@@ -91,15 +91,16 @@ export const glassFS = /* glsl */`
     if (uBeamI > 0.001) {
       vec2 fp = gl_FragCoord.xy + dG * uRes;                       // a megtört nézési pont pixelben
       float bxh = abs(fp.x - uRes.x * 0.5) / uRes.y;               // távolság a vonaltól, képernyőmagasságban
-      if (bxh < 0.09) {
+      if (bxh < 0.1) {
         float yb = fp.y / uRes.y;
         float sb = clamp(1.0 - yb / max(uBeamA, 1e-3), 0.0, 1.0);    // 1 lent, 0 a csúcsnál (mint a hullám-shaderben)
-        float amp = (0.3 + 0.7 * sb) * smoothstep(0.0, 0.25, sb) * uBeamI;
-        vec2 off = vec2(0.1 * uRes.y / uRes.x, 0.0);
+        float tip = smoothstep(0.0, 0.14, sb);
+        float d = 0.0038 + 0.041 * sb * sb + 0.012;                  // ugyanaz a lecsengés, de az üveg kiszélesíti (matt)
+        vec2 off = vec2(0.12 * uRes.y / uRes.x, 0.0);
         vec3 base = 0.5 * (texture2D(uBg, suv + dG + off).rgb + texture2D(uBg, suv + dG - off).rgb);
-        float band = exp(-(bxh * bxh) / (0.016 * 0.016)) * 0.5 + exp(-(bxh * bxh) / (0.045 * 0.045)) * 0.12;
-        float m = (1.0 - smoothstep(0.06, 0.09, bxh)) * (1.0 - w * 0.55);
-        col = mix(col, base + vec3(band * amp), m);
+        float band = 0.51 * 0.9 * exp(-bxh / d) * tip * uBeamI;
+        float m = (1.0 - smoothstep(0.07, 0.1, bxh)) * (1.0 - w * 0.55);
+        col = mix(col, base + vec3(band), m);
       }
     }
 
@@ -131,7 +132,14 @@ export const glassFS = /* glsl */`
       float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uRad;   // < 0 a körvonalon belül
       float xpx = max(-sd, 0.0) / (2.0 * uHalf.y) * 164.0;             // távolság a széltől, Figma-pixelben
       float gl = 0.45 / (1.0 + exp(1.702 * (xpx + 6.0) / 17.95));
-      col += vec3(gl * uGlow * uGlowOn * (0.4 + 0.6 * ndv) * uLit);          // az oldalfalon (súrolva) gyengébb
+      col += vec3(gl * uGlow * uGlowOn * (0.4 + 0.6 * ndv) * uLit);
+      // hajszálvékony fényes él (Figma glass): a sziluett mentén (ahol a felület elfordul a nézőtől), a fény felőli oldalon
+      // a legerősebb, a túloldalon halványabb; az oldalfalra szemből nem kerül
+      vec2 n2 = normalize(N.xy + vec2(1e-5));
+      vec2 L2 = normalize(vec2(-cos(radians(uLightAng)), -sin(radians(uLightAng))));
+      float lf = 0.25 + 0.75 * max(dot(n2, L2), 0.0) + 0.3 * max(-dot(n2, L2), 0.0);
+      float hair = smoothstep(0.9, 0.99, g);
+      col += vec3(0.5 * hair * lf * uGlow * uGlowOn * uLit);          // az oldalfalon (súrolva) gyengébb
     }
 
     gl_FragColor = vec4(col, 1.0);
