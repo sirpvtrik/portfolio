@@ -115,9 +115,8 @@ export const waveFS = /* glsl */`
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
-    // egérfény (Patrik referenciái): a kurzor egy kis „napfogyatkozás-gyűrű” – sötét belső korong, hajszálvékony fényes
-    // gyűrű, ami fent és lent a legerősebb, kívül halvány fényudvar –, és a gyűrű tetejéből lágy, felfelé táguló és
-    // halványuló fény száll fel (a második kép felső formája). Mozgás közben finom, halk fénycsíkot húz maga után.
+    // egérfény (Patrik referenciája): a kurzor egy kis „napfogyatkozás-gyűrű” – sötét belső korong, hajszálvékony fényes
+    // gyűrű, ami fent és lent a legerősebb, kívül halvány fényudvar. Mozgás közben finom, halk fénycsíkot húz maga után.
     if (uCurB > 0.001 || uCurE > 0.001) {
       float H = uRes.y;
       // finom nyom: a rugós pontokat folytonos, vékonyodó szakaszok kötik össze
@@ -152,14 +151,7 @@ export const waveFS = /* glsl */`
                  + exp(-pow((d - R) / (lw * 3.0), 2.0)) * 0.35 * pow(pole, 8.0);   // fent és lent kivilágosodó sarló
       float inner = exp(-max(R - d, 0.0) / (R * 0.14)) * step(d, R) * 0.12;          // belül halvány derengés a perem mentén
       float halo = exp(-max(d - R, 0.0) / (R * 0.55)) * step(R, d) * 0.16 * (0.45 + 0.55 * pole);
-      // felszálló fény a gyűrű tetejéből (lágy, felfelé táguló, halványuló)
-      float yy = (dc0.y - R * 0.55) / (R * 3.2);
-      float plume = 0.0;
-      if (yy > 0.0 && yy < 1.0) {
-        float wdt = R * (0.75 + 1.1 * yy);
-        plume = exp(-pow(dc0.x / wdt, 2.0)) * pow(1.0 - yy, 1.4) * smoothstep(0.0, 0.12, yy) * 0.34;
-      }
-      float cur = (ring * 0.9 + inner + halo + plume) * uCurB;
+      float cur = (ring * 0.9 + inner + halo) * uCurB;
       // sötét belső korong (mint egy napfogyatkozásnál): a mögötte lévő fényt eltakarja
       float disk = smoothstep(R, R - 2.0 * lw, d) * uCurB;
       v *= 1.0 - 0.85 * disk;
