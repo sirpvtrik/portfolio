@@ -33,6 +33,8 @@ export const U = {
   uRefr: { value: 1 }, uDisp: { value: 0.5 }, uFrost: { value: 0 },
   uSplay: { value: 1 }, uLightAng: { value: -45 }, uLightInt: { value: 0.8 }, uPulse: { value: 0 },
   uThick: { value: 1 },   // a perem vastagsága a Depth alapértékéhez képest (a fénytörés ezzel arányos)
+  uBevel: { value: 0.226 }, // a perem szélessége (3D egység; a belső ragyogás innen indul befelé)
+  uGlowOn: { value: 1 },  // a Glass panel „Perem-glow” kapcsolója
 };
 
 // a render target kirajzolása a képernyőre (így a háttér csak egyszer számolódik)

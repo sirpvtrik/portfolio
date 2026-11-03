@@ -4,7 +4,9 @@ export const glassVS = /* glsl */`
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
+  varying vec2 vLocal;
   void main() {
+    vLocal = position.xy;                                    // a lap saját síkjában (a belső ragyogáshoz)
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vN = normalize(normalMatrix * normal);
     vEdge = clamp((1.0 - abs(normal.z)) * 5.0, 0.0, 1.0);   // 0 a sík előlapon, 1 a peremen
@@ -18,9 +20,15 @@ export const glassFS = /* glsl */`
   uniform vec2  uRes;
   uniform float uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uHover, uPulse, uThick, uTintK;
   uniform vec3 uTint;
+  uniform vec2 uHalf;     // a lap fél szélessége / magassága (a körvonal)
+  uniform float uRad;     // a sarok sugara (pillnél a fél magasság)
+  uniform float uGlow;    // belső fehér ragyogás a szélen (Figma: inset 0 0 35.9px -6px rgba(255,255,255,.45)); lapanként
+  uniform float uGlowOn;  // a Glass panel „Perem-glow” kapcsolója (közös)
+  uniform float uBevel;   // a perem szélessége: az előlap ennyivel beljebb kezdődik
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
+  varying vec2 vLocal;
 
   vec3 bgAt(vec2 uv) {
     vec3 s = texture2D(uBg, uv).rgb;
@@ -92,6 +100,16 @@ export const glassFS = /* glsl */`
     col += smoothstep(0.78, 1.0, dot(R, Ld)) * 0.22 * uLightInt;               // sheen a lapon, ahogy forog
     col += pow(max(dot(N, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt;  // csillanás
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost;             // vékony világos kontúr
+
+    // belső ragyogás az előlapon: a perem kezdetétől befelé halványuló fehér fény (a lap magasságának ~20%-án fut ki).
+    // Csak a sík lapon (1 − w), a peremre és az oldalfalra nem kerül, különben ezüstös lesz.
+    if (uGlow * uGlowOn > 0.001) {
+      vec2 q = abs(vLocal) - (uHalf - uRad);
+      float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uRad + uBevel;   // < 0 az előlapon belül
+      float d = max(-sd, 0.0) / (uHalf.y * 0.4);                 // 0 a lap szélén, 1 a magasság ~20%-ánál
+      float gl = 0.24 * exp(-d * d * 2.6);                       // elmosott, lágy derengés (nem éles gyűrű)
+      col += vec3(gl * uGlow * uGlowOn * (1.0 - w * 0.7));
+    }
 
     gl_FragColor = vec4(col, 1.0);
   }`;

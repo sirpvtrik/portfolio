@@ -17,7 +17,8 @@ const srText = document.getElementById('pjText');
 const backBtn = document.getElementById('projectBack');
 
 export let isOpen = false;
-let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = -1, depthPending = false;
+let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = '', depthPending = false;
+const geoKey = () => S.depth + '/' + S.thick;   // Depth + Vastagság: ha bármelyik változik, a kártyák újraépülnek
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
@@ -108,8 +109,8 @@ function galleryDrawer(src) {
    így a Frost nem mossa el, és a peremen / oldalról sem látszik tükrözve. */
 function makeCard(wpx, hpx, k, depth01, draw, order, onTop) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
-  const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10);
-  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
+  const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10, S.thick / 100);
+  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) }, uHalf: { value: new THREE.Vector2(w / 2, h / 2) }, uRad: { value: 0.05 }, uGlow: { value: 0 } }) });
   const holder = new THREE.Group(), spin = new THREE.Group();
   holder.add(spin);
   spin.add(onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS));
@@ -125,7 +126,7 @@ function makeCard(wpx, hpx, k, depth01, draw, order, onTop) {
     card.pgeo = remapUV(new THREE.ShapeGeometry(roundedRect(w, h, b), 8));
     card.pmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
     const plane = onTop ? onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_TEXT) : onLayer(new THREE.Mesh(card.pgeo, card.pmat), LAYER_BG);
-    plane.position.z = onTop ? faceZ(depth01) + 0.004 : 0.002;
+    plane.position.z = onTop ? faceZ(depth01, S.thick / 100) + 0.004 : 0.002;
     spin.add(plane);
   }
   return card;
@@ -133,7 +134,7 @@ function makeCard(wpx, hpx, k, depth01, draw, order, onTop) {
 
 function build() {
   dispose();
-  L = computeLayout(); builtVisH = visH; builtDepth = S.depth;
+  L = computeLayout(); builtVisH = visH; builtDepth = geoKey();
   const k = visH / L.vh, depth01 = S.depth / 100, d = DETAIL_TEST;
   group = new THREE.Group(); scene.add(group);
   cards = L.list.map(c => {
@@ -184,11 +185,11 @@ function close() {
 onSelect(open);
 // Depth csúszka: a kártyák (a galériáé is) újraépülnek az új peremmel, a megjelenés és a görgetés megmarad
 export function requestCardRebuild() {
-  if (!group || depthPending || builtDepth === S.depth) return;
+  if (!group || depthPending || builtDepth === geoKey()) return;
   depthPending = true;
   requestAnimationFrame(() => {
     depthPending = false;
-    if (!group || closing || builtDepth === S.depth) return;
+    if (!group || closing || builtDepth === geoKey()) return;
     const a = cards.concat(gal).map(c => c.a);
     build();
     cards.concat(gal).forEach((c, i) => { c.a = a[i] ?? 1; c.av = 0; });

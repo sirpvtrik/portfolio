@@ -1,5 +1,6 @@
 // A pill belsejében ülő projektkép (hoverre középről kinyílik). Az 1-es rétegen van, így az üveg pereme megtöri.
-// Olvashatóság: a kép sötétítve, középen (a szöveg mögött) erősen elmosva és még sötétebb, a szélek felé élesedik.
+// Patrik Figma-terve szerint: erősen, egyenletesen elmosva (csak lágy színfoltok maradnak), 90%-os fényerővel.
+// uFrostC / uFrostE: az elmosás középen / a szélen (mip-szint; egyenlő = egyenletes, ahogy a Figmában).
 
 export const pillImageVS = /* glsl */`
   varying vec2 vUv;
@@ -22,7 +23,7 @@ export const pillImageFS = /* glsl */`
   uniform float uFrostE;     // elmosás a szélen (mip-szint)
   varying vec2 vUv;
 
-  // elmosott minta: 9 pont egy körön, a megadott mip-szinten (sima, nem kockás)
+  // elmosott minta: két körön 16 pont + a közép, a megadott mip-szinten (sima, nem kockás)
   vec3 blurAt(vec2 uv, float lod) {
     float r = exp2(lod) / uTexSize.x * 1.6;
     vec2 a = vec2(1.0, uImgAspect);
@@ -30,8 +31,9 @@ export const pillImageFS = /* glsl */`
     for (int i = 0; i < 8; i++) {
       float t = float(i) * 0.7854 + 0.39;
       s += texture2D(uMap, uv + vec2(cos(t), sin(t)) * a * r, lod).rgb;
+      s += texture2D(uMap, uv + vec2(cos(t + 0.39), sin(t + 0.39)) * a * r * 2.0, lod).rgb;
     }
-    return s / 9.0;
+    return s / 17.0;
   }
 
   void main() {
@@ -55,9 +57,7 @@ export const pillImageFS = /* glsl */`
     float lod = mix(uFrostC, uFrostE, smoothstep(0.15, 0.95, e));
     vec3 col = blurAt(iuv, lod);
 
-    // olvashatóság: sötétítés + a szöveg mögött még sötétebb, lágy folt
-    float scrim = mix(0.6, 1.0, smoothstep(0.1, 0.8, e));
-    col *= uDim * scrim;
+    col *= uDim;                                       // fényerő (Figma: 90%-os átlátszóság a fekete fölött)
 
     gl_FragColor = vec4(col, mask);
   }`;

@@ -7,7 +7,7 @@ import { requestCardRebuild } from './project.js';
 import { bevelOf } from './glassgeo.js';
 
 const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
-const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
+const CTL = ['ang', 'int', 'refr', 'depth', 'thick', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
 function applySettings() {
   U.uLightAng.value = S.ang;
   U.uLightInt.value = S.int / 100;
@@ -16,6 +16,9 @@ function applySettings() {
   U.uFrost.value = S.frost / 100;
   U.uSplay.value = S.splay / 100;
   U.uThick.value = bevelOf(S.depth / 100) / bevelOf(0.55);   // Depth 55-nél 1 (a megszokott törés)
+  U.uBevel.value = bevelOf(S.depth / 100);
+  U.uGlowOn.value = S.glow ? 1 : 0;
+  document.getElementById('c-glow').checked = S.glow;
   requestGeoRebuild();
   requestCardRebuild();                       // a projekt-kártyák (a galéria is) ugyanazt a peremet kapják
   document.getElementById('c-bpm').checked = S.bpmSync;
@@ -29,6 +32,7 @@ function applySettings() {
 }
 CTL.forEach(k => document.getElementById('c-' + k).addEventListener('input', e => { S[k] = +e.target.value; applySettings(); }));
 document.getElementById('c-bpm').addEventListener('change', e => { S.bpmSync = e.target.checked; });
+document.getElementById('c-glow').addEventListener('change', e => { S.glow = e.target.checked; applySettings(); });
 [0, 1].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));
 document.getElementById('reset').addEventListener('click', () => { Object.assign(S, DEFAULTS); applySettings(); });
 // Másolás: az aktuális beállítások JSON-ként a vágólapra (ebből lesz az új DEFAULTS)

@@ -8,35 +8,45 @@ import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
 import { pillRise } from './entrance.js';
 
 /* ---------- 3D pill geometria ---------- */
-function buildPillGeo(depth01) {
-  return glassSlab(stadium, PW, PH, depth01, 72);   // perem mérete = Depth
+function buildPillGeo() {
+  return glassSlab(stadium, PW, PH, S.depth / 100, 72, S.thick / 100);   // perem mérete = Depth, a test = Vastagság
 }
-let pillGeo = buildPillGeo(S.depth / 100);
+let pillGeo = buildPillGeo();
+const labelZ = () => faceZ(S.depth / 100, S.thick / 100) + 0.004;   // a felirat kicsivel az előlap előtt
 const LW = PW - 0.56, LH = PH - 0.46;
 const labelGeo = remapUV(new THREE.ShapeGeometry(stadium(LW, LH), 48));
 
 /* ---------- Felirat (az üveg előlapján, LAYER_TEXT: a Frost nem mossa el, a perem nem töri meg) ----------
-   Középre zárt, Nohemi: nagy cím, alatta a kategória nagybetűvel (Patrik terve). A méretek a pill magasságához mérve. */
+   Patrik Figma-terve (pill 440 × 164): középre zárt Nohemi Medium 40 px cím (−2% betűköz, #f2f2f2), alatta 15 px-re
+   Nohemi Regular 20 px kategória nagybetűvel (70%-os fehér). A kettő együtt, a betűk magasságára (cap) középre igazítva.
+   A méretek a pill magasságához mérve, így minden pillméretnél ugyanaz az arány. */
 const TW = 1240, TH = Math.round(TW * LH / LW);
 const PX = TH / LH;                                  // pixel / 3D egység a feliratban
-const TITLE = 0.22 * PH * PX, CAT = 0.1 * PH * PX;   // betűméret: a cím a pill magasságának 22%-a, a kategória 10%-a
+const FIG = PH * PX / 164;                           // 1 Figma-pixel a felirat-textúrában
 const FONT = "Nohemi, Archivo, 'Helvetica Neue', Arial, sans-serif";
 function drawLabel(c, p) {
   const g = c.getContext('2d');
   g.clearRect(0, 0, TW, TH);
-  const cx = TW / 2, cy = TH / 2;
   g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-  g.fillStyle = '#ffffff';
-  let size = TITLE;
-  g.font = `500 ${size}px ${FONT}`;
-  if ('letterSpacing' in g) g.letterSpacing = (-0.01 * size) + 'px';
+  const cx = TW / 2, cy = TH / 2;
+  let tSize = 40 * FIG;
+  g.font = `500 ${tSize}px ${FONT}`;
+  if ('letterSpacing' in g) g.letterSpacing = (-0.02 * tSize) + 'px';
   const w = g.measureText(p.name).width, maxW = TW * 0.86;
-  if (w > maxW) { size = Math.floor(size * maxW / w); g.font = `500 ${size}px ${FONT}`; }
-  g.fillText(p.name, cx, cy + 0.012 * PH * PX);
-  g.fillStyle = 'rgba(255,255,255,0.62)';
-  g.font = `400 ${CAT}px ${FONT}`;
-  if ('letterSpacing' in g) g.letterSpacing = (0.02 * CAT) + 'px';
-  g.fillText(p.cat.toUpperCase(), cx, cy + 0.18 * PH * PX);
+  if (w > maxW) { tSize *= maxW / w; g.font = `500 ${tSize}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = (-0.02 * tSize) + 'px'; }
+  const tCap = g.measureText('H').actualBoundingBoxAscent || tSize * 0.7;
+  const cSize = 20 * FIG, gap = 15 * FIG;
+  const cat = p.cat.toUpperCase();
+  g.font = `400 ${cSize}px ${FONT}`;
+  const cCap = g.measureText('H').actualBoundingBoxAscent || cSize * 0.7;
+  const top = cy - (tCap + gap + cCap) / 2;          // a blokk teteje (a cím nagybetűinek teteje)
+  g.fillStyle = 'rgba(242,242,242,0.7)';
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
+  g.fillText(cat, cx, top + tCap + gap + cCap);
+  g.fillStyle = '#f2f2f2';
+  g.font = `500 ${tSize}px ${FONT}`;
+  if ('letterSpacing' in g) g.letterSpacing = (-0.02 * tSize) + 'px';
+  g.fillText(p.name, cx, top + tCap);
 }
 
 /* ---------- Projektkép a pill belsejében (hoverre középről kinyílik; az üveg pereme megtöri) ---------- */
@@ -85,7 +95,7 @@ function makeImage(p, i) {
     uniforms: {
       uMap: { value: null }, uReveal: { value: 0 }, uAspect: { value: IW / IH }, uImgAspect: { value: 1.5 },
       uFocus: { value: new THREE.Vector2().fromArray(p.focus || [0.5, 0.5]) }, uTexSize: { value: new THREE.Vector2(1600, 1000) },
-      uTime: { value: 0 }, uDim: { value: 0.5 }, uFrostC: { value: 4.2 }, uFrostE: { value: 1.2 },
+      uTime: { value: 0 }, uDim: { value: 0.9 }, uFrostC: { value: 6.2 }, uFrostE: { value: 6.2 },   // Figma: 90%, erős, egyenletes elmosás
     },
   });
   new THREE.TextureLoader().load(p.image, tex => {
@@ -116,7 +126,8 @@ PROJECTS.forEach((p, i) => {
   const glassMat = new THREE.ShaderMaterial({
     vertexShader: glassVS, fragmentShader: glassFS,
     uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 },
-      uTint: { value: new THREE.Vector3().fromArray(p.color || [1, 1, 1]) } }),
+      uTint: { value: new THREE.Vector3().fromArray(p.color || [1, 1, 1]) },
+      uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 } }),   // Figma: belső fehér ragyogás
   });
 
   const holder = new THREE.Group(), spin = new THREE.Group();
@@ -124,7 +135,7 @@ PROJECTS.forEach((p, i) => {
   const glass = onLayer(new THREE.Mesh(pillGeo, glassMat), LAYER_GLASS);
   spin.add(glass);
   // a felirat mindkét előlapon, kicsivel az üveg előtt (LAYER_TEXT); a mélységteszt miatt a takart rész nem látszik
-  const fz = faceZ(S.depth / 100) + 0.004;
+  const fz = labelZ();
   const lf = onLayer(new THREE.Mesh(labelGeo, labelMat), LAYER_TEXT); lf.position.z = fz; spin.add(lf);
   const lb = onLayer(new THREE.Mesh(labelGeo, labelMat), LAYER_TEXT); lb.position.z = -fz; lb.rotation.y = Math.PI; spin.add(lb);
   const img = p.image ? makeImage(p, i) : null;
@@ -150,19 +161,20 @@ if (document.fonts && document.fonts.load) {
 }
 
 /* ---------- Depth csúszka: a pill-geometria újraépítése (legfeljebb kockánként egyszer) ---------- */
-let builtDepth = S.depth, geoPending = false;
+const geoKey = () => S.depth + '/' + S.thick;
+let builtKey = geoKey(), geoPending = false;
 function rebuildGeo() {
   geoPending = false;
-  if (builtDepth === S.depth) return;
-  builtDepth = S.depth;
+  if (builtKey === geoKey()) return;
+  builtKey = geoKey();
   const old = pillGeo;
-  pillGeo = buildPillGeo(S.depth / 100);
-  const fz = faceZ(S.depth / 100) + 0.004;          // a felirat az új előlapra kerül
+  pillGeo = buildPillGeo();
+  const fz = labelZ();                               // a felirat az új előlapra kerül
   pills.forEach(pl => { pl.glass.geometry = pillGeo; pl.lf.position.z = fz; pl.lb.position.z = -fz; });
   old.dispose();
 }
 export function requestGeoRebuild() {
-  if (!geoPending && builtDepth !== S.depth) { geoPending = true; requestAnimationFrame(rebuildGeo); }
+  if (!geoPending && builtKey !== geoKey()) { geoPending = true; requestAnimationFrame(rebuildGeo); }
 }
 
 /* ---------- Egér / érintés ---------- */

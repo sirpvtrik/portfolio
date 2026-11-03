@@ -48,13 +48,17 @@ function cleanShape(shape, segs) {
 }
 // perem mérete a Depth csúszkából (0..1)
 export const bevelOf = depth01 => 0.05 + depth01 * 0.32;
-// az előlap távolsága a lap közepétől (kihúzás 0,18 + a perem vastagsága); ide kerül a szöveg (LAYER_TEXT)
-export const faceZ = depth01 => 0.09 + bevelOf(depth01) * 0.95;
+// Vastagság (0..1, a Glass panel „Vastagság” csúszkája): a lap teste és a perem mélysége. 1 = a régi, dundi pill;
+// kisebb értéknél laposabb, a perem a szélén elnyúltabb, karcsúbb ív.
+export const slabDepth = thick01 => 0.02 + 0.16 * thick01;                       // a kihúzás (egyenes oldalfal)
+export const bevelZ = (depth01, thick01) => bevelOf(depth01) * (0.15 + 0.8 * thick01);   // a perem mélysége
+// az előlap távolsága a lap közepétől; ide kerül a szöveg (LAYER_TEXT)
+export const faceZ = (depth01, thick01 = 1) => slabDepth(thick01) / 2 + bevelZ(depth01, thick01);
 // vastag üveglap az alakból: shapeFn(belső szélesség, belső magasság) → Shape
-export function glassSlab(shapeFn, w, h, depth01, curveSegments) {
+export function glassSlab(shapeFn, w, h, depth01, curveSegments, thick01 = 1) {
   const b = bevelOf(depth01);
   const geo = new THREE.ExtrudeGeometry(cleanShape(shapeFn(w - 2 * b, h - 2 * b), curveSegments), {
-    depth: 0.18, bevelEnabled: true, bevelThickness: b * 0.95, bevelSize: b, bevelSegments: 16, curveSegments,
+    depth: slabDepth(thick01), bevelEnabled: true, bevelThickness: bevelZ(depth01, thick01), bevelSize: b, bevelSegments: 16, curveSegments,
   });
   geo.center();
   return smoothSides(geo);
