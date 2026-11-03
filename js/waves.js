@@ -27,17 +27,21 @@ export function setWavesCentered(on) { shiftTarget = on ? 1 : 0; }
    Lassan lélegzik (BREATH s: fényerő és magasság kicsit nő, majd visszahúzódik). Zenére: ha halkul, gyengébb a fénye
    (uLoud, az audio.js simítja lassan, így nem villog). A projekt-aloldalon kihalványul. */
 const BREATH = 6.5, BEAM_TOP = 0.8;   // BEAM_TOP: a csúcs magassága a képernyő magasságához (Figma: ~80%)
-let breathT = 0;
+const BEAM_RETRACT = 0.9;             // kattintásra ennyi idő alatt húzódik vissza fentről lefelé (s), visszalépéskor ugyanígy nő fel
+let breathT = 0, beamP = 1;           // beamP: 1 = kint van, 0 = visszahúzódott (projekt-aloldal)
 export function updateWaves(dt) {
   updateWaveColor(dt);
   shiftK = damp(shiftK, shiftTarget, 2.2, dt);
   breathT += dt;
   const b = 0.5 - 0.5 * Math.cos(breathT / BREATH * Math.PI * 2);   // 0 → 1 → 0, sima
-  const grow = beamIn();                                             // belépés: 0 → 1
-  WU.uBeam.value = (S.beam / 100) * (0.78 + 0.22 * b) * shiftK * WU.uLoud.value * Math.min(1, grow * 1.6);
-  WU.uBeamH.value = BEAM_TOP * (1 - Math.pow(1 - grow, 3));         // alulról felnő
+  // projekt nyitásakor a csúcs fentről lefelé visszahúzódik, visszalépéskor alulról újra felnő (simított, egyenletes ütemben)
+  beamP = Math.max(0, Math.min(1, beamP + (shiftTarget > 0.5 ? 1 : -1) * dt / BEAM_RETRACT));
+  const ret = beamP * beamP * (3 - 2 * beamP);
+  const grow = beamIn() * ret;                                       // belépés: 0 → 1
+  WU.uBeam.value = (S.beam / 100) * (0.78 + 0.22 * b) * WU.uLoud.value * Math.min(1, grow * 1.6);
+  WU.uBeamH.value = BEAM_TOP * (1 - Math.pow(1 - grow, 3));         // alulról felnő, kattintásra fentről lefelé visszahúzódik
   WU.uBeamS.value = 0.96 + 0.06 * b;
-  U.uLit.value = 0.3 + 0.7 * grow;                                   // a pillek a fénytől válnak láthatóvá
+  U.uLit.value = 0.3 + 0.7 * beamIn();                               // a pillek a fénytől válnak láthatóvá (belépéskor)
   WU.uRise.value = wavesRise();   // belépés: a szalagok alulról úsznak fel (a pillekkel együtt)
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
 }
