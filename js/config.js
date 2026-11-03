@@ -1,15 +1,18 @@
-/* ---------- Projektek (placeholder) ---------- */
+/* ---------- Projektek (Patrik listája) ---------- */
+// cat: a pillen a cím alatt nagybetűvel; meta: egyelőre nem jelenik meg
+// image: hoverre a pill belsejében középről kinyíló kép (focus: a kép melyik pontja kerüljön középre, 0..1)
+// A hullámok kattintásra a kép 3 árnyalatára váltanak (automatikusan a képből; palette: [[r,g,b] ×3] kézzel felülírja,
+// color: tartalék szín, ha nincs kép)
 export const PROJECTS = [
-  { id: 'P01', name: 'Water',     cat: 'Betűkészlet',    meta: 'Kísérleti display font' },
-  { id: 'P02', name: 'MP',        cat: 'Arculat',        meta: 'Saját jel' },
-  { id: 'P03', name: 'Chime',     cat: 'App koncepció',  meta: 'Csak hangüzenet' },
-  { id: 'P04', name: 'Időkövető', cat: 'Desktop app',    meta: 'Saját eszköz' },
-  { id: 'P05', name: 'Backrooms', cat: '3D web',         meta: 'Liminális portfólió' },
-  { id: 'P06', name: 'Csarnok',   cat: 'Social kampány', meta: 'Ipari csarnok' },
-  // image: hoverre a pill belsejében középről kinyíló kép (focus: a kép melyik pontja kerüljön középre, 0..1)
-  // A hullámok kattintásra a kép 3 árnyalatára váltanak (automatikusan a képből; palette: [[r,g,b] ×3] kézzel felülírja,
-  // color: tartalék szín, ha nincs kép)
-  { id: 'P07', name: 'Oldalra fújva', cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5] },
+  { id: 'P01', name: 'Water',           cat: 'Font',  meta: '' },
+  { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '' },
+  { id: 'P03', name: 'Prototype',       cat: 'Font',  meta: '' },
+  { id: 'P04', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5] },
+  { id: 'P05', name: 'Digitális pokol', cat: 'Print', meta: '' },
+  { id: 'P06', name: 'Painpoint',       cat: 'App',   meta: '' },
+  { id: 'P07', name: 'Ringme',          cat: 'Web',   meta: '' },
+  { id: 'P08', name: 'MDI Backrooms',   cat: 'Video', meta: '' },
+  { id: 'P09', name: 'Apória',          cat: 'Video', meta: '' },
 ];
 export const N = PROJECTS.length;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
