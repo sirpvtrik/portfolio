@@ -127,7 +127,7 @@ PROJECTS.forEach((p, i) => {
     vertexShader: glassVS, fragmentShader: glassFS,
     uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 },
       uTint: { value: new THREE.Vector3().fromArray(p.color || [1, 1, 1]) },
-      uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 } }),   // Figma: belső fehér ragyogás
+      uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 }, uLens: { value: 1 } }),   // Figma: belső fehér ragyogás
   });
 
   const holder = new THREE.Group(), spin = new THREE.Group();

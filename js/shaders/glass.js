@@ -5,8 +5,11 @@ export const glassVS = /* glsl */`
   varying vec3 vV;
   varying float vEdge;
   varying vec2 vLocal;
+  varying vec3 vTx, vTy;
   void main() {
-    vLocal = position.xy;                                    // a lap saját síkjában (a belső ragyogáshoz)
+    vLocal = position.xy;                                    // a lap saját síkjában (a belső ragyogáshoz, a lencséhez)
+    vTx = normalize(normalMatrix * vec3(1.0, 0.0, 0.0));     // a lap x / y iránya nézőtérben (a lencse-normálhoz)
+    vTy = normalize(normalMatrix * vec3(0.0, 1.0, 0.0));
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vN = normalize(normalMatrix * normal);
     vEdge = clamp((1.0 - abs(normal.z)) * 5.0, 0.0, 1.0);   // 0 a sík előlapon, 1 a peremen
@@ -24,11 +27,15 @@ export const glassFS = /* glsl */`
   uniform float uRad;     // a sarok sugara (pillnél a fél magasság)
   uniform float uGlow;    // belső fehér ragyogás a szélen (Figma: inset 0 0 35.9px -6px rgba(255,255,255,.45)); lapanként
   uniform float uGlowOn;  // a Glass panel „Perem-glow” kapcsolója (közös)
-  uniform float uRim;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
+  uniform float uRim;
+  uniform float uLens;    // lencse a lap szélén (liquid glass): 1 = pill, 0 = kártya
+  uniform vec2 uCurP;     // az egérfény helye (pixel, alulról) és ereje: a perem közelében elkapja a fényt
+  uniform float uCurL;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
   varying vec2 vLocal;
+  varying vec3 vTx, vTy;
 
   vec3 bgAt(vec2 uv) {
     vec3 s = texture2D(uBg, uv).rgb;
@@ -67,11 +74,25 @@ export const glassFS = /* glsl */`
 
     float spl = mix(pow(g, 1.4) * 2.2, 1.0, uSplay);
     float w = smoothstep(0.0, 1.0, vEdge);              // sík lap → tiszta, perem → törés
-    float amt = uRefr * 0.2 * spl * w * uThick;      // vékonyabb perem → kisebb törés (Depth)
-    float k = uDisp * 0.14 * w;
-    vec2 dR = dev(V, N, 1.0 / (1.5 - k)) * amt * asp;
-    vec2 dG = dev(V, N, 1.0 / 1.5)       * amt * asp;
-    vec2 dB = dev(V, N, 1.0 / (1.5 + k)) * amt * asp;
+    // lencse (Apple liquid glass): a sík lap a széle felé fokozatosan ívelten tör, középen tiszta marad;
+    // így a mögötte átúszó fény (pl. az egérfény) hajlik és torzul, nem tűnik tömörnek a pill
+    float lens = 0.0;
+    vec3 Nr = N;
+    if (uLens > 0.001) {
+      vec2 lq = abs(vLocal) - (uHalf - uRad);
+      float lsd = length(max(lq, 0.0)) + min(max(lq.x, lq.y), 0.0) - uRad;   // < 0 a körvonalon belül
+      float lb = 1.0 - clamp(-lsd / (uHalf.y * 0.62), 0.0, 1.0);
+      lens = lb * lb * lb * (1.0 - w) * uLens;
+      vec2 cq = vec2(clamp(vLocal.x, -(uHalf.x - uRad), uHalf.x - uRad), 0.0);
+      vec2 n2 = normalize(vLocal - cq + vec2(1e-5));
+      Nr = normalize(N + (vTx * n2.x + vTy * n2.y) * lens * 1.6);
+    }
+    float wr = max(w, lens);
+    float amt = uRefr * 0.2 * spl * (w * uThick + lens * 0.9);   // perem: Depth szerint; lencse: a lap szélén
+    float k = uDisp * 0.14 * wr;
+    vec2 dR = dev(V, Nr, 1.0 / (1.5 - k)) * amt * asp;
+    vec2 dG = dev(V, Nr, 1.0 / 1.5)       * amt * asp;
+    vec2 dB = dev(V, Nr, 1.0 / (1.5 + k)) * amt * asp;
     // diszperzió erősebb a peremen
     dR *= 1.0 - k * g * 1.5;
     dB *= 1.0 + k * g * 1.5;
@@ -82,6 +103,13 @@ export const glassFS = /* glsl */`
     col.b = bgAt(suv + dB).b;
 
     col *= mix(vec3(1.0), vec3(0.9, 0.93, 0.98), g);     // vastagabb üveg a peremen
+    // a perem és a lencse elkapja a közeli egérfényt: az üveg széle felragyog a fény felőli oldalon
+    if (uCurL > 0.001) {
+      vec2 dp = gl_FragCoord.xy - uCurP;
+      float rr = uRes.y * 0.1;
+      float near = exp(-dot(dp, dp) / (rr * rr));
+      col += vec3(near * (w * 0.9 + lens * 0.3) * uCurL * 0.45);
+    }
     col = mix(col, vec3(0.2), uFrost * 0.22);
     // projekt-szín hoverre (mint egy színes üveg billentyű): az üvegen át látott fény színeződik, a vastag részek
     // (perem, oldalfal) izzanak; a fehér tükröződések és csillanások ezután kerülnek rá, így fehérek maradnak

@@ -3,6 +3,7 @@
 // A nyom 6 pontja rugóval követi egymást (az első a kurzort, a többi az előzőt): ettől folyékony, nyúlós.
 // Érintőképernyőn: húzás / görgetés közben az ujjat követi, elengedve elhalványul (a kis fénypont is).
 import { WU } from './waves.js';
+import { U } from './scene.js';
 import { damp } from './util.js';
 
 const N = 6;
@@ -47,5 +48,7 @@ export function updateCursor(dt) {
   vx = damp(vx, pts[0].vx * dpr, 12, dt); vy = damp(vy, -pts[0].vy * dpr, 12, dt);
   WU.uCurV.value.set(vx, vy);
   WU.uCurE.value = energy;
+  U.uCurP.value.copy(WU.uCur.value[0]);              // az üveg pereme is elkapja (glass.js)
+  U.uCurL.value = base * 0.35 + energy * 0.8;
   WU.uCurB.value = base;
 }
