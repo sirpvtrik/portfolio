@@ -114,11 +114,12 @@ export const waveFS = /* glsl */`
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
-    // egérfény: a nyom pontjai metaball-szerűen (lágy, egymásba olvadó foltok) → folyékony, nyúló fény;
-    // mozgás közben erős, megállva elsötétül; a kurzorban mindig egy kis, lágy fénypont marad
+    // egérfény (Patrik referenciái): a kurzor egy kis „napfogyatkozás-gyűrű” – sötét belső korong, hajszálvékony fényes
+    // gyűrű, ami fent és lent a legerősebb, kívül halvány fényudvar –, és a gyűrű tetejéből lágy, felfelé táguló és
+    // halványuló fény száll fel (a második kép felső formája). Mozgás közben finom, halk fénycsíkot húz maga után.
     if (uCurB > 0.001 || uCurE > 0.001) {
       float H = uRes.y;
-      // a nyom egymás utáni pontjait folytonos, vékonyodó szakaszok kötik össze → gyors mozgásnál sem esik szét foltokra
+      // finom nyom: a rugós pontokat folytonos, vékonyodó szakaszok kötik össze
       float f = 0.0;
       for (int i = 0; i < 5; i++) {
         vec2 a = uCur[i], b = uCur[i + 1];
@@ -126,15 +127,34 @@ export const waveFS = /* glsl */`
         float t = clamp(dot(px - a, ab) / max(dot(ab, ab), 1e-3), 0.0, 1.0);
         vec2 dd = px - (a + ab * t);
         float k = (float(i) + t) / 5.0;                                // 0 a fejnél, 1 a farok végén
-        float r = H * mix(0.055, 0.018, k);                            // a fej vastag, a farok elvékonyodik
-        f = max(f, exp(-dot(dd, dd) / (r * r)) * (1.0 - 0.55 * k));
+        float r = H * mix(0.022, 0.006, k);
+        f = max(f, exp(-dot(dd, dd) / (r * r)) * (1.0 - 0.6 * k));
       }
-      float liquid = f * uCurE * 0.42;                                // folyékony csík, lágy széllel
+      float trail = f * uCurE * 0.16;
+      // a gyűrű
+      float R = H * 0.02;                                              // a gyűrű sugara
       vec2 dc = px - uCur[0];
-      float dc2 = dot(dc, dc);
-      float rc = H * 0.0045, rg = H * 0.028;
-      float dot0 = (exp(-dc2 / (rc * rc)) * 0.75 + exp(-dc2 / (rg * rg)) * 0.1) * uCurB;   // a kurzor kis fénye
-      v = 1.0 - (1.0 - v) * exp(-(liquid + dot0) * 1.4);
+      float d = length(dc);
+      vec2 dir = dc / max(d, 1e-3);
+      float pole = abs(dir.y);                                         // fent és lent erősebb
+      float lw = max(1.1, H * 0.0011);                                 // hajszálvékony
+      float ring = exp(-pow((d - R) / lw, 2.0)) * (0.3 + 0.7 * pow(pole, 4.0))
+                 + exp(-pow((d - R) / (lw * 3.0), 2.0)) * 0.35 * pow(pole, 8.0);   // fent és lent kivilágosodó sarló
+      float inner = exp(-max(R - d, 0.0) / (R * 0.14)) * step(d, R) * 0.12;          // belül halvány derengés a perem mentén
+      float halo = exp(-max(d - R, 0.0) / (R * 0.55)) * step(R, d) * 0.16 * (0.45 + 0.55 * pole);
+      // felszálló fény a gyűrű tetejéből (lágy, felfelé táguló, halványuló)
+      float yy = (dc.y - R * 0.55) / (R * 3.2);
+      float plume = 0.0;
+      if (yy > 0.0 && yy < 1.0) {
+        float wdt = R * (0.75 + 1.1 * yy);
+        plume = exp(-pow(dc.x / wdt, 2.0)) * pow(1.0 - yy, 1.4) * smoothstep(0.0, 0.12, yy) * 0.34;
+      }
+      float cur = (ring * 0.9 + inner + halo + plume) * uCurB;
+      // sötét belső korong (mint egy napfogyatkozásnál): a mögötte lévő fényt eltakarja
+      float disk = smoothstep(R, R - 2.0 * lw, d) * uCurB;
+      v *= 1.0 - 0.85 * disk;
+      vec3 cool = vec3(0.93, 0.96, 1.0);                               // enyhén hideg fehér, mint a referencián
+      v = 1.0 - (1.0 - v) * exp(-(trail + cur) * 1.4 * cool);
     }
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
     gl_FragColor = vec4(max(v, 0.0), 1.0);
