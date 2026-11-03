@@ -3,6 +3,7 @@
 export const waveFS = /* glsl */`
   precision highp float;
   uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise, uFlash;
+  uniform float uBeam, uBeamS;   // a középső fény erőssége és mérete (lélegzik; js/waves.js)
   uniform vec3 uPalA[3], uPalB[3];   // régi és új paletta (szalagonként egy árnyalat); a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
@@ -112,6 +113,14 @@ export const waveFS = /* glsl */`
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
+    // középső fény (Patrik Figma-terve, Desktop – 7): függőleges „diamond” színátmenet a képernyő közepén.
+    // Figmában 1440 × 1024-en: fél magassága 354 px, fél szélessége 40 px, középen 85%-os szürke, egyenletesen fut ki.
+    // Képernyőmagassághoz mérve, így minden képarányon ugyanolyan; a pillek mögött van, így az üveg megtöri.
+    if (uBeam > 0.001) {
+      vec2 dd = abs(px - uRes * 0.5) / uRes.y / uBeamS;
+      float tb = dd.y / 0.5 + dd.x / 0.0571;                            // L1 („diamond”) távolság, Figma-egységben
+      v += vec3(0.85 * clamp(1.0 - tb / 0.692, 0.0, 1.0) * uBeam);
+    }
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
     gl_FragColor = vec4(max(v, 0.0), 1.0);
   }`;
