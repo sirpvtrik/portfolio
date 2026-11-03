@@ -113,25 +113,23 @@ export const waveFS = /* glsl */`
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
-    // fénycsóva alulról (Patrik Figma-terve, Desktop – 8 + referencia): tiszta fehér, három rétegből
-    //   1) vékony, éles mag, ami lent a legfényesebb és felfelé hegyesre fut ki,
-    //   2) a Figma-háromszög: lent ~115 px széles (1440 × 1024-en), a csúcsa a magasság ~80%-ánál,
-    //   3) széles, lágy derengés, ami lent szétterül és felfelé gyorsan elhalványul.
-    // Képernyőmagassághoz mérve; a pillek mögött van (render target), így az üveg megtöri. uBeamH: a csúcs magassága (felnő).
+    // fénycsóva alulról (Patrik Figma-terve, Desktop – 9): vékony, tiszta fehér fényvonal a képernyő közepén,
+    // lent a legfényesebb, felfelé elvékonyodik és halványan kifut; körülötte lágy derengés, lent szélesebb fényudvar.
+    // A pillek mögött van (render target): az üveg elmossa és megtöri (glass.js). uBeamH: a csúcs magassága (felnő).
     if (uBeam > 0.001 && uBeamH > 0.001) {
       float H = uRes.y;
       float x = abs(px.x - uRes.x * 0.5) / H;
       float y = px.y / H;                                              // 0 lent, 1 fent
       float A = uBeamH * uBeamS;
       float s = clamp(1.0 - y / A, 0.0, 1.0);                          // 1 lent, 0 a csúcsnál
-      float tip = smoothstep(0.0, 0.12, s);                            // a csúcs lágyan fut ki
-      float wc = 0.0011 + 0.0042 * s;
-      float core = exp(-(x * x) / (wc * wc)) * (0.25 + 0.75 * s) * tip;
-      float wt = max(0.056 * s, 1e-4);
-      float tri = clamp(1.0 - x / wt, 0.0, 1.0) * s * tip;
-      float wh = 0.03 + 0.32 * s * s;
-      float haze = exp(-(x * x) / (wh * wh)) * s * s * tip;
-      float b = (core * 1.1 + tri * 0.28 + haze * 0.3) * uBeam * 0.22;   // a levegőben csak halványan: a fény az üvegben látszik (glass.js)
+      float tip = smoothstep(0.0, 0.25, s);                            // a csúcs lágyan fut ki
+      float wc = 0.0007 + 0.0011 * s;                                  // a mag: ~1–2 px
+      float core = exp(-(x * x) / (wc * wc)) * (0.3 + 0.7 * s) * tip;
+      float wg = 0.004 + 0.009 * s;
+      float glow = exp(-(x * x) / (wg * wg)) * s * tip;
+      float wh = 0.015 + 0.1 * s * s * s;
+      float haze = exp(-(x * x) / (wh * wh)) * s * s * s;
+      float b = (core * 1.0 + glow * 0.32 + haze * 0.22) * uBeam;
       v = 1.0 - (1.0 - v) * exp(-b * 1.6);                             // lágy összeadás, nem ég ki
     }
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
