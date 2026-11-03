@@ -17,6 +17,8 @@ export const glassFS = /* glsl */`
   uniform sampler2D uBg;
   uniform vec2  uRes;
   uniform float uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uHover, uPulse, uThick, uTintK;
+  uniform float uGlow;                // projekt-kártya hover: a perem izzik a kurzor körül (a pilleken 0)
+  uniform vec2  uMouse;               // a kurzor helye a képernyőn (drawing buffer px)
   uniform vec3 uTint;
   varying vec3 vN;
   varying vec3 vV;
@@ -92,6 +94,15 @@ export const glassFS = /* glsl */`
     col += smoothstep(0.78, 1.0, dot(R, Ld)) * 0.22 * uLightInt;               // sheen a lapon, ahogy forog
     col += pow(max(dot(N, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt;  // csillanás
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost;             // vékony világos kontúr
+
+    // kártya-hover: a kurzor „felveszi” a kártya formáját → a perem körben halványan, a kurzor közelében erősen izzik
+    if (uGlow > 0.001) {
+      float d = length(gl_FragCoord.xy - uMouse) / uRes.y;
+      float near = 1.0 / (1.0 + pow(d / 0.09, 2.0));                          // széles, puha lecsengés
+      float rim = max(smoothstep(0.1, 0.9, vEdge), smoothstep(0.7, 0.98, g));
+      col += vec3(0.9, 0.95, 1.0) * rim * (0.18 + 1.4 * near) * uGlow;
+      col += vec3(1.0) * pow(near, 2.5) * (1.0 - rim) * 0.05 * uGlow;       // halvány fényfolt a lapon
+    }
 
     gl_FragColor = vec4(col, 1.0);
   }`;
