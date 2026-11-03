@@ -5,8 +5,10 @@ export const glassVS = /* glsl */`
   varying vec3 vV;
   varying float vEdge;
   varying vec2 vLocal;
+  varying vec3 vWorld;
   void main() {
     vLocal = position.xy;                                    // a lap saját síkjában (a belső ragyogáshoz)
+    vWorld = (modelMatrix * vec4(position, 1.0)).xyz;        // a fénycsóvához (függőleges tengely: x = 0, z = 0)
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     vN = normalize(normalMatrix * normal);
     vEdge = clamp((1.0 - abs(normal.z)) * 5.0, 0.0, 1.0);   // 0 a sík előlapon, 1 a peremen
@@ -24,12 +26,15 @@ export const glassFS = /* glsl */`
   uniform float uRad;     // a sarok sugara (pillnél a fél magasság)
   uniform float uGlow;    // belső fehér ragyogás a szélen (Figma: inset 0 0 35.9px -6px rgba(255,255,255,.45)); lapanként
   uniform float uGlowOn;  // a Glass panel „Perem-glow” kapcsolója (közös)
-  uniform float uLit;     // belépéskor 0,3 → 1: a pillek a fénycsóvától válnak láthatóvá
+  uniform float uLit;
+  uniform float uBeamI;   // a fénycsóva ereje (lélegzik, zenére halkul; js/waves.js)
+  uniform float uBeamY;   // a csóva csúcsa világ-koordinátában (alulról felnő, kattintásra visszahúzódik)     // belépéskor 0,3 → 1: a pillek a fénycsóvától válnak láthatóvá
   uniform float uRim;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
   varying vec2 vLocal;
+  varying vec3 vWorld;
 
   vec3 bgAt(vec2 uv) {
     vec3 s = texture2D(uBg, uv).rgb;
@@ -111,6 +116,21 @@ export const glassFS = /* glsl */`
       float xpx = max(-sd, 0.0) / (2.0 * uHalf.y) * 164.0;             // távolság a széltől, Figma-pixelben
       float gl = 0.45 / (1.0 + exp(1.702 * (xpx + 6.0) / 17.95));
       col += vec3(gl * uGlow * uGlowOn * (0.4 + 0.6 * ndv) * uLit);          // az oldalfalon (súrolva) gyengébb
+    }
+
+    // fénycsóva az üvegen keresztül: a fény a pillek közepén, függőlegesen halad át (tengely: x = 0, z = 0).
+    // A levegőben alig látszik, az üvegben szóródik: középen lágy, világító sáv, a peremen (ahol be- és kilép) erősebb.
+    // Analitikus: a nézési sugár és a tengely legkisebb távolsága (vízszintes síkban), külön renderelés nélkül.
+    if (uBeamI > 0.001) {
+      vec3 D = normalize(vWorld - cameraPosition);
+      vec2 o = cameraPosition.xz, d2 = D.xz;
+      float l = length(d2);
+      float dist = l > 1e-4 ? abs(o.x * d2.y - o.y * d2.x) / l : length(o);
+      float hy = smoothstep(uBeamY, uBeamY - 0.9, vWorld.y);            // a csúcs fölött nincs fény, alatta lágyan kezdődik
+      float core = exp(-dist * dist / (0.075 * 0.075));                  // a sáv magja (lágy, hogy a felirat olvasható maradjon)
+      float scat = exp(-dist * dist / (0.5 * 0.5));                      // szóródás az üvegben, oldalra
+      float face = mix(0.26, 1.0, w);                                    // a lapon halkabb, a peremen (be- és kilépés) erős
+      col += vec3((core * 0.95 * face + scat * 0.11 * (1.0 + w))) * uBeamI * hy;
     }
 
     gl_FragColor = vec4(col, 1.0);

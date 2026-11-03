@@ -1,7 +1,7 @@
 // Hullámok a két szélen: teljes képernyős 2D shader, az üveg mögött (a render targetbe kerül, így a pillek megtörik)
 // Két stílus, a Glass panelen váltható: 0 = Fényszalag (alap), 1 = Üveg. A zenei reakciót az audio.js számolja.
 import { S } from './config.js';
-import { scene, onLayer, LAYER_BG, U } from './scene.js';
+import { scene, onLayer, LAYER_BG, U, visH } from './scene.js';
 import { damp } from './util.js';
 import { wavesRise, beamIn } from './entrance.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
@@ -42,6 +42,9 @@ export function updateWaves(dt) {
   WU.uBeamH.value = BEAM_TOP * (1 - Math.pow(1 - grow, 3));         // alulról felnő, kattintásra fentről lefelé visszahúzódik
   WU.uBeamS.value = 0.96 + 0.06 * b;
   U.uLit.value = 0.3 + 0.7 * beamIn();                               // a pillek a fénytől válnak láthatóvá (belépéskor)
+  // az üvegben: ugyanaz az erő; a csúcs a képernyő-arányból világ-magasságba (a kamera a 0-ra néz)
+  U.uBeamI.value = WU.uBeam.value;
+  U.uBeamY.value = (WU.uBeamH.value * WU.uBeamS.value - 0.5) * visH + 0.6;
   WU.uRise.value = wavesRise();   // belépés: a szalagok alulról úsznak fel (a pillekkel együtt)
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
 }

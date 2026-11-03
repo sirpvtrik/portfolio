@@ -131,7 +131,7 @@ export const waveFS = /* glsl */`
       float tri = clamp(1.0 - x / wt, 0.0, 1.0) * s * tip;
       float wh = 0.03 + 0.32 * s * s;
       float haze = exp(-(x * x) / (wh * wh)) * s * s * tip;
-      float b = (core * 1.1 + tri * 0.28 + haze * 0.3) * uBeam;
+      float b = (core * 1.1 + tri * 0.28 + haze * 0.3) * uBeam * 0.22;   // a levegőben csak halványan: a fény az üvegben látszik (glass.js)
       v = 1.0 - (1.0 - v) * exp(-b * 1.6);                             // lágy összeadás, nem ég ki
     }
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben

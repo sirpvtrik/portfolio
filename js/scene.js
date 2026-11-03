@@ -34,7 +34,9 @@ export const U = {
   uSplay: { value: 1 }, uLightAng: { value: -45 }, uLightInt: { value: 0.8 }, uPulse: { value: 0 },
   uThick: { value: 1 },   // a perem vastagsága a Depth alapértékéhez képest (a fénytörés ezzel arányos)
   uRim: { value: 0.35 },
-  uLit: { value: 1 },     // a pillek fényeinek (tükröződés, csillanás, ragyogás) ereje: belépéskor a fénycsóvával erősödik  // a perem tükröződéseinek erőssége (Glass panel „Perem”)
+  uLit: { value: 1 },
+  uBeamI: { value: 0 },   // a fénycsóva ereje az üvegben (js/waves.js állítja)
+  uBeamY: { value: -99 }, // a csóva csúcsa (világ y)     // a pillek fényeinek (tükröződés, csillanás, ragyogás) ereje: belépéskor a fénycsóvával erősödik  // a perem tükröződéseinek erőssége (Glass panel „Perem”)
   uGlowOn: { value: 1 },  // a Glass panel „Perem-glow” kapcsolója
 };
 
