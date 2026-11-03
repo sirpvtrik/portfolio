@@ -133,7 +133,26 @@ export const glassFS = /* glsl */`
     // halvány belső fényátmenet: a környezet lágy tükröződése a domború lapon (a fény felől világosabb, a túloldalon
     // sötétebb), így üres, fekete háttér előtt is üvegnek látszik; a forgással együtt csúszik
     float sky = 0.5 + 0.5 * dot(R, normalize(vec3(Ld.xy, 0.35)));
-    col += vec3(pow(sky, 2.2) * 0.075 + 0.012) * (0.55 + 0.45 * uLightInt) * uLens * (1.0 - w * 0.5);
+    col += vec3(pow(sky, 2.2) * 0.035 + 0.006) * (0.55 + 0.45 * uLightInt) * uLens * (1.0 - w * 0.5);
+
+    // üveg fekete háttéren: amit a vastag üveg belsejében futó fény mutat (a pilleken, a lapon)
+    //  - belső második él: a perem mögött, beljebb futó vékony fényvonal (a fény a belső falon visszaverődik)
+    //  - kausztika: a fénnyel szemközti oldalon a belső szélen fényes sarló, ahol az átmenő fény összegyűlik
+    //  - éles külső él a fény felőli oldalon
+    if (uLens > 0.001) {
+      vec2 eq = abs(vLocal) - (uHalf - uRad);
+      float esd = length(max(eq, 0.0)) + min(max(eq.x, eq.y), 0.0) - uRad;   // < 0 a körvonalon belül
+      float din = max(-esd, 0.0) / uHalf.y;                                    // távolság a széltől, fél-magasságban
+      vec2 ec = vec2(clamp(vLocal.x, -(uHalf.x - uRad), uHalf.x - uRad), 0.0);
+      vec2 en = normalize(vLocal - ec + vec2(1e-5));
+      vec2 eL = normalize(vec2(-cos(la), -sin(la)));
+      float toL = dot(en, eL);                                                 // 1: a fény felőli oldal, −1: a szemközti
+      float face = (1.0 - w) * uLens;
+      float innerEdge = exp(-pow((din - 0.3) / 0.035, 2.0)) * (0.12 + 0.38 * max(-toL, 0.0));
+      float caustic = exp(-din / 0.14) * pow(max(-toL, 0.0), 2.0) * 0.32;
+      float outerEdge = exp(-pow(din / 0.03, 2.0)) * (0.1 + 0.5 * max(toL, 0.0));
+      col += vec3(innerEdge + caustic + outerEdge) * face * (0.6 + 0.4 * uLightInt);
+    }
     col += smoothstep(0.86, 1.0, dot(R, Ld)) * 0.26 * uLightInt;        // sheen: keskeny csík, ami forgás közben végigsiklik
     col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás: lokális folt
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost * uRim;  // vékony világos kontúr
