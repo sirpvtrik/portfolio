@@ -24,7 +24,7 @@ export const glassFS = /* glsl */`
   uniform float uRad;     // a sarok sugara (pillnél a fél magasság)
   uniform float uGlow;    // belső fehér ragyogás a szélen (Figma: inset 0 0 35.9px -6px rgba(255,255,255,.45)); lapanként
   uniform float uGlowOn;  // a Glass panel „Perem-glow” kapcsolója (közös)
-  uniform float uBevel;   // a perem szélessége: az előlap ennyivel beljebb kezdődik
+  uniform float uRim;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
@@ -96,19 +96,20 @@ export const glassFS = /* glsl */`
     vec3 R = reflect(-V, N);
     float F = 0.05 + 0.95 * pow(g, 3.0);
     float boost = 1.0 + uPulse * 0.5 + uHover * 0.4;
-    col += vec3(envAt(R, Ld)) * F * uLightInt * boost;
+    float rimK = mix(1.0, uRim, w);                                            // a peremen a Perem csúszka szerint
+    col += vec3(envAt(R, Ld)) * F * uLightInt * boost * rimK;
     col += smoothstep(0.78, 1.0, dot(R, Ld)) * 0.22 * uLightInt;               // sheen a lapon, ahogy forog
-    col += pow(max(dot(N, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt;  // csillanás
-    col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost;             // vékony világos kontúr
+    col += pow(max(dot(N, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás
+    col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost * uRim;      // vékony világos kontúr
 
-    // belső ragyogás az előlapon: a perem kezdetétől befelé halványuló fehér fény (a lap magasságának ~20%-án fut ki).
-    // Csak a sík lapon (1 − w), a peremre és az oldalfalra nem kerül, különben ezüstös lesz.
+    // belső ragyogás, pontosan a Figma belső árnyéka szerint (inset 0 0 35.9px −6px, 45% fehér, a pill 164 px magas):
+    // a körvonal legszélén ~17% fehér, ~10 px-en a felére, ~30 px-re eltűnik. A normális eloszlás farka logisztikus közelítéssel.
     if (uGlow * uGlowOn > 0.001) {
       vec2 q = abs(vLocal) - (uHalf - uRad);
-      float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uRad + uBevel;   // < 0 az előlapon belül
-      float d = max(-sd, 0.0) / (uHalf.y * 0.4);                 // 0 a lap szélén, 1 a magasság ~20%-ánál
-      float gl = 0.24 * exp(-d * d * 2.6);                       // elmosott, lágy derengés (nem éles gyűrű)
-      col += vec3(gl * uGlow * uGlowOn * (1.0 - w * 0.7));
+      float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uRad;   // < 0 a körvonalon belül
+      float xpx = max(-sd, 0.0) / (2.0 * uHalf.y) * 164.0;             // távolság a széltől, Figma-pixelben
+      float gl = 0.45 / (1.0 + exp(1.702 * (xpx + 6.0) / 17.95));
+      col += vec3(gl * uGlow * uGlowOn * (0.4 + 0.6 * ndv));          // az oldalfalon (súrolva) gyengébb
     }
 
     gl_FragColor = vec4(col, 1.0);

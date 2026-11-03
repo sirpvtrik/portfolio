@@ -7,7 +7,7 @@ import { requestCardRebuild } from './project.js';
 import { bevelOf } from './glassgeo.js';
 
 const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
-const CTL = ['ang', 'int', 'refr', 'depth', 'thick', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
+const CTL = ['ang', 'int', 'refr', 'depth', 'thick', 'rim', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
 function applySettings() {
   U.uLightAng.value = S.ang;
   U.uLightInt.value = S.int / 100;
@@ -16,7 +16,7 @@ function applySettings() {
   U.uFrost.value = S.frost / 100;
   U.uSplay.value = S.splay / 100;
   U.uThick.value = bevelOf(S.depth / 100) / bevelOf(0.55);   // Depth 55-nél 1 (a megszokott törés)
-  U.uBevel.value = bevelOf(S.depth / 100);
+  U.uRim.value = S.rim / 100;
   U.uGlowOn.value = S.glow ? 1 : 0;
   document.getElementById('c-glow').checked = S.glow;
   requestGeoRebuild();
