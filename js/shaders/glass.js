@@ -129,32 +129,34 @@ export const glassFS = /* glsl */`
     float F = 0.05 + 0.95 * pow(g, 3.0);
     float boost = 1.0 + uPulse * 0.5 + uHover * 0.4;
     float rimK = mix(1.0, uRim, w);                                     // a peremen a Perem csúszka szerint
-    col += vec3(envAt(R, Ld)) * F * uLightInt * boost * rimK;
-    // halvány belső fényátmenet: a környezet lágy tükröződése a domború lapon (a fény felől világosabb, a túloldalon
-    // sötétebb), így üres, fekete háttér előtt is üvegnek látszik; a forgással együtt csúszik
-    float sky = 0.5 + 0.5 * dot(R, normalize(vec3(Ld.xy, 0.35)));
-    col += vec3(pow(sky, 2.2) * 0.035 + 0.006) * (0.55 + 0.45 * uLightInt) * uLens * (1.0 - w * 0.5);
-
-    // üveg fekete háttéren: amit a vastag üveg belsejében futó fény mutat (a pilleken, a lapon)
-    //  - belső második él: a perem mögött, beljebb futó vékony fényvonal (a fény a belső falon visszaverődik)
-    //  - kausztika: a fénnyel szemközti oldalon a belső szélen fényes sarló, ahol az átmenő fény összegyűlik
-    //  - éles külső él a fény felőli oldalon
     if (uLens > 0.001) {
+      // STÚDIÓ-ÜVEG (Patrik referenciája: üvegkorongok fekete háttéren) – a pilleken:
+      //  1) nagy, lágy softbox a fény felől: a domború lapon fokozatos fényfolt (egyik oldalon fehér, a másik felé
+      //     sötétbe fut), forgás közben végigsiklik; a lap többi része sötét és átlátszó marad
+      //  2) vékony csíkfény a túloldalról: a peremen és a lap szélén a Dispersion szerint szivárványra bomlik
+      //  3) tiszta, vékony szél
+      float li = 0.45 + 0.55 * uLightInt;
+      float face = 1.0 - w;
+      float sb = smoothstep(0.15, 0.97, dot(R, Ld));
+      col += vec3(sb * sb) * (0.42 * face + 0.85 * w * F + 0.1) * li * boost;
+      vec3 Ls = normalize(vec3(cos(la) * 0.55, 0.8, 0.35));
+      float kd = 0.045 * uDisp + 0.006;                                  // a színekre bomlás szélessége
+      float xs = dot(R, Ls);
+      vec3 strip = vec3(exp(-pow((xs + kd - 0.9) / 0.045, 2.0)), exp(-pow((xs - 0.9) / 0.045, 2.0)), exp(-pow((xs - kd - 0.9) / 0.045, 2.0)));
       vec2 eq = abs(vLocal) - (uHalf - uRad);
-      float esd = length(max(eq, 0.0)) + min(max(eq.x, eq.y), 0.0) - uRad;   // < 0 a körvonalon belül
-      float din = max(-esd, 0.0) / uHalf.y;                                    // távolság a széltől, fél-magasságban
-      vec2 ec = vec2(clamp(vLocal.x, -(uHalf.x - uRad), uHalf.x - uRad), 0.0);
-      vec2 en = normalize(vLocal - ec + vec2(1e-5));
-      vec2 eL = normalize(vec2(-cos(la), -sin(la)));
-      float toL = dot(en, eL);                                                 // 1: a fény felőli oldal, −1: a szemközti
-      float face = (1.0 - w) * uLens;
-      float innerEdge = exp(-pow((din - 0.3) / 0.035, 2.0)) * (0.12 + 0.38 * max(-toL, 0.0));
-      float caustic = exp(-din / 0.14) * pow(max(-toL, 0.0), 2.0) * 0.32;
-      float outerEdge = exp(-pow(din / 0.03, 2.0)) * (0.1 + 0.5 * max(toL, 0.0));
-      col += vec3(innerEdge + caustic + outerEdge) * face * (0.6 + 0.4 * uLightInt);
+      float din = max(-(length(max(eq, 0.0)) + min(max(eq.x, eq.y), 0.0) - uRad), 0.0) / uHalf.y;
+      float edgeZone = max(w, exp(-din / 0.18) * face);                  // a perem és a lap széle
+      col += strip * (0.25 + 1.1 * edgeZone) * li * rimK;
+      // a softbox is színekre bomlik a peremen (a szivárványos szegély a referencián)
+      vec3 sbc = vec3(smoothstep(0.15 + kd, 0.97, dot(R, Ld)), sb, smoothstep(0.15 - kd, 0.97, dot(R, Ld)));
+      col += (sbc - vec3(sb)) * 0.9 * w * li * rimK;
+      col += vec3(exp(-pow(din / 0.025, 2.0)) * 0.18 * face) * li;       // tiszta, vékony szél
+      col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 140.0) * 1.4 * li * rimK;   // csillanás
+    } else {
+      col += vec3(envAt(R, Ld)) * F * uLightInt * boost * rimK;
+      col += smoothstep(0.86, 1.0, dot(R, Ld)) * 0.26 * uLightInt;        // sheen
+      col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás
     }
-    col += smoothstep(0.86, 1.0, dot(R, Ld)) * 0.26 * uLightInt;        // sheen: keskeny csík, ami forgás közben végigsiklik
-    col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás: lokális folt
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost * uRim;  // vékony világos kontúr
 
     // belső ragyogás, pontosan a Figma belső árnyéka szerint (inset 0 0 35.9px −6px, 45% fehér, a pill 164 px magas):
@@ -175,4 +177,33 @@ export const glassFS = /* glsl */`
     }
 
     gl_FragColor = vec4(col, 1.0);
+  }`;
+
+// A pill belső, hátsó felülete (BackSide), a háttérbe (1-es réteg) rajzolva, csak fényként (additív): a túloldali perem
+// vékony fényvonala és a belső falak tükröződései szivárványos töréssel. Az elülső lap ezt az üvegen át, megtörve mutatja,
+// így látszik át a pill (ettől nem tömör test, mint a referencia üvegkorongjai).
+export const glassBackFS = /* glsl */`
+  precision highp float;
+  uniform float uLightAng, uLightInt, uDisp, uRim;
+  varying vec3 vN;
+  varying vec3 vV;
+  varying float vEdge;
+  varying vec2 vLocal;
+  varying vec3 vTx, vTy;
+  void main() {
+    vec3 N = -normalize(vN);                                   // a belső felület befelé néz
+    vec3 V = normalize(-vV);
+    float w = smoothstep(0.0, 1.0, vEdge);
+    float g = 1.0 - abs(dot(N, V));
+    float la = radians(uLightAng);
+    vec3 Ld = normalize(vec3(-cos(la), -sin(la), 0.7));
+    vec3 R = reflect(-V, N);
+    float li = 0.45 + 0.55 * uLightInt;
+    float sb = smoothstep(0.2, 0.97, dot(R, Ld));
+    vec3 Ls = normalize(vec3(cos(la) * 0.55, 0.8, 0.35));
+    float kd = 0.045 * uDisp + 0.006, xs = dot(R, Ls);
+    vec3 strip = vec3(exp(-pow((xs + kd - 0.9) / 0.06, 2.0)), exp(-pow((xs - 0.9) / 0.06, 2.0)), exp(-pow((xs - kd - 0.9) / 0.06, 2.0)));
+    vec3 col = vec3(sb * sb) * (0.07 + 0.6 * w * g) + strip * (0.18 + 0.9 * w);
+    col += vec3(smoothstep(0.55, 0.98, g)) * 0.32 * w;        // a túloldali perem vékony fényes vonala
+    gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim), 1.0);
   }`;

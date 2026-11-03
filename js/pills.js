@@ -1,7 +1,7 @@
 // Pill-torony: geometria, címke-textúrák, üveg, hover, görgetés
 import { PROJECTS, N, S, PW, PH, SP, TOWER_Y } from './config.js';
 import { renderer, camera, scene, canvas, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH } from './scene.js';
-import { glassVS, glassFS } from './shaders/glass.js';
+import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { damp } from './util.js';
 import { stadium, glassSlab, remapUV, faceZ } from './glassgeo.js';
 import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
@@ -111,6 +111,11 @@ function makeImage(p, i) {
 }
 
 /* ---------- Pillek ---------- */
+// a belső, hátsó felület anyaga (közös): additív, nem takarja el a mögötte lévő hullámokat, csak fényt ad
+const backMat = new THREE.ShaderMaterial({
+  vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: U,
+  side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+});
 const stack = new THREE.Group();
 stack.position.y = TOWER_Y;
 scene.add(stack);
@@ -134,6 +139,10 @@ PROJECTS.forEach((p, i) => {
   holder.add(spin);
   const glass = onLayer(new THREE.Mesh(pillGeo, glassMat), LAYER_GLASS);
   spin.add(glass);
+  // a pill belső, hátsó felülete a háttérbe, csak fényként: az elülső lap ezt megtörve mutatja → átlátszik (glassBackFS)
+  const back = onLayer(new THREE.Mesh(pillGeo, backMat), LAYER_BG);
+  back.renderOrder = 1;
+  spin.add(back);
   // a felirat mindkét előlapon, kicsivel az üveg előtt (LAYER_TEXT); a mélységteszt miatt a takart rész nem látszik
   const fz = labelZ();
   const lf = onLayer(new THREE.Mesh(labelGeo, labelMat), LAYER_TEXT); lf.position.z = fz; spin.add(lf);
@@ -148,7 +157,7 @@ PROJECTS.forEach((p, i) => {
   const baseY = ((N - 1) / 2 - i) * SP;
   holder.position.y = baseY;
   stack.add(holder);
-  pills.push({ holder, spin, glass, mat: glassMat, canvas: c, tex, lf, lb, img, rv: 0, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0,
+  pills.push({ holder, spin, glass, back, mat: glassMat, canvas: c, tex, lf, lb, img, rv: 0, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0,
     dy: 0, dvy: 0, dz: 0, drz: 0, dvrz: 0, ds: 1, delay: 0 });   // d*: leesés / visszaesés (dz: hátra, a projekt-kártyák mögé)
 });
 
@@ -170,7 +179,7 @@ function rebuildGeo() {
   const old = pillGeo;
   pillGeo = buildPillGeo();
   const fz = labelZ();                               // a felirat az új előlapra kerül
-  pills.forEach(pl => { pl.glass.geometry = pillGeo; pl.lf.position.z = fz; pl.lb.position.z = -fz; });
+  pills.forEach(pl => { pl.glass.geometry = pillGeo; pl.back.geometry = pillGeo; pl.lf.position.z = fz; pl.lb.position.z = -fz; });
   old.dispose();
 }
 export function requestGeoRebuild() {
