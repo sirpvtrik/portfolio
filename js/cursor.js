@@ -8,7 +8,7 @@ import { damp } from './util.js';
 const N = 6;
 const pts = Array.from({ length: N }, () => ({ x: -9999, y: -9999, vx: 0, vy: 0 }));
 let tx = -9999, ty = -9999, inside = false, seen = false, isTouch = false, touching = false;
-let energy = 0, base = 0, lastX = 0, lastY = 0, speed = 0;
+let energy = 0, base = 0, lastX = 0, lastY = 0, speed = 0, vx = 0, vy = 0;
 
 function move(e) {
   isTouch = e.pointerType === 'touch';
@@ -37,12 +37,15 @@ export function updateCursor(dt) {
   const H = innerHeight, dpr = WU.uRes.value.y / H;
   for (let i = 0; i < N; i++) {
     const p = pts[i], q = i === 0 ? { x: tx, y: ty } : pts[i - 1];
-    const k = i === 0 ? 260 : 150 - i * 14, c = i === 0 ? 26 : 17;
+    const k = i === 0 ? 180 : 70 - i * 7, c = i === 0 ? 19 : 10;   // laza, kissé alulcsillapított rugók: a nyom ívben követ, hullámzik
     p.vx += ((q.x - p.x) * k - p.vx * c) * dt;
     p.vy += ((q.y - p.y) * k - p.vy * c) * dt;
     p.x += p.vx * dt; p.y += p.vy * dt;
     WU.uCur.value[i].set(p.x * dpr, (H - p.y) * dpr);           // a shader pixelben, alulról mér
   }
+  // a fej sebessége a gyűrű cseppszerű nyúlásához (pixel/s, a shader koordinátáiban), simítva
+  vx = damp(vx, pts[0].vx * dpr, 12, dt); vy = damp(vy, -pts[0].vy * dpr, 12, dt);
+  WU.uCurV.value.set(vx, vy);
   WU.uCurE.value = energy;
   WU.uCurB.value = base;
 }

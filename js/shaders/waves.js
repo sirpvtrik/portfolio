@@ -5,6 +5,7 @@ export const waveFS = /* glsl */`
   uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise, uFlash;
   uniform vec2 uCur[6];      // az egérfény nyomának pontjai (pixel, alulról)
   uniform float uCurE, uCurB; // a mozgás energiája (0 → 1) és a kurzor kis fénye (0 → 1)
+  uniform vec2 uCurV;        // a kurzor (a rugós fej) sebessége, pixel/s: ettől nyúlik cseppé
   uniform vec3 uPalA[3], uPalB[3];   // régi és új paletta (szalagonként egy árnyalat); a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
@@ -127,13 +128,22 @@ export const waveFS = /* glsl */`
         float t = clamp(dot(px - a, ab) / max(dot(ab, ab), 1e-3), 0.0, 1.0);
         vec2 dd = px - (a + ab * t);
         float k = (float(i) + t) / 5.0;                                // 0 a fejnél, 1 a farok végén
-        float r = H * mix(0.022, 0.006, k);
-        f = max(f, exp(-dot(dd, dd) / (r * r)) * (1.0 - 0.6 * k));
+        float r = H * mix(0.03, 0.01, k) * (1.0 + 0.25 * sin(k * 9.0 - uTime * 3.0));   // lágyan hullámzó vastagság
+        float q = dot(dd, dd) / (r * r);
+        f = max(f, (exp(-q) * 0.7 + exp(-q * 0.2) * 0.3) * (1.0 - 0.65 * k));       // mag + füstös szél
       }
-      float trail = f * uCurE * 0.16;
+      float trail = f * uCurE * 0.17;
       // a gyűrű
       float R = H * 0.02;                                              // a gyűrű sugara
-      vec2 dc = px - uCur[0];
+      vec2 dc0 = px - uCur[0];
+      // folyékony csepp: a mozgás irányában megnyúlik (a hátsó oldalán jobban), oldalt kicsit vékonyodik
+      float sp = length(uCurV);
+      vec2 mv = sp > 1.0 ? uCurV / sp : vec2(0.0, 1.0), pv = vec2(-mv.y, mv.x);
+      float st = clamp(sp / (H * 2.2), 0.0, 0.7);
+      float al = dot(dc0, mv), pe = dot(dc0, pv);
+      al /= 1.0 + st * (al < 0.0 ? 1.5 : 0.45);
+      pe *= 1.0 + st * 0.3;
+      vec2 dc = mv * al + pv * pe;
       float d = length(dc);
       vec2 dir = dc / max(d, 1e-3);
       float pole = abs(dir.y);                                         // fent és lent erősebb
@@ -143,11 +153,11 @@ export const waveFS = /* glsl */`
       float inner = exp(-max(R - d, 0.0) / (R * 0.14)) * step(d, R) * 0.12;          // belül halvány derengés a perem mentén
       float halo = exp(-max(d - R, 0.0) / (R * 0.55)) * step(R, d) * 0.16 * (0.45 + 0.55 * pole);
       // felszálló fény a gyűrű tetejéből (lágy, felfelé táguló, halványuló)
-      float yy = (dc.y - R * 0.55) / (R * 3.2);
+      float yy = (dc0.y - R * 0.55) / (R * 3.2);
       float plume = 0.0;
       if (yy > 0.0 && yy < 1.0) {
         float wdt = R * (0.75 + 1.1 * yy);
-        plume = exp(-pow(dc.x / wdt, 2.0)) * pow(1.0 - yy, 1.4) * smoothstep(0.0, 0.12, yy) * 0.34;
+        plume = exp(-pow(dc0.x / wdt, 2.0)) * pow(1.0 - yy, 1.4) * smoothstep(0.0, 0.12, yy) * 0.34;
       }
       float cur = (ring * 0.9 + inner + halo + plume) * uCurB;
       // sötét belső korong (mint egy napfogyatkozásnál): a mögötte lévő fényt eltakarja

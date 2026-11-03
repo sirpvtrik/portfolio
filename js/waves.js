@@ -10,7 +10,7 @@ import { waveFS } from './shaders/waves.js';
 export const WU = { uTime: { value: 0 }, uAmp: { value: 0 }, uPush: { value: 0 }, uGain: { value: 1 }, uReact: { value: 1.2 }, uBeat: { value: 0 }, uRes: U.uRes, uBands: { value: [0, 0, 0, 0, 0, 0] }, uFlowY: { value: 0 }, uStyle: { value: 0 }, uShift: { value: 0 },
   uPalA: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uPalB: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uColFront: { value: 1.2 }, uRise: { value: 0 }, uFlash: { value: 0 },
   // egérfény (js/cursor.js állítja): a nyom pontjai pixelben, a mozgás energiája és a kurzor kis fénye
-  uCur: { value: [0, 1, 2, 3, 4, 5].map(() => new THREE.Vector2(-9999, -9999)) }, uCurE: { value: 0 }, uCurB: { value: 0 } };
+  uCur: { value: [0, 1, 2, 3, 4, 5].map(() => new THREE.Vector2(-9999, -9999)) }, uCurE: { value: 0 }, uCurB: { value: 0 }, uCurV: { value: new THREE.Vector2() } };
 const waveMat = new THREE.ShaderMaterial({
   uniforms: WU, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   extensions: { derivatives: true },
