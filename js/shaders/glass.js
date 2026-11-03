@@ -130,6 +130,10 @@ export const glassFS = /* glsl */`
     float boost = 1.0 + uPulse * 0.5 + uHover * 0.4;
     float rimK = mix(1.0, uRim, w);                                     // a peremen a Perem csúszka szerint
     col += vec3(envAt(R, Ld)) * F * uLightInt * boost * rimK;
+    // halvány belső fényátmenet: a környezet lágy tükröződése a domború lapon (a fény felől világosabb, a túloldalon
+    // sötétebb), így üres, fekete háttér előtt is üvegnek látszik; a forgással együtt csúszik
+    float sky = 0.5 + 0.5 * dot(R, normalize(vec3(Ld.xy, 0.35)));
+    col += vec3(pow(sky, 2.2) * 0.075 + 0.012) * (0.55 + 0.45 * uLightInt) * uLens * (1.0 - w * 0.5);
     col += smoothstep(0.86, 1.0, dot(R, Ld)) * 0.26 * uLightInt;        // sheen: keskeny csík, ami forgás közben végigsiklik
     col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás: lokális folt
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost * uRim;  // vékony világos kontúr
