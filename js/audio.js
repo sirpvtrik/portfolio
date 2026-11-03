@@ -225,6 +225,7 @@ export function seekTo(pos) {
 const BANDS = 64;   // a spektrum ennyi logaritmikus sávra bontva
 const levels = new Float32Array(BANDS);
 let musicAmt = 0, pulse = 0, elapsed = 0, reach = 0, scrollPush = 0;
+let loudS = 0, loudPeak = 0.25;   // a fénycsóvához: lassan simított hangerő és a saját automatikus erősítése
 let prevL = 0, prevM = 0, prevH = 0, surge = 0, surgeS = 0, flowVel = 0, flowY = 0, bassSlow = 0;   // hangszerenkénti gyorsulás
 
 export function updateAudio(dt) {
@@ -254,6 +255,12 @@ export function updateAudio(dt) {
     WU.uBands.value[j] = a / (r1 - r0);
   }
   pulse = damp(pulse, low * musicAmt, 9, dt);                  // simított, nem villog minden ütésre
+  // fénycsóva: a zene összhangereje lassan simítva (felfelé ~0,7 s, lefelé ~1,5 s), a saját csúcsához mérve;
+  // halk résznél legfeljebb ~45%-kal gyengül, zene nélkül teljes erejű, így nem zavaró és nem villog
+  const loud = hasData ? (low + mid + high) / 3 : 0;
+  loudPeak = Math.max(loud, loudPeak * Math.exp(-dt * 0.05), 0.05);
+  loudS = damp(loudS, Math.min(1, loud / loudPeak), loud > loudS ? 1.4 : 0.65, dt);
+  WU.uLoud.value = 1 - musicAmt * (1 - (0.55 + 0.45 * loudS));
   U.uPulse.value = pulse;
   const R = S.react / 50;                                   // 0..2
   // Lendület: új ütés a mélyben / közepen / magasban → rövid gyorsulás, ami simán lecseng

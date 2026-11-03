@@ -3,12 +3,12 @@
 import { S } from './config.js';
 import { scene, onLayer, LAYER_BG, U } from './scene.js';
 import { damp } from './util.js';
-import { wavesRise, wavesIn } from './entrance.js';
+import { wavesRise, beamIn } from './entrance.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { waveFS } from './shaders/waves.js';
 
 export const WU = { uTime: { value: 0 }, uAmp: { value: 0 }, uPush: { value: 0 }, uGain: { value: 1 }, uReact: { value: 1.2 }, uBeat: { value: 0 }, uRes: U.uRes, uBands: { value: [0, 0, 0, 0, 0, 0] }, uFlowY: { value: 0 }, uStyle: { value: 0 }, uShift: { value: 0 },
-  uPalA: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uPalB: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uColFront: { value: 1.2 }, uRise: { value: 0 }, uFlash: { value: 0 }, uBeam: { value: 0 }, uBeamS: { value: 1 } };
+  uPalA: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uPalB: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uColFront: { value: 1.2 }, uRise: { value: 0 }, uFlash: { value: 0 }, uBeam: { value: 0 }, uBeamS: { value: 1 }, uBeamH: { value: 0 }, uLoud: { value: 1 } };
 const waveMat = new THREE.ShaderMaterial({
   uniforms: WU, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending,
   extensions: { derivatives: true },
@@ -23,17 +23,21 @@ scene.add(onLayer(waveQuad, LAYER_BG));
    A Középre csúszka értéke × shiftK; nyitott projekt-aloldalnál shiftK → 0, így a szalagok finoman kiúsznak a szélekre */
 let shiftK = 1, shiftTarget = 1;
 export function setWavesCentered(on) { shiftTarget = on ? 1 : 0; }
-/* ---------- Középső fény: lassan lélegzik (be: kicsit erősebb és nyúlik, ki: visszahúzódik) ----------
-   BREATH: egy lélegzet hossza (s); a projekt-aloldalon kihalványul, belépéskor a hullámokkal együtt jelenik meg */
-const BREATH = 6.5;
+/* ---------- Fénycsóva: alulról felnő, miután a pillek megérkeztek, és fényt ad nekik ----------
+   Lassan lélegzik (BREATH s: fényerő és magasság kicsit nő, majd visszahúzódik). Zenére: ha halkul, gyengébb a fénye
+   (uLoud, az audio.js simítja lassan, így nem villog). A projekt-aloldalon kihalványul. */
+const BREATH = 6.5, BEAM_TOP = 0.8;   // BEAM_TOP: a csúcs magassága a képernyő magasságához (Figma: ~80%)
 let breathT = 0;
 export function updateWaves(dt) {
   updateWaveColor(dt);
   shiftK = damp(shiftK, shiftTarget, 2.2, dt);
   breathT += dt;
   const b = 0.5 - 0.5 * Math.cos(breathT / BREATH * Math.PI * 2);   // 0 → 1 → 0, sima
-  WU.uBeam.value = (S.beam / 100) * (0.72 + 0.28 * b) * shiftK * wavesIn();
-  WU.uBeamS.value = 0.93 + 0.1 * b;
+  const grow = beamIn();                                             // belépés: 0 → 1
+  WU.uBeam.value = (S.beam / 100) * (0.78 + 0.22 * b) * shiftK * WU.uLoud.value * Math.min(1, grow * 1.6);
+  WU.uBeamH.value = BEAM_TOP * (1 - Math.pow(1 - grow, 3));         // alulról felnő
+  WU.uBeamS.value = 0.96 + 0.06 * b;
+  U.uLit.value = 0.3 + 0.7 * grow;                                   // a pillek a fénytől válnak láthatóvá
   WU.uRise.value = wavesRise();   // belépés: a szalagok alulról úsznak fel (a pillekkel együtt)
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
 }

@@ -358,6 +358,7 @@ export function updatePills(dt) {
     pl.s = damp(pl.s, isH ? 1.07 : (any ? 0.96 : 1), 6, dt);
     pl.hv = damp(pl.hv, isH ? 1 : 0, 6, dt);
     pl.mat.uniforms.uHover.value = pl.hv;
+    pl.lf.material.opacity = 0.35 + 0.65 * (U.uLit.value - 0.3) / 0.7;   // belépéskor a felirat is a fénycsóvával erősödik
     if (pl.img) {                                   // projektkép: hoverre középről kinyílik, elengedve visszahúzódik
       const on = i === hovered || (touchUI && i === centerIdx);
       pl.rv = damp(pl.rv, on ? 1 : 0, on ? 2.4 : 3.2, dt);
