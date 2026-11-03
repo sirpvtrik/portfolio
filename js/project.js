@@ -4,7 +4,7 @@
 // Galéria: valódi 3D henger, a sugara a rács fél szélessége (nem lóg ki a rács szélén). Amikor középre ér, az egész lap
 // megáll, és a görgetés a hengert forgatja; ha az utolsó kép is beért, a lap megy tovább.
 import { S, reduced, DETAIL_TEST, PROJECTS } from './config.js';
-import { scene, renderer, camera, bufSize, onLayer, LAYER_BG, LAYER_GLASS, U, visH, setCameraLift } from './scene.js';
+import { scene, renderer, onLayer, LAYER_BG, LAYER_GLASS, U, visH, setCameraLift } from './scene.js';
 import { glassVS, glassFS } from './shaders/glass.js';
 import { roundedRect, glassSlab, remapUV, bevelOf } from './glassgeo.js';
 import { onSelect, restorePills } from './pills.js';
@@ -19,9 +19,6 @@ const backBtn = document.getElementById('projectBack');
 export let isOpen = false;
 let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = -1, depthPending = false;
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
-// kurzor a kártyák fölött: a perem izzik a kurzor körül, a rendszer-kurzor helyett
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-let pointerIn = false, mouseX = 0, mouseY = 0;
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 
@@ -110,14 +107,11 @@ function galleryDrawer(src) {
 function makeCard(wpx, hpx, k, depth01, draw, order) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
   const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10);
-  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uGlow: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
+  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) } }) });
   const holder = new THREE.Group(), spin = new THREE.Group();
   holder.add(spin);
   spin.add(onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS));
-  const hit = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial());   // láthatatlan találati lap (0-s réteg)
-  hit.visible = false; spin.add(hit);
-  const card = { holder, spin, geo, mat, hit, a: 0, av: 0, glow: 0, order, wpx, hpx };
-  hit.userData.card = card;
+  const card = { holder, spin, geo, mat, a: 0, av: 0, order, wpx, hpx };
   if (draw) {
     const q = Math.min(2, window.devicePixelRatio || 1) * 1.25;
     const cv = document.createElement('canvas'); cv.width = Math.round(wpx * q); cv.height = Math.round(hpx * q);
@@ -157,7 +151,7 @@ function build() {
 function dispose() {
   if (!group) return;
   scene.remove(group);
-  [...cards, ...gal].forEach(c => { c.geo.dispose(); c.mat.dispose(); c.hit.geometry.dispose(); c.hit.material.dispose(); if (c.tex) { c.tex.dispose(); c.pgeo.dispose(); c.pmat.dispose(); } });
+  [...cards, ...gal].forEach(c => { c.geo.dispose(); c.mat.dispose(); if (c.tex) { c.tex.dispose(); c.pgeo.dispose(); c.pmat.dispose(); } });
   group = null; cards = []; gal = [];
 }
 
@@ -179,7 +173,6 @@ function close() {
     dispose();
     root.hidden = true;
     document.body.classList.remove('project-open');
-    input.style.cursor = '';
     setWavesCentered(true);
     setWaveColor(null);
     restorePills();
@@ -211,7 +204,6 @@ input.addEventListener('pointerdown', e => {
   try { input.setPointerCapture(e.pointerId); } catch (_) {}
 });
 input.addEventListener('pointermove', e => {
-  if (e.pointerType !== 'touch') { pointerIn = true; mouseX = e.clientX; mouseY = e.clientY; }
   if (!dragging) return;
   const dy = e.clientY - dragY; dragY = e.clientY;
   const now = performance.now(), dts = Math.max(8, now - dragT) / 1000; dragT = now;
@@ -220,7 +212,6 @@ input.addEventListener('pointermove', e => {
 const endDrag = () => { if (dragging && performance.now() - dragT > 90) vel = 0; dragging = false; };
 input.addEventListener('pointerup', endDrag);
 input.addEventListener('pointercancel', endDrag);
-input.addEventListener('pointerleave', () => { pointerIn = false; });
 document.addEventListener('keydown', e => {
   if (!isOpen) return;
   if (e.key === 'Escape') { close(); return; }
@@ -228,27 +219,6 @@ document.addEventListener('keydown', e => {
   const step = { ArrowDown: 700, PageDown: 1600, ' ': 1600, ArrowUp: -700, PageUp: -1600 }[e.key];
   if (step) { vel = clamp(vel + step, -7000, 7000); e.preventDefault(); }
 });
-
-/* ---------- Perem-fény: a kurzor alatti kártya pereme izzik, a fény a kurzort követi ---------- */
-function updateGlow(dt) {
-  let hovered = null;
-  if (pointerIn && !closing && !dragging) {
-    ndc.set(mouseX / innerWidth * 2 - 1, -(mouseY / innerHeight) * 2 + 1);
-    ray.setFromCamera(ndc, camera);
-    const targets = cards.concat(gal).filter(c => c.spin.visible && c.a > 0.5).map(c => c.hit);
-    const hit = ray.intersectObjects(targets, false)[0];
-    if (hit) hovered = hit.object.userData.card;
-  }
-  input.style.cursor = hovered ? 'none' : '';
-  // a fény finoman utánasiklik a kurzornak (drawing buffer pixelben, alulról mérve, mint a gl_FragCoord)
-  const m = U.uMouse.value, pr = bufSize.x / innerWidth, tx = mouseX * pr, ty = (innerHeight - mouseY) * pr;
-  if (!hovered && cards.concat(gal).every(c => c.glow < 0.01)) m.set(tx, ty);   // új kártyánál onnan indul, ahol a kurzor van
-  m.x = damp(m.x, tx, 20, dt); m.y = damp(m.y, ty, 20, dt);
-  cards.concat(gal).forEach(c => {
-    c.glow = damp(c.glow, c === hovered ? 1 : 0, hovered === c ? 10 : 5, dt);
-    c.mat.uniforms.uGlow.value = reduced ? (c === hovered ? 1 : 0) : c.glow;
-  });
-}
 
 /* ---------- Kockánkénti frissítés ---------- */
 // dob, mint a pilleknél: középen teljes méret; felfelé/lefelé hátradől, mélyebbre kerül, kisebb lesz
@@ -274,7 +244,6 @@ export function updateProject(dt) {
     build(); cards.concat(gal).forEach(c => { c.a = 1; c.av = 0; });
   }
   openT += dt;
-  updateGlow(dt);
   // fizika
   if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
   if (s < 0) { s = 0; vel = Math.max(0, vel); }

@@ -31,8 +31,7 @@ export const U = {
   uRes: { value: new THREE.Vector2(1, 1) },
   uRefr: { value: 1 }, uDisp: { value: 0.5 }, uFrost: { value: 0 },
   uSplay: { value: 1 }, uLightAng: { value: -45 }, uLightInt: { value: 0.8 }, uPulse: { value: 0 },
-  uThick: { value: 1 },
-  uMouse: { value: new THREE.Vector2(-1e4, -1e4) },   // kurzor (drawing buffer px) a kártyák perem-fényéhez   // a perem vastagsága a Depth alapértékéhez képest (a fénytörés ezzel arányos)
+  uThick: { value: 1 },   // a perem vastagsága a Depth alapértékéhez képest (a fénytörés ezzel arányos)
 };
 
 // a render target kirajzolása a képernyőre (így a háttér csak egyszer számolódik)

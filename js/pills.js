@@ -81,7 +81,7 @@ PROJECTS.forEach((p, i) => {
   const labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.FrontSide });
   const glassMat = new THREE.ShaderMaterial({
     vertexShader: glassVS, fragmentShader: glassFS,
-    uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uGlow: { value: 0 },
+    uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 },
       uTint: { value: new THREE.Vector3().fromArray(p.color || [1, 1, 1]) } }),
   });
 
