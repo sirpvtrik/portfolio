@@ -18,13 +18,14 @@ export const N = PROJECTS.length;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: 180, int: 34, refr: 100, depth: 15, thick: 100, glow: false, rim: 100, disp: 0, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0 };   // Patrik beállításai (Másolás)
+export const DEFAULTS = { ang: 180, int: 27, refr: 0, depth: 5, thick: 100, glow: false, rim: 0, disp: 0, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0 };   // Patrik beállításai (Másolás)
 // az aktuális beállítások (a Glass panel írja, mindenki más olvassa)
 export const S = Object.assign({}, DEFAULTS);
 
 /* ---------- Pill méretek ---------- */
 export const PW = 3.8, PH = 1.416;  // egy pill szélessége / magassága (Figma: 440 × 164)
 export const SP = 1.5;              // a pillek távolsága a toronyban
+export const VIEW_N = 7;            // a kamera ennyi pill magasságához igazodik (a pillek mérete ettől nem függ a projektek számától; a többi görgetéssel jön)
 export const TOWER_Y = -0.45;       // a torony függőleges eltolása (negatív = lejjebb; alul már nincs felirat)
 
 /* ---------- MP logó útvonalai ---------- */

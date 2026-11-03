@@ -1,5 +1,5 @@
 // Renderer, kamera, render target, rétegek és a render loop
-import { N, PW, SP } from './config.js';
+import { VIEW_N, PW, SP } from './config.js';
 import { fullscreenVS, blitFS } from './shaders/fullscreen.js';
 
 /* ---------- Renderer ---------- */
@@ -59,7 +59,7 @@ function resize() {
   U.uRes.value.copy(bufSize);
   camera.aspect = w / h;
   const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const needH = N * SP + 0.9, needW = PW + 1.2;
+  const needH = VIEW_N * SP + 0.9, needW = PW + 1.2;   // 7 pill fér be, mint eddig; a többi görgetéssel jön
   const dist = Math.max(needH / 2 / t, needW / 2 / (t * camera.aspect));
   camDist = dist;
   camera.position.set(0, camLift, dist);
