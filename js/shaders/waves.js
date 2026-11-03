@@ -116,22 +116,9 @@ export const waveFS = /* glsl */`
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
     // egérfény (Patrik referenciája): a kurzor egy kis „napfogyatkozás-gyűrű” – sötét belső korong, hajszálvékony fényes
-    // gyűrű, ami fent és lent a legerősebb, kívül halvány fényudvar. Mozgás közben finom, halk fénycsíkot húz maga után.
-    if (uCurB > 0.001 || uCurE > 0.001) {
+    // gyűrű, ami fent és lent a legerősebb, kívül halvány fényudvar. Mozgás közben cseppként nyúlik (nyom nélkül).
+    if (uCurB > 0.001) {
       float H = uRes.y;
-      // finom nyom: a rugós pontokat folytonos, vékonyodó szakaszok kötik össze
-      float f = 0.0;
-      for (int i = 0; i < 5; i++) {
-        vec2 a = uCur[i], b = uCur[i + 1];
-        vec2 ab = b - a;
-        float t = clamp(dot(px - a, ab) / max(dot(ab, ab), 1e-3), 0.0, 1.0);
-        vec2 dd = px - (a + ab * t);
-        float k = (float(i) + t) / 5.0;                                // 0 a fejnél, 1 a farok végén
-        float r = H * mix(0.03, 0.01, k) * (1.0 + 0.25 * sin(k * 9.0 - uTime * 3.0));   // lágyan hullámzó vastagság
-        float q = dot(dd, dd) / (r * r);
-        f = max(f, (exp(-q) * 0.7 + exp(-q * 0.2) * 0.3) * (1.0 - 0.65 * k));       // mag + füstös szél
-      }
-      float trail = f * uCurE * 0.17;
       // a gyűrű
       float R = H * 0.02;                                              // a gyűrű sugara
       vec2 dc0 = px - uCur[0];
@@ -156,7 +143,7 @@ export const waveFS = /* glsl */`
       float disk = smoothstep(R, R - 2.0 * lw, d) * uCurB;
       v *= 1.0 - 0.85 * disk;
       vec3 cool = vec3(0.93, 0.96, 1.0);                               // enyhén hideg fehér, mint a referencián
-      v = 1.0 - (1.0 - v) * exp(-(trail + cur) * 1.4 * cool);
+      v = 1.0 - (1.0 - v) * exp(-cur * 1.4 * cool);
     }
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
     gl_FragColor = vec4(max(v, 0.0), 1.0);

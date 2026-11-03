@@ -121,13 +121,17 @@ export const glassFS = /* glsl */`
 
     float la = radians(uLightAng);
     vec3 Ld = normalize(vec3(-cos(la), -sin(la), 0.7));
-    vec3 R = reflect(-V, N);
+    // tükröződéshez a lap enyhén domború (mint a liquid glass): így a fény nem önti el egyszerre, egyenletesen az egész
+    // sík lapot (ettől tűnt tömör szürke műanyagnak), hanem csíkként / foltként jelenik meg, és forgás közben végigsiklik
+    // rajta; a többi része átlátszó marad. A fénytörés a sík (lencsés) normállal megy, a közép tiszta marad.
+    vec3 Nc = normalize(Nr + (vTx * vLocal.x + vTy * vLocal.y) * 0.16 * uLens * (1.0 - w));
+    vec3 R = reflect(-V, Nc);
     float F = 0.05 + 0.95 * pow(g, 3.0);
     float boost = 1.0 + uPulse * 0.5 + uHover * 0.4;
     float rimK = mix(1.0, uRim, w);                                     // a peremen a Perem csúszka szerint
     col += vec3(envAt(R, Ld)) * F * uLightInt * boost * rimK;
-    col += smoothstep(0.78, 1.0, dot(R, Ld)) * 0.22 * uLightInt;        // sheen a lapon, ahogy forog
-    col += pow(max(dot(N, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás
+    col += smoothstep(0.86, 1.0, dot(R, Ld)) * 0.26 * uLightInt;        // sheen: keskeny csík, ami forgás közben végigsiklik
+    col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás: lokális folt
     col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost * uRim;  // vékony világos kontúr
 
     // belső ragyogás, pontosan a Figma belső árnyéka szerint (inset 0 0 35.9px −6px, 45% fehér, a pill 164 px magas):
