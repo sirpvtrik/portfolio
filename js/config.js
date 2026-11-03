@@ -15,7 +15,7 @@ export const N = PROJECTS.length;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: 0, int: 34, refr: 100, depth: 15, thick: 100, glow: true, rim: 0, beam: 100, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 41, wlight: 100, wpush: 25, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0 };   // Patrik beállításai (Másolás)
+export const DEFAULTS = { ang: 180, int: 34, refr: 100, depth: 15, thick: 100, glow: false, rim: 100, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0 };   // Patrik beállításai (Másolás)
 // az aktuális beállítások (a Glass panel írja, mindenki más olvassa)
 export const S = Object.assign({}, DEFAULTS);
 

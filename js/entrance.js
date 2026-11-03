@@ -26,7 +26,5 @@ export const wavesIn = () => P ? easeInOut(introK(P.rise, P.wavesFade)) : 1;
 export const wavesRise = () => P ? P.wavesDist * (1 - easeOut4(introK(P.rise, P.wavesDur))) : 0;
 // az i. pill még hátralévő emelkedése (képernyőmagasságban)
 export const pillRise = i => P ? P.pillsDist * (1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur))) : 0;
-// a fénycsóva felnövése (0 → 1); a pillek fényei is ezzel erősödnek
-export const beamIn = () => P ? introK(P.beam, P.beamDur) : 1;
 // a lejátszó-blob átlátszósága (a HTML felülettel együtt jelenik meg)
 export const uiIn = () => P ? introK(P.ui / 1000, P.uiDur / 1000) : 1;

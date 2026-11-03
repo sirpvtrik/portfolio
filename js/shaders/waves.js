@@ -3,7 +3,8 @@
 export const waveFS = /* glsl */`
   precision highp float;
   uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise, uFlash;
-  uniform float uBeam, uBeamS, uBeamH;   // a fénycsóva erőssége, lélegző mérete és a csúcs magassága (js/waves.js)
+  uniform vec2 uCur[6];      // az egérfény nyomának pontjai (pixel, alulról)
+  uniform float uCurE, uCurB; // a mozgás energiája (0 → 1) és a kurzor kis fénye (0 → 1)
   uniform vec3 uPalA[3], uPalB[3];   // régi és új paletta (szalagonként egy árnyalat); a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
@@ -113,20 +114,27 @@ export const waveFS = /* glsl */`
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
-    // fénycsóva alulról (Patrik Figma-terve, Desktop – 9: fénykép-szerű csóva, „plus lighter”, 51%), tiszta fehérben.
-    // A profil Patrik referenciaképéből mérve: középen éles, telített mag, oldalra exponenciálisan, hosszan fut ki;
-    // a lecsengés hossza lent ~0,045, fent ~0,004 képernyőmagasság (lent széles, fent keskeny), így lágy, nem lézeres.
-    // A pillek mögött van (render target); az üveg ezt elmosva, sávként mutatja (glass.js). uBeamH: a csúcs magassága.
-    if (uBeam > 0.001 && uBeamH > 0.001) {
+    // egérfény: a nyom pontjai metaball-szerűen (lágy, egymásba olvadó foltok) → folyékony, nyúló fény;
+    // mozgás közben erős, megállva elsötétül; a kurzorban mindig egy kis, lágy fénypont marad
+    if (uCurB > 0.001 || uCurE > 0.001) {
       float H = uRes.y;
-      float x = abs(px.x - uRes.x * 0.5) / H;
-      float y = px.y / H;                                              // 0 lent, 1 fent
-      float A = uBeamH * uBeamS;
-      float s = clamp(1.0 - y / A, 0.0, 1.0);                          // 1 lent, 0 a csúcsnál
-      float tip = smoothstep(0.0, 0.14, s);                            // a csúcs lágyan fut ki
-      float d = 0.0038 + 0.041 * s * s;                                // a lecsengés hossza
-      float I = max(exp(-x / d), exp(-(x * x) / (0.0019 * 0.0019)));   // hosszú, lágy farok + éles mag
-      v = min(v + vec3(0.51 * I * tip * uBeam), vec3(1.0));             // „plus lighter”, 51%
+      // a nyom egymás utáni pontjait folytonos, vékonyodó szakaszok kötik össze → gyors mozgásnál sem esik szét foltokra
+      float f = 0.0;
+      for (int i = 0; i < 5; i++) {
+        vec2 a = uCur[i], b = uCur[i + 1];
+        vec2 ab = b - a;
+        float t = clamp(dot(px - a, ab) / max(dot(ab, ab), 1e-3), 0.0, 1.0);
+        vec2 dd = px - (a + ab * t);
+        float k = (float(i) + t) / 5.0;                                // 0 a fejnél, 1 a farok végén
+        float r = H * mix(0.055, 0.018, k);                            // a fej vastag, a farok elvékonyodik
+        f = max(f, exp(-dot(dd, dd) / (r * r)) * (1.0 - 0.55 * k));
+      }
+      float liquid = f * uCurE * 0.42;                                // folyékony csík, lágy széllel
+      vec2 dc = px - uCur[0];
+      float dc2 = dot(dc, dc);
+      float rc = H * 0.0045, rg = H * 0.028;
+      float dot0 = (exp(-dc2 / (rc * rc)) * 0.75 + exp(-dc2 / (rg * rg)) * 0.1) * uCurB;   // a kurzor kis fénye
+      v = 1.0 - (1.0 - v) * exp(-(liquid + dot0) * 1.4);
     }
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
     gl_FragColor = vec4(max(v, 0.0), 1.0);

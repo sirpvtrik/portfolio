@@ -30,7 +30,6 @@
     wavesFade: 0.5,                   // közben ennyi idő alatt halványodnak be
     pillsDist: 1.0,                   // a pillek egy teljes képernyőnyivel lejjebbről (az idejük ebből és a hullámok sebességéből adódik)
     pillsStagger: 0,                  // >0: a pillek felülről lefelé, ennyi késéssel egymás után
-    beam: 2.1, beamDur: 1.6,          // a fénycsóva a pillek megérkezése után alulról felnő, és fényt ad nekik
   };
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;

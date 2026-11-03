@@ -7,7 +7,7 @@ import { requestCardRebuild } from './project.js';
 import { bevelOf } from './glassgeo.js';
 
 const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
-const CTL = ['ang', 'int', 'refr', 'depth', 'thick', 'rim', 'beam', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
+const CTL = ['ang', 'int', 'refr', 'depth', 'thick', 'rim', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wshift', 'wspeed', 'surge'];
 function applySettings() {
   U.uLightAng.value = S.ang;
   U.uLightInt.value = S.int / 100;

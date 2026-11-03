@@ -212,7 +212,6 @@ canvas.addEventListener('pointermove', e => {
   scrollPos += dPos;
   const now = performance.now(), dts = Math.max(8, now - lastDragT) / 1000; lastDragT = now;
   scrollVel = clampV(scrollVel * 0.5 + (dPos / dts) * 0.5);
-  if (dragMoved > 6) canvas.style.cursor = 'grabbing';
 });
 const endDrag = () => {
   if (!dragging) return;
@@ -318,7 +317,7 @@ export function updatePills(dt) {
   if ((dragging && dragMoved > 6) || Math.abs(scrollVel) > 2.5) h = -1;   // görgetés közben nincs kiemelés
   if (mode === 'leaving') h = selected;          // a kiválasztott szemben marad, amíg a többi leesik
   if (mode === 'returning') h = -1;
-  if (h !== hovered) { hovered = h; setCaption(h); canvas.style.cursor = h >= 0 ? 'pointer' : 'default'; }
+  if (h !== hovered) { hovered = h; setCaption(h); }   // a kurzor a színpadon rejtett: helyette az egérfény látszik (js/cursor.js)
 
   // görgetés fizika
   if (!dragging) {
@@ -358,7 +357,6 @@ export function updatePills(dt) {
     pl.s = damp(pl.s, isH ? 1.07 : (any ? 0.96 : 1), 6, dt);
     pl.hv = damp(pl.hv, isH ? 1 : 0, 6, dt);
     pl.mat.uniforms.uHover.value = pl.hv;
-    pl.lf.material.opacity = 0.35 + 0.65 * (U.uLit.value - 0.3) / 0.7;   // belépéskor a felirat is a fénycsóvával erősödik
     if (pl.img) {                                   // projektkép: hoverre középről kinyílik, elengedve visszahúzódik
       const on = i === hovered || (touchUI && i === centerIdx);
       pl.rv = damp(pl.rv, on ? 1 : 0, on ? 2.4 : 3.2, dt);
