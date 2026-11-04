@@ -125,7 +125,10 @@ export const glassFS = /* glsl */`
     // tükröződéshez a lap enyhén domború (mint a liquid glass): így a fény nem önti el egyszerre, egyenletesen az egész
     // sík lapot (ettől tűnt tömör szürke műanyagnak), hanem csíkként / foltként jelenik meg, és forgás közben végigsiklik
     // rajta; a többi része átlátszó marad. A fénytörés a sík (lencsés) normállal megy, a közép tiszta marad.
-    vec3 Nc = normalize(Nr + (vTx * vLocal.x + vTy * vLocal.y) * 0.16 * uLens * (1.0 - w));
+    // a domborúság a lap méretéhez arányos (a pillen, 0,708 fél magasságnál pontosan a régi): a nagy projekt-testen így
+    // nem sűrűsödik kemény, kis fényfoltba, hanem széles, lágy átmenet marad
+    vec2 dl = vLocal * (0.708 / max(uHalf.y, 0.001));
+    vec3 Nc = normalize(Nr + (vTx * dl.x + vTy * dl.y) * 0.16 * uLens * (1.0 - w));
     vec3 R = reflect(-V, Nc);
     float F = 0.05 + 0.95 * pow(g, 3.0);
     float boost = 1.0 + uPulse * 0.5 + uHover * 0.4;
