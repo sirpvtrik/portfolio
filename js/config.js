@@ -7,7 +7,12 @@ export const PROJECTS = [
   { id: 'P01', name: 'Water',           cat: 'Font',  meta: '' },
   { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '' },
   { id: 'P03', name: 'Prototype',       cat: 'Font',  meta: '' },
-  { id: 'P04', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5] },
+  { id: 'P04', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5],
+    detail: {   // a projekt-aloldal saját szövege (a többi mező a DETAIL_TEST-ből jön)
+      label: 'Zsebkönyv · Illusztráció',
+      intro: '24 kannabiszfajta, 24 fantázianév, 24 illusztráció – egy zsebkönyvben, ami egyszerre informatív(!) és szórakoztató.',
+      text: 'Egyetemi feladat volt: 24 illusztráció, mind más stílusban, Adobe Illustratorban. A keretet én adtam hozzá: minden kép egy kannabiszfajta fantázianevéből indul ki.',
+    } },
   { id: 'P05', name: 'Digitális pokol', cat: 'Print', meta: '' },
   { id: 'P06', name: 'Painpoint',       cat: 'App',   meta: '' },
   { id: 'P07', name: 'Ringme',          cat: 'Web',   meta: '' },
@@ -18,7 +23,8 @@ export const N = PROJECTS.length;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0 };   // Patrik beállításai (Másolás)
+export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 1 };   // Patrik beállításai (Másolás)
+// pjMode: a projekt-aloldal formája (0 = üvegkártyák, 1 = teszt: a pill megnyúlik, a galéria spirálban fut körbe rajta)
 // az aktuális beállítások (a Glass panel írja, mindenki más olvassa)
 export const S = Object.assign({}, DEFAULTS);
 

@@ -24,6 +24,7 @@ function applySettings() {
   document.getElementById('c-bpm').checked = S.bpmSync;
   WU.uStyle.value = S.wstyle;
   [0, 1].forEach(v => document.getElementById('ws-' + v).setAttribute('aria-pressed', String(S.wstyle === v)));
+  [0, 1].forEach(v => document.getElementById('pm-' + v).setAttribute('aria-pressed', String(S.pjMode === v)));
   CTL.forEach(k => {
     const el = document.getElementById('c-' + k);
     el.value = S[k];
@@ -34,6 +35,7 @@ CTL.forEach(k => document.getElementById('c-' + k).addEventListener('input', e =
 document.getElementById('c-bpm').addEventListener('change', e => { S.bpmSync = e.target.checked; });
 document.getElementById('c-glow').addEventListener('change', e => { S.glow = e.target.checked; applySettings(); });
 [0, 1].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));
+[0, 1].forEach(v => document.getElementById('pm-' + v).addEventListener('click', () => { S.pjMode = v; applySettings(); }));   // nyitott projektnél azonnal átépül
 document.getElementById('reset').addEventListener('click', () => { Object.assign(S, DEFAULTS); applySettings(); });
 // Másolás: az aktuális beállítások JSON-ként a vágólapra (ebből lesz az új DEFAULTS)
 document.getElementById('copy').addEventListener('click', async e => {

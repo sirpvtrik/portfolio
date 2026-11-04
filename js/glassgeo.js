@@ -55,10 +55,11 @@ export const bevelZ = (depth01, thick01) => bevelOf(depth01) * (0.15 + 0.8 * thi
 // az előlap távolsága a lap közepétől; ide kerül a szöveg (LAYER_TEXT)
 export const faceZ = (depth01, thick01 = 1) => slabDepth(thick01) / 2 + bevelZ(depth01, thick01);
 // vastag üveglap az alakból: shapeFn(belső szélesség, belső magasság) → Shape
-export function glassSlab(shapeFn, w, h, depth01, curveSegments, thick01 = 1) {
-  const b = bevelOf(depth01);
+// o (nem kötelező): { depth, bevel, bevelZ } a csúszkák helyett (a projekt-oldal vastag üvegtestéhez)
+export function glassSlab(shapeFn, w, h, depth01, curveSegments, thick01 = 1, o = null) {
+  const b = o ? o.bevel : bevelOf(depth01);
   const geo = new THREE.ExtrudeGeometry(cleanShape(shapeFn(w - 2 * b, h - 2 * b), curveSegments), {
-    depth: slabDepth(thick01), bevelEnabled: true, bevelThickness: bevelZ(depth01, thick01), bevelSize: b, bevelSegments: 16, curveSegments,
+    depth: o ? o.depth : slabDepth(thick01), bevelEnabled: true, bevelThickness: o ? o.bevelZ : bevelZ(depth01, thick01), bevelSize: b, bevelSegments: 16, curveSegments,
   });
   geo.center();
   return smoothSides(geo);

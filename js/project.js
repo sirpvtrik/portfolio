@@ -3,11 +3,14 @@
 // Görgetés: dob, mint a pilleknél — középen teljes méret, felfelé/lefelé hátradőlnek, mélyebbre kerülnek, kisebbek lesznek.
 // Galéria: valódi 3D henger, a sugara a rács fél szélessége (nem lóg ki a rács szélén). Amikor középre ér, az egész lap
 // megáll, és a görgetés a hengert forgatja; ha az utolsó kép is beért, a lap megy tovább.
+// Teszt (S.pjMode = 1, Glass panel „Projekt”): a kiválasztott pill elfordul, megnő és lefelé megnyúlik, ez lesz a projekt
+// teste (fent a cím, a borító és a szöveg); alatta a galéria képei spirálban futnak körbe a test körül, és görgetésre
+// forognak: mindig az a kép van elöl, amelyik a képernyő közepén jár, a többi oldalra, majd a pill mögé kerül (az üveg megtöri).
 import { S, reduced, DETAIL_TEST, PROJECTS, PW, PH } from './config.js';
-import { scene, renderer, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH, setCameraLift } from './scene.js';
-import { glassVS, glassFS } from './shaders/glass.js';
-import { roundedRect, glassSlab, remapUV, bevelOf, faceZ } from './glassgeo.js';
-import { onSelect, restorePills, paletteOf } from './pills.js';
+import { scene, renderer, camera, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH, setCameraLift } from './scene.js';
+import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
+import { roundedRect, stadium, glassSlab, remapUV, bevelOf, faceZ } from './glassgeo.js';
+import { onSelect, restorePills, paletteOf, pills } from './pills.js';
 import { setWavesCentered, setWaveColor } from './waves.js';
 import { damp } from './util.js';
 import { setupHeap, resetHeap, updateHeap, heapPointer, preloadHeap } from './heap.js';
@@ -19,7 +22,9 @@ const backBtn = document.getElementById('projectBack');
 
 export let isOpen = false;
 let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = '', depthPending = false;
-const geoKey = () => S.depth + '/' + S.thick;   // Depth + Vastagság: ha bármelyik változik, a kártyák újraépülnek
+const geoKey = () => S.depth + '/' + S.thick + '/' + S.pjMode;   // Depth, Vastagság, oldal-forma: ha bármelyik változik, újraépül
+let D = DETAIL_TEST, cur = -1;                   // a nyitott projekt tartalma (a projekt saját detail-je a DETAIL_TEST fölött) és sorszáma
+let pp = null, morphT = 99, pillStart = null;    // a megnyúlt pill (teszt) és a kiinduló helyzete (a toronybeli pill)
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
@@ -37,8 +42,8 @@ function wrap(g, text, maxW) {
   if (line) lines.push(line);
   return lines;
 }
-const introLayout = (w, u) => { measure.font = `300 ${32 * u}px ${FONT}`; return wrap(measure, DETAIL_TEST.intro, Math.min(504 * u, w - 50 * u)); };
-const textLayout = (w, u) => { measure.font = `400 ${24 * u}px ${FONT}`; return wrap(measure, DETAIL_TEST.text, Math.min(325 * u, w - 60 * u)); };
+const introLayout = (w, u) => { measure.font = `300 ${32 * u}px ${FONT}`; return wrap(measure, D.intro, Math.min(504 * u, w - 50 * u)); };
+const textLayout = (w, u) => { measure.font = `400 ${24 * u}px ${FONT}`; return wrap(measure, D.text, Math.min(325 * u, w - 60 * u)); };
 
 function computeLayout() {
   const vw = innerWidth, vh = innerHeight, mob = vw <= 720;
@@ -58,7 +63,7 @@ function computeLayout() {
     add('img', 0, gw, gw * 0.62, 2); y += gw * 0.62 + g;
   }
   const cw = mob ? gw * 0.62 : 325 * u, ch = cw * 464 / 325, p = cw + g;
-  const n = Math.max(1, (DETAIL_TEST.gallery.length || 4));
+  const n = Math.max(1, (D.gallery.length || 4));
   const travel = Math.max(0, (n - 1) * p - (gw - cw));   // az első kép a bal vonaltól indul, az utolsó a jobb vonalnál áll meg
   const galY = y + ch / 2;
   const sG = Math.max(0, galY - vh / 2);                  // ennél a görgetésnél van a galéria középen
@@ -67,8 +72,70 @@ function computeLayout() {
   const k = visH / vh, pillW = Math.min(PW / k, gw / 3.3), pillH = pillW * PH / PW;
   const floor = galY + ch / 2 + Math.max(pillH * 3.6, vh * 1.25);   // bőven lejjebb: ide még jön tartalom (Patrik)
   const vEnd = floor + (mob ? 10 : 16) - vh;
+  if (S.pjMode === 1) return pillLayout({ vw, vh, mob, gw, u, g, cw, ch, n, k, pillW, pillH });
   return { vw, vh, mob, gw, u, g, list, cw, ch, p, n, travel, spin, galY, sG, sMax: Math.max(sG, vEnd) + spin,
     heap: { floor, width: vw, k, vh, vw, pillW } };                  // a halom a képernyő széléig ér
+}
+
+/* ---------- Teszt: a megnyúlt pill elrendezése (px, y a lap tetejétől, x a képernyő közepétől) ---------- */
+const pillIntroLayout = (w, u) => { measure.font = `400 ${22 * u}px ${FONT}`; return wrap(measure, D.intro, w); };
+function pillLayout(o) {
+  const { vw, vh, mob, gw, u, n, pillW, pillH } = o;
+  const Wp = mob ? vw - 24 : gw * 0.97, top = mob ? 96 : 130, r = Wp / 2, pad = 30 * u;
+  const cw = mob ? Wp * 0.48 : o.cw, ch = cw * 464 / 325;
+  // a pill szélessége a tetejétől y-ra (a lekerekített vég miatt): a tartalom ezen belül marad
+  const topFor = hw => r - Math.sqrt(Math.max(0, r * r - Math.min(r, hw + pad) ** 2));
+  const title = { y: top + (mob ? 64 : 92) * u, w: Wp, h: 130 * u };
+  const imgW = mob ? Wp - 64 : Math.min(650 * u, Wp - 160 * u), imgH = imgW * 0.667;
+  const imgTop = top + Math.max((mob ? 150 : 190) * u, topFor(imgW / 2));
+  const tw = mob ? imgW : 380 * u, lines = pillIntroLayout(tw, u).length;
+  const textH = 34 * u + lines * 31 * u + 12 * u, textTop = imgTop + imgH + 50 * u;
+  const text = { x: mob ? 0 : imgW / 2 - tw / 2, y: textTop + textH / 2, w: tw, h: textH };
+  const img = { y: imgTop + imgH / 2, w: imgW, h: imgH };
+  // spirál a test belsejében: a sugár akkora, hogy a kép (elöl a perspektíva miatt kicsit nagyobb) oldalt se lógjon ki
+  // a pillből; mélységben lapítva (különben elöl túl nagyok). A test ennél kicsit vastagabb üvegtömb.
+  const R = Math.sqrt(Math.max(0, ((r - pad) / 1.12) ** 2 - (cw * 0.5) ** 2)), Rz = Math.max(R * 0.32, cw * 0.18);   // 1,12: elöl a perspektíva és a lencse kicsit kifelé húz
+  const dth = Math.asin(Math.min(0.95, cw * 1.12 / Math.max(R, 1))), dy = ch * 0.5;
+  const y0 = textTop + textH + 90 * u + ch / 2;
+  const bottom = y0 + (n - 1) * dy + ch / 2 + 140 * u;
+  const floor = bottom + Math.max(pillH * 3.6, vh * 0.9);                // alatta a leesett pillek halma
+  return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(0, floor + (mob ? 10 : 16) - vh),
+    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, dth, dy, y0 },
+    heap: { floor, width: vw, k: o.k, vh, vw, pillW } };
+}
+function drawPillTitle(g, w, h, q) {
+  const u = L.u, p = PROJECTS[cur] || { name: '', cat: '' };
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  const t = 40 * u * q, c = 20 * u * q, gap = 12 * u * q;
+  g.font = `500 ${t}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = (-0.02 * t) + 'px';
+  const tc = g.measureText('H').actualBoundingBoxAscent || t * 0.7;
+  const cc = c * 0.7, y = h * q / 2 - (tc + gap + cc) / 2;
+  g.fillStyle = '#f2f2f2'; g.fillText(p.name, w * q / 2, y + tc);
+  g.font = `400 ${c}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
+  g.fillStyle = 'rgba(242,242,242,0.7)'; g.fillText(p.cat.toUpperCase(), w * q / 2, y + tc + gap + cc);
+}
+function drawPillText(g, w, h, q) {
+  const u = L.u;
+  g.textBaseline = 'alphabetic';
+  g.fillStyle = '#919191'; g.font = `400 ${14 * u * q}px ${FONT}`;
+  if ('letterSpacing' in g) g.letterSpacing = (0.56 * u * q) + 'px';
+  g.fillText(D.label.toUpperCase(), 0, 14 * u * q);
+  if ('letterSpacing' in g) g.letterSpacing = '0px';
+  g.fillStyle = '#f2f2f2'; g.font = `400 ${22 * u * q}px ${FONT}`;
+  pillIntroLayout(w, u).forEach((l, i) => g.fillText(l, 0, (34 + 22 + i * 31) * u * q));
+}
+// sík a pill-test belsejében (felirat vagy kép, üveglap nélkül): az 1-es rétegen, így a test üvege megtöri
+function textPlane(wpx, hpx, k, draw, order, side = THREE.FrontSide) {
+  const q = Math.min(2, window.devicePixelRatio || 1) * 1.25;
+  const cv = document.createElement('canvas'); cv.width = Math.round(wpx * q); cv.height = Math.round(hpx * q);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const geo = new THREE.PlaneGeometry(wpx * k, hpx * k), mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side });
+  const holder = onLayer(new THREE.Mesh(geo, mat), LAYER_BG);          // a test belsejében: az üveg megtöri
+  const c = { holder, geo, mat, tex, a: 0, av: 0, order, text: true };
+  c.redraw = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); draw(g, wpx, hpx, q, 0, c); tex.needsUpdate = true; };
+  c.redraw();
+  return c;
 }
 
 /* ---------- Tartalom-rajzolók (a kártya pixeleiben, q = textúra-felbontás szorzó) ---------- */
@@ -77,7 +144,7 @@ function drawIntro(g, w, h, q) {
   g.fillStyle = '#919191'; g.font = `400 ${16 * u * q}px ${FONT}`;
   if ('letterSpacing' in g) g.letterSpacing = (0.64 * u * q) + 'px';
   g.textBaseline = 'alphabetic';
-  g.fillText(DETAIL_TEST.label.toUpperCase(), 25 * u * q, (40 + 13) * u * q);
+  g.fillText(D.label.toUpperCase(), 25 * u * q, (40 + 13) * u * q);
   if ('letterSpacing' in g) g.letterSpacing = (-0.4 * u * q) + 'px';
   g.fillStyle = '#f2f2f2'; g.font = `300 ${32 * u * q}px ${FONT}`;
   introLayout(w, u).forEach((l, i) => g.fillText(l, 25 * u * q, (40 + 16 + 20 + 28 + i * 40) * u * q));
@@ -142,8 +209,9 @@ function build() {
   dispose();
   L = computeLayout(); builtVisH = visH; builtDepth = geoKey();
   setupHeap(L.heap);
-  const k = visH / L.vh, depth01 = S.depth / 100, d = DETAIL_TEST;
+  const k = visH / L.vh, depth01 = S.depth / 100, d = D;
   group = new THREE.Group(); scene.add(group);
+  if (L.pill) { buildPill(k, depth01); loadFonts(d); return; }
   cards = L.list.map(c => {
     const draw = c.kind === 'intro' ? drawIntro : c.kind === 'text' ? drawText : null;
     const card = makeCard(c.w, c.h, k, depth01, draw, c.order, !!draw);   // a szöveges kártyák tartalma az üveg elé kerül
@@ -152,17 +220,107 @@ function build() {
   galHolder = new THREE.Group(); group.add(galHolder);
   const pics = d.gallery.length ? d.gallery : [null, null, null, null];
   gal = pics.map((src, i) => { const c = makeCard(L.cw, L.ch, k, depth01, galleryDrawer(src), 4 + Math.min(i, 3)); galHolder.add(c.holder); return c; });
-  srText.textContent = d.label + '. ' + d.intro + ' ' + d.text;
+  loadFonts(d);
+}
+function loadFonts(d) {
+  srText.textContent = (PROJECTS[cur] ? PROJECTS[cur].name + '. ' : '') + d.label + '. ' + d.intro + ' ' + d.text;
   // a betűket a tényleges szöveggel töltjük be (az ékezetes latin-ext rész is), utána újrarajzolunk
   if (document.fonts && document.fonts.load) {
-    Promise.all([document.fonts.load(`300 32px ${FONT}`, d.intro), document.fonts.load(`400 24px ${FONT}`, d.text), document.fonts.load(`400 16px ${FONT}`, d.label)])
+    const name = PROJECTS[cur] ? PROJECTS[cur].name : '';
+    Promise.all([document.fonts.load(`300 32px ${FONT}`, d.intro), document.fonts.load(`400 24px ${FONT}`, d.text + ' ' + d.intro),
+      document.fonts.load(`400 16px ${FONT}`, d.label.toUpperCase()), document.fonts.load(`500 40px ${FONT}`, name)])
       .then(() => { if (group) cards.forEach(c => c.redraw && c.redraw()); }).catch(() => {});
   }
+}
+
+/* ---------- Teszt: a megnyúlt pill (a toronybeli pillből nő ki) ----------
+   A pill-geometria vízszintes stadion a végső szélességgel és a pill arányával (így a lencse és a perem a megszokott);
+   a nyújtás a két fél csúcsait tolja szét (a lekerekített végek nem torzulnak), a test 90°-kal elforgatva áll. */
+function buildPill(k, depth01) {
+  const P = L.pill, Ww = P.Wp * k, L0 = Ww * PW / PH, th = S.thick / 100;
+  // vastag üvegtömb: a spirál (Rz) belefér, a perem lekerekített
+  const half = P.Rz * k + 0.3, bz = Math.min(0.6, half * 0.4), bev = Math.min(0.5, Ww * 0.05);
+  const geo = glassSlab(stadium, L0, Ww, depth01, 96, th, { depth: Math.max(0.05, 2 * (half - bz)), bevel: bev, bevelZ: bz });
+  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, {
+    uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
+    uHalf: { value: new THREE.Vector2(L0 / 2, Ww / 2) }, uRad: { value: Ww / 2 }, uGlow: { value: 1 }, uLens: { value: 0.6 } }) });
+  const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: U,
+    side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+  const holder = new THREE.Group(), body = new THREE.Group();
+  holder.add(body); group.add(holder);
+  const glass = onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS), back = onLayer(new THREE.Mesh(geo, bmat), LAYER_BG);
+  glass.frustumCulled = back.frustumCulled = false; back.renderOrder = 1;
+  body.add(glass, back);
+  const fz = P.Rz * k;                                   // a tartalom síkja a test belsejében, elöl
+  pp = { holder, body, geo, mat, bmat, base: geo.attributes.position.array.slice(), L0, Ww, d: 0,
+    dFinal: Math.max(0, (P.len * k - L0) / 2), fz, a: 1 };
+  // tartalom üveg nélkül, a test belsejében: cím, borító, szöveg
+  const title = textPlane(P.title.w, P.title.h, k, drawPillTitle, 6);
+  const text = textPlane(P.text.w, P.text.h, k, drawPillText, 8);
+  const cover = (PROJECTS[cur] && PROJECTS[cur].image) || D.gallery[0] || null;
+  const img = textPlane(P.img.w, P.img.h, k, galleryDrawer(cover), 7);
+  img.place = P.img; title.place = P.title; text.place = P.text;
+  cards = [title, img, text];
+  cards.forEach(c => group.add(c.holder));
+  const pics = D.gallery.length ? D.gallery : [null, null, null, null];
+  // a galéria képei kétoldalasak: a test túloldalán is látszanak (az üvegen át, halványabban)
+  gal = pics.map((src, i) => { const c = textPlane(L.cw, L.ch, k, galleryDrawer(src), 9 + Math.min(i, 3), THREE.DoubleSide); group.add(c.holder); return c; });
+}
+function setStretch(d) {
+  if (Math.abs(d - pp.d) < 1e-5) return;
+  pp.d = d;
+  const a = pp.geo.attributes.position.array, b = pp.base;
+  for (let i = 0; i < a.length; i += 3) a[i] = b[i] + (b[i] > 0 ? d : -d);
+  pp.geo.attributes.position.needsUpdate = true;
+  pp.mat.uniforms.uHalf.value.set(pp.L0 / 2 + d, pp.Ww / 2);
+}
+const ease = x => x * x * (3 - 2 * x), lerp = (a, b, t) => a + (b - a) * t;
+function updatePillPage(dt) {
+  const P = L.pill, k = visH / L.vh, v = s;
+  const toW = py => -(py - v - L.vh / 2) * k;
+  // kinövés: a pill kicsiben felállítva elfordul (0–0,55 s), aztán kiszélesedik és lefelé megnyúlik, a teteje a helyére úszik
+  // (0,3–1,3 s). A látható szélesség / hossz → méretarány + nyújtás (a hossz sosem rövidebb a pill arányánál).
+  morphT += dt;
+  const m1 = ease(clamp(morphT / 0.55, 0, 1)), m2 = ease(clamp((morphT - 0.3) / 1.0, 0, 1));
+  const st = pillStart || { x: 0, y: toW(P.top + P.len / 2), z: 0, sc: pp.Ww / PH };
+  const Lf = pp.L0 + 2 * pp.dFinal;
+  const wv = lerp(PH * st.sc, pp.Ww, m2), lv = Math.max(lerp(PW * st.sc, Lf, m2 * m2), wv * PW / PH);
+  const sc = wv / pp.Ww, d = Math.max(0, (lv / sc - pp.L0) / 2);
+  setStretch(d);
+  pp.a = closing ? damp(pp.a, 0, 9, dt) : 1;
+  const top = lerp(st.y + PW * st.sc / 2, toW(P.top), m2);
+  pp.holder.position.set(lerp(st.x, 0, m1), top - lv / 2, lerp(st.z, 0, m1));
+  pp.holder.scale.setScalar(Math.max(0.0001, sc * pp.a));
+  pp.body.rotation.z = m1 * Math.PI / 2;
+  // tartalom a test belsejében, elöl (a perspektíva miatt visszaszorozva, hogy a pixel-elrendezés pontos maradjon)
+  const camZ = camera.position.z, pc = (camZ - pp.fz) / camZ;
+  cards.forEach(c => {
+    appear(c, dt);
+    const a = Math.max(0, c.a), pl = c.place;
+    c.holder.position.set((pl.x || 0) * k * pc, toW(pl.y) * pc - (1 - Math.min(1, a)) * 30 * k, pp.fz);
+    c.holder.scale.setScalar(Math.max(0.0001, pc * (0.96 + 0.04 * Math.min(1, a))));
+    c.mat.opacity = clamp(a, 0, 1);
+    c.holder.visible = a > 0.002;
+  });
+  // galéria spirálban: a képernyő közepén járó kép van elöl; hátul halványabb
+  const phi = (v + L.vh / 2 - P.y0) * P.dth / P.dy;
+  gal.forEach((c, i) => {
+    appear(c, dt);
+    const th = i * P.dth - phi, sn = Math.sin(th), cs = Math.cos(th), zz = cs * P.Rz * k, pz = (camZ - zz) / camZ;
+    c.holder.position.set(sn * P.R * k, toW(P.y0 + i * P.dy) * pz, zz);
+    c.holder.rotation.set(0, th, 0);                                         // a pályával fordul (oldalt élére áll: nem lóg ki a pillből)
+    const a = Math.max(0, c.a);
+    c.holder.scale.setScalar(Math.max(0.0001, a));
+    c.mat.opacity = Math.min(1, a);
+    c.mat.color.setScalar(0.4 + 0.6 * (cs + 1) / 2);
+    c.holder.visible = a > 0.002;
+  });
 }
 function dispose() {
   if (!group) return;
   scene.remove(group);
-  [...cards, ...gal].forEach(c => { c.geo.dispose(); c.mat.dispose(); if (c.tex) { c.tex.dispose(); c.pgeo.dispose(); c.pmat.dispose(); } });
+  [...cards, ...gal].forEach(c => { c.geo.dispose(); c.mat.dispose(); if (c.tex) c.tex.dispose(); if (c.pgeo) { c.pgeo.dispose(); c.pmat.dispose(); } });
+  if (pp) { pp.geo.dispose(); pp.mat.dispose(); pp.bmat.dispose(); pp = null; }
   group = null; cards = []; gal = [];
 }
 
@@ -170,6 +328,15 @@ function dispose() {
 function open(i) {
   setWaveColor(paletteOf(i));                                    // a projekt képének árnyalataira (vagy a saját színére) vált, fentről lefelé
   isOpen = true; closing = false; s = 0; vel = 0; openT = 0;
+  cur = i; D = PROJECTS[i].detail ? Object.assign({}, DETAIL_TEST, PROJECTS[i].detail) : DETAIL_TEST;
+  // teszt-forma: a kiválasztott pill helyéről nő ki a projekt teste (a toronybeli pill eltűnik, a restorePills visszahozza)
+  pillStart = null; morphT = reduced ? 99 : 0;
+  if (S.pjMode === 1 && pills[i]) {
+    const h = pills[i].holder, w = new THREE.Vector3();
+    h.updateWorldMatrix(true, false); h.getWorldPosition(w);
+    pillStart = { x: w.x, y: w.y, z: w.z, sc: h.scale.x };
+    h.visible = false;
+  }
   preloadHeap(); resetHeap();                                     // új projekt: a pillek újra, máshogy hullanak le
   build();
   root.hidden = false;
@@ -199,6 +366,8 @@ export function requestCardRebuild() {
     depthPending = false;
     if (!group || closing || builtDepth === geoKey()) return;
     const a = cards.concat(gal).map(c => c.a);
+    morphT = 99;
+    if (S.pjMode === 1 && cur >= 0 && pills[cur]) pills[cur].holder.visible = false;   // kártyákról pillre váltva se maradjon ott
     build();
     cards.concat(gal).forEach((c, i) => { c.a = a[i] ?? 1; c.av = 0; });
   });
@@ -254,15 +423,16 @@ export function updateProject(dt) {
   const liftT = isOpen && !closing ? 0 : 1.4;                       // a kamera egyenesen néz a kártyákra
   if (Math.abs(lift - liftT) > 1e-4) { lift = damp(lift, liftT, 4, dt); setCameraLift(lift); }
   if (!group) return;
-  updateHeap(dt, s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin), isOpen && !closing);
   if (visH !== builtVisH || innerWidth !== L.vw || innerHeight !== L.vh) {   // átméretezés: újraépítés, megjelenés nélkül
-    build(); cards.concat(gal).forEach(c => { c.a = 1; c.av = 0; });
+    morphT = 99; build(); cards.concat(gal).forEach(c => { c.a = 1; c.av = 0; });
   }
   openT += dt;
   // fizika
   if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
   if (s < 0) { s = 0; vel = Math.max(0, vel); }
   if (s > L.sMax) { s = L.sMax; vel = Math.min(0, vel); }
+  if (L.pill) { updateHeap(dt, s, isOpen && !closing); updatePillPage(dt); return; }
+  updateHeap(dt, s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin), isOpen && !closing);
   // fázisok: lap görög → (galéria középen) a lap áll, a henger forog → a lap görög tovább
   const v = s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin);
   const off = L.spin > 0 ? clamp((s - L.sG) / L.spin, 0, 1) * L.travel : 0;
