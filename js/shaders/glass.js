@@ -29,6 +29,7 @@ export const glassFS = /* glsl */`
   uniform float uGlowOn;  // a Glass panel „Perem-glow” kapcsolója (közös)
   uniform float uRim;
   uniform float uLens;    // lencse a lap szélén (liquid glass): 1 = pill, 0 = kártya
+  uniform float uLensW;   // a lencse-sáv szélessége a fél magassághoz képest (pill: 0,62; a nagy projekt-testen keskenyebb)
   uniform vec2 uCurP;     // az egérfény helye (pixel, alulról) és ereje: a perem közelében elkapja a fényt
   uniform float uCurL;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
   varying vec3 vN;
@@ -81,7 +82,7 @@ export const glassFS = /* glsl */`
     if (uLens > 0.001) {
       vec2 lq = abs(vLocal) - (uHalf - uRad);
       float lsd = length(max(lq, 0.0)) + min(max(lq.x, lq.y), 0.0) - uRad;   // < 0 a körvonalon belül
-      float lb = 1.0 - clamp(-lsd / (uHalf.y * 0.62), 0.0, 1.0);
+      float lb = 1.0 - clamp(-lsd / (uHalf.y * uLensW), 0.0, 1.0);
       lens = lb * lb * lb * (1.0 - w) * uLens;
       vec2 cq = vec2(clamp(vLocal.x, -(uHalf.x - uRad), uHalf.x - uRad), 0.0);
       vec2 n2 = normalize(vLocal - cq + vec2(1e-5));

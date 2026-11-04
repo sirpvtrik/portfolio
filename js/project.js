@@ -81,13 +81,13 @@ function computeLayout() {
 const pillIntroLayout = (w, u) => { measure.font = `400 ${22 * u}px ${FONT}`; return wrap(measure, D.intro, w); };
 function pillLayout(o) {
   const { vw, vh, mob, gw, u, n, pillW, pillH } = o;
-  const Wp = mob ? vw - 24 : gw * 0.97, top = mob ? 96 : 130, r = Wp / 2, pad = 30 * u;
+  const Wp = mob ? vw - 24 : gw * 0.97, top = mob ? 110 : 160, r = Wp / 2, pad = 30 * u;
   const cw = mob ? Wp * 0.48 : o.cw, ch = cw * 464 / 325;
   // a pill szélessége a tetejétől y-ra (a lekerekített vég miatt): a tartalom ezen belül marad
   const topFor = hw => r - Math.sqrt(Math.max(0, r * r - Math.min(r, hw + pad) ** 2));
-  const title = { y: top + (mob ? 64 : 92) * u, w: Math.min(Wp - 2 * pad, 560 * u), h: 130 * u };
+  const title = { y: top + (mob ? 90 : 135) * u, w: Math.min(Wp - 2 * pad, 560 * u), h: 130 * u };
   const imgW = mob ? Wp - 64 : Math.min(650 * u, Wp - 160 * u), imgH = imgW * 0.667;
-  const imgTop = top + Math.max((mob ? 150 : 190) * u, topFor(imgW / 2));
+  const imgTop = top + Math.max((mob ? 175 : 235) * u, topFor(imgW / 2));
   const tw = mob ? imgW : 380 * u, lines = pillIntroLayout(tw, u).length;
   const textH = 34 * u + lines * 31 * u + 12 * u, textTop = imgTop + imgH + 50 * u;
   const text = { x: mob ? 0 : imgW / 2 - tw / 2, y: textTop + textH / 2, w: tw, h: textH };
@@ -103,7 +103,7 @@ function pillLayout(o) {
   const bottom = y0 + (n - 1) * dy + ch / 2 + 140 * u;
   const floor = bottom + Math.max(pillH * 3.6, vh * 0.9);                // alatta a leesett pillek halma
   return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(0, floor + (mob ? 10 : 16) - vh),
-    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, dth, dy, y0, w1: dth / dy * 0.3 },
+    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, dth, dy, y0, w1: dth / dy * 0.3, Rin },
     heap: { floor, width: vw, k: o.k, vh, vw, pillW } };
 }
 function drawPillTitle(g, w, h, q) {
@@ -133,9 +133,9 @@ function textPlane(wpx, hpx, k, draw, order, side = THREE.FrontSide) {
   const cv = document.createElement('canvas'); cv.width = Math.round(wpx * q); cv.height = Math.round(hpx * q);
   const tex = new THREE.CanvasTexture(cv);
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const geo = new THREE.PlaneGeometry(wpx * k, hpx * k), mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side });
+  const geo = new THREE.PlaneGeometry(wpx * k, hpx * k, 40, 1), mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side });
   const holder = onLayer(new THREE.Mesh(geo, mat), LAYER_BG);          // a test belsejében: az üveg megtöri
-  const c = { holder, geo, mat, tex, a: 0, av: 0, order, text: true };
+  const c = { holder, geo, mat, tex, a: 0, av: 0, order, text: true, base: geo.attributes.position.array.slice(), bend: 0 };
   c.redraw = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); draw(g, wpx, hpx, q, 0, c); tex.needsUpdate = true; };
   c.redraw();
   return c;
@@ -246,7 +246,8 @@ function buildPill(k, depth01) {
   const geo = glassSlab(stadium, L0, Ww, depth01, 96, th, { depth: Math.max(0.05, 2 * (half - bz)), bevel: bev, bevelZ: bz });
   const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, {
     uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
-    uHalf: { value: new THREE.Vector2(L0 / 2, Ww / 2) }, uRad: { value: Ww / 2 }, uGlow: { value: 1 }, uLens: { value: 0.6 } }) });
+    uHalf: { value: new THREE.Vector2(L0 / 2, Ww / 2) }, uRad: { value: Ww / 2 }, uGlow: { value: 1 }, uLens: { value: 0.8 },
+    uLensW: { value: Math.min(0.62, 110 / P.Wp * 2) } }) });   // a lencse csak a szélén (~110 px), a tartalom tiszta marad
   const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: U,
     side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const holder = new THREE.Group(), body = new THREE.Group();
@@ -278,6 +279,17 @@ function setStretch(d) {
   pp.mat.uniforms.uHalf.value.set(pp.L0 / 2 + d, pp.Ww / 2);
 }
 const ease = x => x * x * (3 - 2 * x), lerp = (a, b, t) => a + (b - a) * t;
+// a sík a henger felületére hajlik (a tengely felé), b = 0 egyenes, 1 = a teljes R sugarú ív
+function bendPlane(c, R, b) {
+  if (Math.abs(b - c.bend) < 0.004) return;
+  c.bend = b;
+  const p = c.geo.attributes.position.array, q = c.base, r = R / Math.max(b, 1e-3);
+  for (let i = 0; i < p.length; i += 3) {
+    const t = q[i] / r;
+    p[i] = r * Math.sin(t); p[i + 2] = r * (Math.cos(t) - 1);
+  }
+  c.geo.attributes.position.needsUpdate = true;
+}
 function updatePillPage(dt) {
   const P = L.pill, k = visH / L.vh, v = s;
   const toW = py => -(py - v - L.vh / 2) * k;
@@ -298,11 +310,14 @@ function updatePillPage(dt) {
   // Az egész tartalom egy hengeren fordul körbe (Patrik: „mintha az egész menne körbe”): mindig a képernyő közepén járó
   // elem van szemben, a többi oldalra, majd hátra kerül (ott halványabban, az üvegen át látszik). A szög a lap magasságából
   // jön: fent (cím, borító, szöveg) lassabban fordul, hogy olvasható maradjon, a galériánál gyorsabban (képenként dth).
-  const A = y => y < P.y0 ? (y - P.y0) * P.w1 : (y - P.y0) * P.dth / P.dy;
-  const phi = A(v + L.vh / 2), camZ = camera.position.z;
+  // ami a lap tetején a képernyő közepe fölött van, az az elején szemben áll (A a közép magasságától számol)
+  const A = y => { y = Math.max(y, L.vh / 2); return y < P.y0 ? (y - P.y0) * P.w1 : (y - P.y0) * P.dth / P.dy; };
+  const phi = A(v + L.vh / 2), camZ = camera.position.z, Rb = P.Rin * k;
   const place = (c, y, R, xo, rise) => {
     appear(c, dt);
     const th = A(y) - phi, sn = Math.sin(th), cs = Math.cos(th);
+    // hengerhatás: oldalra fordulva a henger felületére hajlik, szemből majdnem egyenes (olvasható)
+    bendPlane(c, Rb, 0.1 + 0.9 * THREE.MathUtils.smoothstep(Math.abs(th), 0.12, 1.3));
     const zz = cs * Math.max(R * 0.32, P.Rz * 0.5) * k, pz = (camZ - zz) / camZ;
     c.holder.position.set((sn * R + cs * xo) * k, toW(y) * pz - rise, zz - sn * xo * 0.32 * k);
     c.holder.rotation.set(0, th, 0);                                         // a hengerrel fordul (oldalt élére áll: nem lóg ki a pillből)
