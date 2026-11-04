@@ -86,24 +86,22 @@ function pillLayout(o) {
   // a pill szélessége a tetejétől y-ra (a lekerekített vég miatt): a tartalom ezen belül marad
   const topFor = hw => r - Math.sqrt(Math.max(0, r * r - Math.min(r, hw + pad) ** 2));
   const title = { y: top + (mob ? 90 : 135) * u, w: Math.min(Wp - 2 * pad, 560 * u), h: 130 * u };
-  const imgW = mob ? Wp - 64 : Math.min(650 * u, Wp - 160 * u), imgH = imgW * 0.667;
+  // henger a test belsejében: minden elem a palástján ül (a pill széléig kint), mélységben lapítva (ZS), különben elöl
+  // túl nagyok lennének és a test túl vastag. Rc: a henger sugara; Rlim: eddig mehet ki bármi (1,08: elöl a perspektíva).
+  const Rlim = (r - pad) / 1.08, Rc = Rlim, ZS = 0.32;
+  const imgW = Math.min(mob ? Wp - 64 : Math.min(650 * u, Wp - 160 * u), 2 * Rlim * 0.98), imgH = imgW * 0.667;
   const imgTop = top + Math.max((mob ? 175 : 235) * u, topFor(imgW / 2));
-  const tw = mob ? imgW : 380 * u, lines = pillIntroLayout(tw, u).length;
+  const tw = Math.min(mob ? imgW : 420 * u, 2 * Rlim * 0.98), lines = pillIntroLayout(tw, u).length;
   const textH = 34 * u + lines * 31 * u + 12 * u, textTop = imgTop + imgH + 50 * u;
-  const text = { x: mob ? 0 : imgW / 2 - tw / 2, y: textTop + textH / 2, w: tw, h: textH };
+  const text = { y: textTop + textH / 2, w: tw, h: textH };          // középen: oldalra tolva szemből is elfordulva állna
   const img = { y: imgTop + imgH / 2, w: imgW, h: imgH };
-  // spirál a test belsejében: a sugár akkora, hogy a kép (elöl a perspektíva miatt kicsit nagyobb) oldalt se lógjon ki
-  // a pillből; mélységben lapítva (különben elöl túl nagyok). A test ennél kicsit vastagabb üvegtömb.
-  const Rin = (r - pad) / 1.12;                                            // 1,12: elöl a perspektíva és a lencse kicsit kifelé húz
-  const Rfor = halfExt => Math.sqrt(Math.max(0, Rin * Rin - halfExt * halfExt));   // ekkora sugáron fordulva nem lóg ki
-  const R = Rfor(cw * 0.5), Rz = Math.max(R * 0.32, cw * 0.18);
-  [title, img, text].forEach(o => { o.R = Rfor(Math.abs(o.x || 0) + o.w / 2); });
-  const dth = Math.asin(Math.min(0.95, cw * 1.12 / Math.max(R, 1))), dy = ch * 0.5;
+  const R = Rc, Rz = Rc * ZS;
+  const dth = Math.min(1.4, cw * 1.08 / Rc), dy = ch * 0.5;           // a szomszéd képek a paláston nem érnek egymásba
   const y0 = textTop + textH + 90 * u + ch / 2;
   const bottom = y0 + (n - 1) * dy + ch / 2 + 140 * u;
   const floor = bottom + Math.max(pillH * 3.6, vh * 0.9);                // alatta a leesett pillek halma
   return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(0, floor + (mob ? 10 : 16) - vh),
-    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, dth, dy, y0, w1: dth / dy * 0.3, Rin },
+    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, ZS, Rlim, dth, dy, y0, w1: dth / dy * 0.3 },
     heap: { floor, width: vw, k: o.k, vh, vw, pillW } };
 }
 function drawPillTitle(g, w, h, q) {
@@ -265,10 +263,11 @@ function buildPill(k, depth01) {
   const img = textPlane(P.img.w, P.img.h, k, galleryDrawer(cover), 7, THREE.DoubleSide);
   img.place = P.img; title.place = P.title; text.place = P.text;
   cards = [title, img, text];
-  cards.forEach(c => group.add(c.holder));
+  const cyl = new THREE.Group(); cyl.scale.set(1, 1, P.ZS); group.add(cyl); pp.cyl = cyl;   // a henger mélységben lapítva
+  cards.forEach(c => cyl.add(c.holder));
   const pics = D.gallery.length ? D.gallery : [null, null, null, null];
   // a galéria képei kétoldalasak: a test túloldalán is látszanak (az üvegen át, halványabban)
-  gal = pics.map((src, i) => { const c = textPlane(L.cw, L.ch, k, galleryDrawer(src), 9 + Math.min(i, 3), THREE.DoubleSide); group.add(c.holder); return c; });
+  gal = pics.map((src, i) => { const c = textPlane(L.cw, L.ch, k, galleryDrawer(src), 9 + Math.min(i, 3), THREE.DoubleSide); cyl.add(c.holder); return c; });
 }
 function setStretch(d) {
   if (Math.abs(d - pp.d) < 1e-5) return;
@@ -279,6 +278,11 @@ function setStretch(d) {
   pp.mat.uniforms.uHalf.value.set(pp.L0 / 2 + d, pp.Ww / 2);
 }
 const ease = x => x * x * (3 - 2 * x), lerp = (a, b, t) => a + (b - a) * t;
+// a meghajlított sík legszélső pontja (px) a henger tengelyétől oldalra, ha a paláston th szögben áll (sn, cs)
+function edgeX(b, sn, cs, hw, Rc) {
+  const r = Rc / b, t = hw / r, lx = r * Math.sin(t), lz = r * (Math.cos(t) - 1);
+  return Math.max(Math.abs(Rc * sn + lx * cs + lz * sn), Math.abs(Rc * sn - lx * cs + lz * sn));
+}
 // a sík a henger felületére hajlik (a tengely felé), b = 0 egyenes, 1 = a teljes R sugarú ív
 function bendPlane(c, R, b) {
   if (Math.abs(b - c.bend) < 0.004) return;
@@ -312,15 +316,18 @@ function updatePillPage(dt) {
   // jön: fent (cím, borító, szöveg) lassabban fordul, hogy olvasható maradjon, a galériánál gyorsabban (képenként dth).
   // ami a lap tetején a képernyő közepe fölött van, az az elején szemben áll (A a közép magasságától számol)
   const A = y => { y = Math.max(y, L.vh / 2); return y < P.y0 ? (y - P.y0) * P.w1 : (y - P.y0) * P.dth / P.dy; };
-  const phi = A(v + L.vh / 2), camZ = camera.position.z, Rb = P.Rin * k;
-  const place = (c, y, R, xo, rise) => {
+  const phi = A(v + L.vh / 2), camZ = camera.position.z;
+  const place = (c, y, hw, rise) => {
     appear(c, dt);
     const th = A(y) - phi, sn = Math.sin(th), cs = Math.cos(th);
-    // hengerhatás: oldalra fordulva a henger felületére hajlik, szemből majdnem egyenes (olvasható)
-    bendPlane(c, Rb, 0.1 + 0.9 * THREE.MathUtils.smoothstep(Math.abs(th), 0.12, 1.3));
-    const zz = cs * Math.max(R * 0.32, P.Rz * 0.5) * k, pz = (camZ - zz) / camZ;
-    c.holder.position.set((sn * R + cs * xo) * k, toW(y) * pz - rise, zz - sn * xo * 0.32 * k);
-    c.holder.rotation.set(0, th, 0);                                         // a hengerrel fordul (oldalt élére áll: nem lóg ki a pillből)
+    // a henger palástján (Rc): szemből majdnem egyenes (olvasható), oldalra fordulva ráhajlik a hengerre, legalább annyira,
+    // hogy a széle ne lógjon ki a pillből (b = 1: pontosan a paláston)
+    let b = 0.08 + 0.92 * THREE.MathUtils.smoothstep(Math.abs(th), 0.12, 1.3);
+    while (b < 1 && edgeX(b, sn, cs, hw, P.R) > P.Rlim * 0.995) b = Math.min(1, b + 0.04);
+    bendPlane(c, P.R * k, b);
+    const zz = cs * P.R * k, pz = (camZ - zz * P.ZS) / camZ;
+    c.holder.position.set(sn * P.R * k, toW(y) * pz - rise, zz);
+    c.holder.rotation.set(0, th, 0);
     const a = Math.max(0, c.a);
     c.mat.opacity = Math.min(1, a);
     c.mat.color.setScalar(0.4 + 0.6 * (cs + 1) / 2);                        // hátul halványabb
@@ -329,11 +336,11 @@ function updatePillPage(dt) {
   };
   cards.forEach(c => {
     const pl = c.place, a0 = Math.max(0, c.a);
-    const a = place(c, pl.y, pl.R, pl.x || 0, (1 - Math.min(1, a0)) * 30 * k);
+    const a = place(c, pl.y, pl.w / 2, (1 - Math.min(1, a0)) * 30 * k);
     c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
   });
   gal.forEach((c, i) => {
-    const a = place(c, P.y0 + i * P.dy, P.R, 0, 0);
+    const a = place(c, P.y0 + i * P.dy, L.cw / 2, 0);
     c.holder.scale.setScalar(Math.max(0.0001, a));
   });
 }
