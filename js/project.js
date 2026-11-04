@@ -85,7 +85,7 @@ function pillLayout(o) {
   const cw = mob ? Wp * 0.48 : o.cw, ch = cw * 464 / 325;
   // a pill szélessége a tetejétől y-ra (a lekerekített vég miatt): a tartalom ezen belül marad
   const topFor = hw => r - Math.sqrt(Math.max(0, r * r - Math.min(r, hw + pad) ** 2));
-  const title = { y: top + (mob ? 64 : 92) * u, w: Wp, h: 130 * u };
+  const title = { y: top + (mob ? 64 : 92) * u, w: Math.min(Wp - 2 * pad, 560 * u), h: 130 * u };
   const imgW = mob ? Wp - 64 : Math.min(650 * u, Wp - 160 * u), imgH = imgW * 0.667;
   const imgTop = top + Math.max((mob ? 150 : 190) * u, topFor(imgW / 2));
   const tw = mob ? imgW : 380 * u, lines = pillIntroLayout(tw, u).length;
@@ -94,13 +94,16 @@ function pillLayout(o) {
   const img = { y: imgTop + imgH / 2, w: imgW, h: imgH };
   // spirál a test belsejében: a sugár akkora, hogy a kép (elöl a perspektíva miatt kicsit nagyobb) oldalt se lógjon ki
   // a pillből; mélységben lapítva (különben elöl túl nagyok). A test ennél kicsit vastagabb üvegtömb.
-  const R = Math.sqrt(Math.max(0, ((r - pad) / 1.12) ** 2 - (cw * 0.5) ** 2)), Rz = Math.max(R * 0.32, cw * 0.18);   // 1,12: elöl a perspektíva és a lencse kicsit kifelé húz
+  const Rin = (r - pad) / 1.12;                                            // 1,12: elöl a perspektíva és a lencse kicsit kifelé húz
+  const Rfor = halfExt => Math.sqrt(Math.max(0, Rin * Rin - halfExt * halfExt));   // ekkora sugáron fordulva nem lóg ki
+  const R = Rfor(cw * 0.5), Rz = Math.max(R * 0.32, cw * 0.18);
+  [title, img, text].forEach(o => { o.R = Rfor(Math.abs(o.x || 0) + o.w / 2); });
   const dth = Math.asin(Math.min(0.95, cw * 1.12 / Math.max(R, 1))), dy = ch * 0.5;
   const y0 = textTop + textH + 90 * u + ch / 2;
   const bottom = y0 + (n - 1) * dy + ch / 2 + 140 * u;
   const floor = bottom + Math.max(pillH * 3.6, vh * 0.9);                // alatta a leesett pillek halma
   return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(0, floor + (mob ? 10 : 16) - vh),
-    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, dth, dy, y0 },
+    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, dth, dy, y0, w1: dth / dy * 0.3 },
     heap: { floor, width: vw, k: o.k, vh, vw, pillW } };
 }
 function drawPillTitle(g, w, h, q) {
@@ -255,10 +258,10 @@ function buildPill(k, depth01) {
   pp = { holder, body, geo, mat, bmat, base: geo.attributes.position.array.slice(), L0, Ww, d: 0,
     dFinal: Math.max(0, (P.len * k - L0) / 2), fz, a: 1 };
   // tartalom üveg nélkül, a test belsejében: cím, borító, szöveg
-  const title = textPlane(P.title.w, P.title.h, k, drawPillTitle, 6);
-  const text = textPlane(P.text.w, P.text.h, k, drawPillText, 8);
+  const title = textPlane(P.title.w, P.title.h, k, drawPillTitle, 6, THREE.DoubleSide);
+  const text = textPlane(P.text.w, P.text.h, k, drawPillText, 8, THREE.DoubleSide);
   const cover = (PROJECTS[cur] && PROJECTS[cur].image) || D.gallery[0] || null;
-  const img = textPlane(P.img.w, P.img.h, k, galleryDrawer(cover), 7);
+  const img = textPlane(P.img.w, P.img.h, k, galleryDrawer(cover), 7, THREE.DoubleSide);
   img.place = P.img; title.place = P.title; text.place = P.text;
   cards = [title, img, text];
   cards.forEach(c => group.add(c.holder));
@@ -292,28 +295,31 @@ function updatePillPage(dt) {
   pp.holder.position.set(lerp(st.x, 0, m1), top - lv / 2, lerp(st.z, 0, m1));
   pp.holder.scale.setScalar(Math.max(0.0001, sc * pp.a));
   pp.body.rotation.z = m1 * Math.PI / 2;
-  // tartalom a test belsejében, elöl (a perspektíva miatt visszaszorozva, hogy a pixel-elrendezés pontos maradjon)
-  const camZ = camera.position.z, pc = (camZ - pp.fz) / camZ;
-  cards.forEach(c => {
+  // Az egész tartalom egy hengeren fordul körbe (Patrik: „mintha az egész menne körbe”): mindig a képernyő közepén járó
+  // elem van szemben, a többi oldalra, majd hátra kerül (ott halványabban, az üvegen át látszik). A szög a lap magasságából
+  // jön: fent (cím, borító, szöveg) lassabban fordul, hogy olvasható maradjon, a galériánál gyorsabban (képenként dth).
+  const A = y => y < P.y0 ? (y - P.y0) * P.w1 : (y - P.y0) * P.dth / P.dy;
+  const phi = A(v + L.vh / 2), camZ = camera.position.z;
+  const place = (c, y, R, xo, rise) => {
     appear(c, dt);
-    const a = Math.max(0, c.a), pl = c.place;
-    c.holder.position.set((pl.x || 0) * k * pc, toW(pl.y) * pc - (1 - Math.min(1, a)) * 30 * k, pp.fz);
-    c.holder.scale.setScalar(Math.max(0.0001, pc * (0.96 + 0.04 * Math.min(1, a))));
-    c.mat.opacity = clamp(a, 0, 1);
-    c.holder.visible = a > 0.002;
-  });
-  // galéria spirálban: a képernyő közepén járó kép van elöl; hátul halványabb
-  const phi = (v + L.vh / 2 - P.y0) * P.dth / P.dy;
-  gal.forEach((c, i) => {
-    appear(c, dt);
-    const th = i * P.dth - phi, sn = Math.sin(th), cs = Math.cos(th), zz = cs * P.Rz * k, pz = (camZ - zz) / camZ;
-    c.holder.position.set(sn * P.R * k, toW(P.y0 + i * P.dy) * pz, zz);
-    c.holder.rotation.set(0, th, 0);                                         // a pályával fordul (oldalt élére áll: nem lóg ki a pillből)
+    const th = A(y) - phi, sn = Math.sin(th), cs = Math.cos(th);
+    const zz = cs * Math.max(R * 0.32, P.Rz * 0.5) * k, pz = (camZ - zz) / camZ;
+    c.holder.position.set((sn * R + cs * xo) * k, toW(y) * pz - rise, zz - sn * xo * 0.32 * k);
+    c.holder.rotation.set(0, th, 0);                                         // a hengerrel fordul (oldalt élére áll: nem lóg ki a pillből)
     const a = Math.max(0, c.a);
-    c.holder.scale.setScalar(Math.max(0.0001, a));
     c.mat.opacity = Math.min(1, a);
-    c.mat.color.setScalar(0.4 + 0.6 * (cs + 1) / 2);
+    c.mat.color.setScalar(0.4 + 0.6 * (cs + 1) / 2);                        // hátul halványabb
     c.holder.visible = a > 0.002;
+    return a;
+  };
+  cards.forEach(c => {
+    const pl = c.place, a0 = Math.max(0, c.a);
+    const a = place(c, pl.y, pl.R, pl.x || 0, (1 - Math.min(1, a0)) * 30 * k);
+    c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
+  });
+  gal.forEach((c, i) => {
+    const a = place(c, P.y0 + i * P.dy, P.R, 0, 0);
+    c.holder.scale.setScalar(Math.max(0.0001, a));
   });
 }
 function dispose() {
