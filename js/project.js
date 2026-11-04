@@ -87,8 +87,8 @@ function pillLayout(o) {
   const topFor = hw => r - Math.sqrt(Math.max(0, r * r - Math.min(r, hw + pad) ** 2));
   const title = { y: top + (mob ? 90 : 135) * u, w: Math.min(Wp - 2 * pad, 560 * u), h: 130 * u };
   // henger a test belsejében: minden elem a palástján ül (a pill széléig kint), mélységben lapítva (ZS), különben elöl
-  // túl nagyok lennének és a test túl vastag. Rc: a henger sugara; Rlim: eddig mehet ki bármi (1,08: elöl a perspektíva).
-  const Rlim = (r - pad) / 1.08, Rc = Rlim, ZS = 0.32;
+  // túl nagyok lennének és a test túl vastag. Rc: a henger sugara; Rlim: eddig mehet ki bármi (a képen, perspektívával).
+  const Rlim = r - 14 * u, Rc = Rlim, ZS = 0.32;                      // a henger majdnem a test faláig ér: a képek a szélről fordulnak be
   const imgW = Math.min(mob ? Wp - 64 : Math.min(650 * u, Wp - 160 * u), 2 * Rlim * 0.98), imgH = imgW * 0.667;
   const imgTop = top + Math.max((mob ? 175 : 235) * u, topFor(imgW / 2));
   const tw = Math.min(mob ? imgW : 420 * u, 2 * Rlim * 0.98), lines = pillIntroLayout(tw, u).length;
@@ -279,9 +279,15 @@ function setStretch(d) {
 }
 const ease = x => x * x * (3 - 2 * x), lerp = (a, b, t) => a + (b - a) * t;
 // a meghajlított sík legszélső pontja (px) a henger tengelyétől oldalra, ha a paláston th szögben áll (sn, cs)
-function edgeX(b, sn, cs, hw, Rc) {
+// (cz: a kamera távolsága px-ben, zs: a henger mélységi lapítása; az elöl lévő pont a perspektíva miatt kijjebb látszik)
+function edgeX(b, sn, cs, hw, Rc, cz, zs) {
   const r = Rc / b, t = hw / r, lx = r * Math.sin(t), lz = r * (Math.cos(t) - 1);
-  return Math.max(Math.abs(Rc * sn + lx * cs + lz * sn), Math.abs(Rc * sn - lx * cs + lz * sn));
+  let m = 0;
+  for (const sx of [lx, -lx]) {
+    const X = Rc * sn + sx * cs + lz * sn, Z = (Rc * cs - sx * sn + lz * cs) * zs;
+    m = Math.max(m, Math.abs(X) * cz / (cz - Z));
+  }
+  return m;
 }
 // a sík a henger felületére hajlik (a tengely felé), b = 0 egyenes, 1 = a teljes R sugarú ív
 function bendPlane(c, R, b) {
@@ -323,7 +329,7 @@ function updatePillPage(dt) {
     // a henger palástján (Rc): szemből majdnem egyenes (olvasható), oldalra fordulva ráhajlik a hengerre, legalább annyira,
     // hogy a széle ne lógjon ki a pillből (b = 1: pontosan a paláston)
     let b = 0.08 + 0.92 * THREE.MathUtils.smoothstep(Math.abs(th), 0.12, 1.3);
-    while (b < 1 && edgeX(b, sn, cs, hw, P.R) > P.Rlim * 0.995) b = Math.min(1, b + 0.04);
+    while (b < 1 && edgeX(b, sn, cs, hw, P.R, camZ / k, P.ZS) > P.Rlim) b = Math.min(1, b + 0.04);
     bendPlane(c, P.R * k, b);
     const zz = cs * P.R * k, pz = (camZ - zz * P.ZS) / camZ;
     c.holder.position.set(sn * P.R * k, toW(y) * pz - rise, zz);
