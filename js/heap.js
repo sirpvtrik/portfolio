@@ -40,7 +40,7 @@ export function resetHeap() {
 
 function build() {
   const M = window.Matter, { floor, width, pillW } = cfg, pillH = pillW * PH / PW;
-  engine = M.Engine.create({ gravity: { x: 0, y: 1, scale: 0.0024 }, positionIterations: 10, velocityIterations: 8 });
+  engine = M.Engine.create({ gravity: { x: 0, y: 1, scale: 0.0024 }, positionIterations: 10, velocityIterations: 8, constraintIterations: 6 });
   const wall = { isStatic: true, friction: 0.5 };
   const T = 2000, H = 20000;
   M.Composite.add(engine.world, [
@@ -83,18 +83,22 @@ export function heapPointer(kind, e) {
   if (kind === 'down') {
     const p = toPage(e), b = bodyAt(p);
     if (!b) return false;
+    // feszes kötés: a megfogott pont gyors mozdulatnál is a kurzor alatt marad (a laza rugó lemaradt); közben a pill
+    // kevésbé pörög (nagyobb légellenállás), elengedve visszaáll
     const c = M.Constraint.create({
       pointA: p, bodyB: b, pointB: { x: p.x - b.position.x, y: p.y - b.position.y },
-      stiffness: 0.12, damping: 0.08, length: 0,
+      stiffness: 0.9, damping: 0.2, length: 0,
     });
     M.Composite.add(engine.world, c);
-    drag = { c, b, client: { x: e.clientX, y: e.clientY } };
+    drag = { c, b, client: { x: e.clientX, y: e.clientY }, air: b.frictionAir };
+    b.frictionAir = 0.06;
     return true;
   }
   if (!drag) return false;
   if (kind === 'move') { drag.client = { x: e.clientX, y: e.clientY }; return true; }
   if (kind === 'up') {
     M.Composite.remove(engine.world, drag.c);
+    drag.b.frictionAir = drag.air;
     const v = drag.b.velocity, s = Math.hypot(v.x, v.y), max = 45;             // dobás: túl nagy lendületet nem kap
     if (s > max) M.Body.setVelocity(drag.b, { x: v.x * max / s, y: v.y * max / s });
     drag = null;

@@ -320,8 +320,10 @@ function updatePillPage(dt) {
   // Az egész tartalom egy hengeren fordul körbe (Patrik: „mintha az egész menne körbe”): mindig a képernyő közepén járó
   // elem van szemben, a többi oldalra, majd hátra kerül (ott halványabban, az üvegen át látszik). A szög a lap magasságából
   // jön: fent (cím, borító, szöveg) lassabban fordul, hogy olvasható maradjon, a galériánál gyorsabban (képenként dth).
-  // ami a lap tetején a képernyő közepe fölött van, az az elején szemben áll (A a közép magasságától számol)
-  const A = y => { y = Math.max(y, L.vh / 2); return y < P.y0 ? (y - P.y0) * P.w1 : (y - P.y0) * P.dth / P.dy; };
+  // a lap tetején a cím és a borító (az első kép) szemben áll, és csak akkor kezd fordulni, amikor a borító közepe
+  // a képernyő közepére ért (A ettől a magasságtól számol; a szöveg utána már a hengerrel fordul)
+  const yFront = Math.max(L.vh / 2, P.img.y);
+  const A = y => { y = Math.max(y, yFront); return y < P.y0 ? (y - P.y0) * P.w1 : (y - P.y0) * P.dth / P.dy; };
   const phi = A(v + L.vh / 2), camZ = camera.position.z;
   const place = (c, y, hw, rise) => {
     appear(c, dt);
