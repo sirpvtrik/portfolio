@@ -116,10 +116,11 @@ const backMat = new THREE.ShaderMaterial({
   vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: U,
   side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
 });
-const stack = new THREE.Group();
+export const stack = new THREE.Group();   // a halom (js/heap.js) is ezt mozgatja, amíg a projekt nyitva van
 stack.position.y = TOWER_Y;
 scene.add(stack);
-const pills = [], hitTargets = [];
+export const pills = [];
+const hitTargets = [];
 const hitGeo = new THREE.PlaneGeometry(PW, PH * 0.98);
 
 PROJECTS.forEach((p, i) => {
@@ -259,6 +260,7 @@ canvas.addEventListener('pointerdown', e => {
 export let mode = 'tower';
 let selected = -1, modeT = 0, onSelectFn = null;
 export function onSelect(fn) { onSelectFn = fn; }
+export const selectedIndex = () => selected;
 function selectPill(i) {
   mode = 'leaving'; selected = i; modeT = 0;
   scrollVel = 0; dragging = false; pointerIn = false;
@@ -271,10 +273,12 @@ function selectPill(i) {
 }
 export function restorePills() {
   mode = 'returning'; modeT = 0; stack.visible = true;
+  stack.position.set(0, TOWER_Y, 0); stack.scale.setScalar(1);       // a halom (js/heap.js) után vissza a torony helyére
   pills.forEach((pl, j) => {
     pl.dy = visH * 0.75 + j * 0.5; pl.dvy = 0;                 // a képen kívülről, fentről esnek vissza
     pl.drz = (Math.random() - 0.5) * 0.8; pl.dvrz = 0;
     pl.ds = 1; pl.dz = 0; pl.delay = j * 0.06;
+    pl.holder.visible = true;
   });
 }
 function updateDrop(dt) {

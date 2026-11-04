@@ -125,7 +125,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
    A kártyák 3D üveglapok a WebGL-ben (js/project.js); ez a réteg csak a görgetést / húzást kapja el */
 .ui { z-index: 2; }
 .project { position: fixed; inset: 0; z-index: 1; }
-.pj-input { position: absolute; inset: 0; touch-action: none; }
+.pj-input { position: absolute; inset: 0; touch-action: none; cursor: none; }   /* itt is az egérfény a kurzor */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* vissza gomb: üveg pill a bal felső sarokban */

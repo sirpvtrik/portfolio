@@ -3,13 +3,14 @@
 // Görgetés: dob, mint a pilleknél — középen teljes méret, felfelé/lefelé hátradőlnek, mélyebbre kerülnek, kisebbek lesznek.
 // Galéria: valódi 3D henger, a sugara a rács fél szélessége (nem lóg ki a rács szélén). Amikor középre ér, az egész lap
 // megáll, és a görgetés a hengert forgatja; ha az utolsó kép is beért, a lap megy tovább.
-import { S, reduced, DETAIL_TEST, PROJECTS } from './config.js';
+import { S, reduced, DETAIL_TEST, PROJECTS, PW, PH } from './config.js';
 import { scene, renderer, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH, setCameraLift } from './scene.js';
 import { glassVS, glassFS } from './shaders/glass.js';
 import { roundedRect, glassSlab, remapUV, bevelOf, faceZ } from './glassgeo.js';
 import { onSelect, restorePills, paletteOf } from './pills.js';
 import { setWavesCentered, setWaveColor } from './waves.js';
 import { damp } from './util.js';
+import { setupHeap, resetHeap, updateHeap, heapPointer, preloadHeap } from './heap.js';
 
 const root = document.getElementById('project');
 const input = document.getElementById('pjInput');
@@ -62,7 +63,12 @@ function computeLayout() {
   const galY = y + ch / 2;
   const sG = Math.max(0, galY - vh / 2);                  // ennél a görgetésnél van a galéria középen
   const spin = travel * 1.6;                             // ennyi görgetés forgatja végig a hengert (lassabb, mint a lap)
-  return { vw, vh, mob, gw, u, g, list, cw, ch, p, n, travel, spin, galY, sG, sMax: sG + spin + vh * 0.5 };
+  // a lap alján a leesett pillek halma (js/heap.js): a padló a képernyő aljára kerül, a galéria fent még látszik
+  const k = visH / vh, pillW = Math.min(PW / k, gw / 3.3), pillH = pillW * PH / PW;
+  const floor = galY + ch / 2 + Math.max(pillH * 3.6, vh * 1.25);   // bőven lejjebb: ide még jön tartalom (Patrik)
+  const vEnd = floor + (mob ? 10 : 16) - vh;
+  return { vw, vh, mob, gw, u, g, list, cw, ch, p, n, travel, spin, galY, sG, sMax: Math.max(sG, vEnd) + spin,
+    heap: { floor, width: vw, k, vh, vw, pillW } };                  // a halom a képernyő széléig ér
 }
 
 /* ---------- Tartalom-rajzolók (a kártya pixeleiben, q = textúra-felbontás szorzó) ---------- */
@@ -135,6 +141,7 @@ function makeCard(wpx, hpx, k, depth01, draw, order, onTop) {
 function build() {
   dispose();
   L = computeLayout(); builtVisH = visH; builtDepth = geoKey();
+  setupHeap(L.heap);
   const k = visH / L.vh, depth01 = S.depth / 100, d = DETAIL_TEST;
   group = new THREE.Group(); scene.add(group);
   cards = L.list.map(c => {
@@ -163,6 +170,7 @@ function dispose() {
 function open(i) {
   setWaveColor(paletteOf(i));                                    // a projekt képének árnyalataira (vagy a saját színére) vált, fentről lefelé
   isOpen = true; closing = false; s = 0; vel = 0; openT = 0;
+  preloadHeap(); resetHeap();                                     // új projekt: a pillek újra, máshogy hullanak le
   build();
   root.hidden = false;
   document.body.classList.add('project-open');
@@ -174,7 +182,7 @@ function close() {
   closing = true;
   setTimeout(() => {
     isOpen = false; closing = false;
-    dispose();
+    dispose(); resetHeap();
     root.hidden = true;
     document.body.classList.remove('project-open');
     setWavesCentered(true);
@@ -204,18 +212,20 @@ input.addEventListener('wheel', e => {
   vel = clamp(vel + e.deltaY * k * 5, -7000, 7000);
 }, { passive: false });
 input.addEventListener('pointerdown', e => {
-  dragging = true; dragY = e.clientY; dragT = performance.now(); vel = 0;
   try { input.setPointerCapture(e.pointerId); } catch (_) {}
+  if (heapPointer('down', e)) { vel = 0; return; }            // pillre esett: azt húzzuk, nem a lapot
+  dragging = true; dragY = e.clientY; dragT = performance.now(); vel = 0;
 });
 input.addEventListener('pointermove', e => {
-  if (!dragging) return;
+  if (heapPointer('move', e) || !dragging) return;
   const dy = e.clientY - dragY; dragY = e.clientY;
   const now = performance.now(), dts = Math.max(8, now - dragT) / 1000; dragT = now;
   s -= dy; vel = clamp(vel * 0.5 + (-dy / dts) * 0.5, -7000, 7000);
 });
 const endDrag = () => { if (dragging && performance.now() - dragT > 90) vel = 0; dragging = false; };
-input.addEventListener('pointerup', endDrag);
-input.addEventListener('pointercancel', endDrag);
+input.addEventListener('pointerup', e => { heapPointer('up', e); endDrag(); });
+input.addEventListener('pointercancel', e => { heapPointer('up', e); endDrag(); });
+input.addEventListener('pointerleave', e => heapPointer('leave', e));
 document.addEventListener('keydown', e => {
   if (!isOpen) return;
   if (e.key === 'Escape') { close(); return; }
@@ -244,6 +254,7 @@ export function updateProject(dt) {
   const liftT = isOpen && !closing ? 0 : 1.4;                       // a kamera egyenesen néz a kártyákra
   if (Math.abs(lift - liftT) > 1e-4) { lift = damp(lift, liftT, 4, dt); setCameraLift(lift); }
   if (!group) return;
+  updateHeap(dt, s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin), isOpen && !closing);
   if (visH !== builtVisH || innerWidth !== L.vw || innerHeight !== L.vh) {   // átméretezés: újraépítés, megjelenés nélkül
     build(); cards.concat(gal).forEach(c => { c.a = 1; c.av = 0; });
   }
