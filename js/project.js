@@ -259,6 +259,7 @@ function buildPill(k, depth01) {
   // tartalom üveg nélkül, a test belsejében: cím, borító, szöveg
   const title = textPlane(P.title.w, P.title.h, k, drawPillTitle, 6, THREE.DoubleSide);
   const text = textPlane(P.text.w, P.text.h, k, drawPillText, 8, THREE.DoubleSide);
+  title.still = text.still = true;                       // „Szöveg áll” teszt: ezek nem forognak
   const cover = (PROJECTS[cur] && PROJECTS[cur].image) || D.gallery[0] || null;
   const img = textPlane(P.img.w, P.img.h, k, galleryDrawer(cover), 7, THREE.DoubleSide);
   img.place = P.img; title.place = P.title; text.place = P.text;
@@ -344,6 +345,17 @@ function updatePillPage(dt) {
   };
   cards.forEach(c => {
     const pl = c.place, a0 = Math.max(0, c.a);
+    if (c.still && S.pjTextStill) {                      // teszt: a szöveg nem forog, egyenesen ül a test közepén, a képek körülötte forognak
+      appear(c, dt);
+      const a = Math.max(0, c.a);
+      bendPlane(c, P.R * k, 0);
+      c.holder.position.set(0, toW(pl.y) - (1 - Math.min(1, a)) * 30 * k, 0);
+      c.holder.rotation.set(0, 0, 0);
+      c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
+      c.mat.opacity = Math.min(1, a); c.mat.color.setScalar(1);
+      c.holder.visible = a > 0.002;
+      return;
+    }
     const a = place(c, pl.y, pl.w / 2, (1 - Math.min(1, a0)) * 30 * k);
     c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
   });
