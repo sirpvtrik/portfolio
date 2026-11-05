@@ -363,8 +363,6 @@ function updatePillPage(dt, ps) {
     c.holder.visible = a * fade > 0.002;
     return a;
   };
-  // a cím és a szöveg a képernyő tetejéhez (a logóhoz) közeledve elhalványul, nem fedi a logót; a borító nem
-  const topFade = pl => THREE.MathUtils.smoothstep(pl.y - pl.h / 2 - v, -40, 80);   // a felső széle alapján: a felső sora se fedje a logót
   cards.forEach(c => {
     const pl = c.place, a0 = Math.max(0, c.a);
     if (c.still && S.pjTextStill) {                      // teszt: a szöveg nem forog, egyenesen ül a test közepén, a képek körülötte forognak
@@ -374,13 +372,12 @@ function updatePillPage(dt, ps) {
       c.holder.position.set(0, toW(pl.y) - (1 - Math.min(1, a)) * 30 * k, 0);
       c.holder.rotation.set(0, 0, 0);
       c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
-      c.mat.opacity = Math.min(1, a) * topFade(pl); c.mat.color.setScalar(1);
-      c.holder.visible = a * topFade(pl) > 0.002;
+      c.mat.opacity = Math.min(1, a); c.mat.color.setScalar(1);
+      c.holder.visible = a > 0.002;
       return;
     }
     const a = place(c, pl.y, pl.w / 2, (1 - Math.min(1, a0)) * 30 * k);
     c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
-    if (c.still !== undefined) { const f = topFade(pl); c.mat.opacity *= f; c.holder.visible = c.holder.visible && f > 0.01; }
   });
   gal.forEach((c, i) => {                                // egy síkban: mind y0 magasságán, a szög szerint a gyűrűn
     const a = place(c, P.y0, L.cw / 2, 0, i * P.dth - ps.g * P.steps, P.pitch);
