@@ -99,13 +99,18 @@ function pillLayout(o) {
   const dth = Math.min(1.4, cw * 1.08 / Rc);                          // a szomszéd képek a paláston nem érnek egymásba
   // a galéria EGY síkban (egy magasságon) áll, nem lépcsőzve: gyűrű a henger palástján. Amikor a közepére ér (sG), a lap
   // megáll, és a görgetés (spin) forgatja végig a képeket az elsőtől az utolsóig; utána a lap megy tovább (mint a kártyáknál)
-  const y0 = textTop + textH + 90 * u + ch / 2;
+  // a szöveg és a galéria között bő hely: amikor a galéria a képernyő közepére ér (a lap ott megáll), a szöveg már kint van a
+  // képernyő tetején, nem lóg a logó alá és nem ér a bal oldali, feljebb ülő képekhez (Patrik: túl közel volt)
+  const gap = Math.max(170 * u, vh / 2 - ch / 2 - 40);
+  const y0 = textTop + textH + gap + ch / 2;
   const pitch = ch * 0.12 / dth;                                          // a gyűrű enyhe csigavonala: radiánonként ennyit ereszkedik (px)
-  const bottom = y0 + ch / 2 + 140 * u + pitch * 2.2;
-  const floor = bottom + Math.max(pillH * 3.6, vh * 0.9);                // alatta a leesett pillek halma
+  // a test nem lehet rövidebb a pill arányánál (a szélességének PW/PH-szorosa): ha a tartalom rövidebb, a test ennél hosszabb
+  // lenne, és a halom a test aljába lógna, ezért a „bottom” legalább ennyi (a halom ettől mér)
+  const bottom = Math.max(y0 + ch / 2 + 140 * u + pitch * 2.2, top + Wp * PW / PH);
+  const floor = bottom + Math.max(pillH * 3.6, vh * 0.9) + pillH * 1.5;   // alatta a leesett pillek halma, a testtől bő távolságra
   const sG = Math.max(0, y0 - vh / 2), steps = (n - 1) * dth, spin = steps * 420;   // 420 px görgetés fordulatonként (rad)
   const rate = dth / (ch * 0.5) * 0.3;                                    // csavarodás a lap magasságával (rad / px): fent lassan, olvashatóan
-  return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(sG, floor + (mob ? 10 : 16) - vh) + spin,
+  return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(sG, floor + (mob ? 36 : 64) - vh) + spin,   // a pillek nem tapadnak a képernyő aljához
     pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, ZS, Rlim, dth, y0, w1: rate, sG, spin, steps, pitch },
     heap: { floor, width: vw, k: o.k, vh, vw, pillW } };
 }
@@ -358,6 +363,8 @@ function updatePillPage(dt, ps) {
     c.holder.visible = a * fade > 0.002;
     return a;
   };
+  // a cím és a szöveg a képernyő tetejéhez (a logóhoz) közeledve elhalványul, nem fedi a logót; a borító nem
+  const topFade = pl => THREE.MathUtils.smoothstep(pl.y - pl.h / 2 - v, -40, 80);   // a felső széle alapján: a felső sora se fedje a logót
   cards.forEach(c => {
     const pl = c.place, a0 = Math.max(0, c.a);
     if (c.still && S.pjTextStill) {                      // teszt: a szöveg nem forog, egyenesen ül a test közepén, a képek körülötte forognak
@@ -367,12 +374,13 @@ function updatePillPage(dt, ps) {
       c.holder.position.set(0, toW(pl.y) - (1 - Math.min(1, a)) * 30 * k, 0);
       c.holder.rotation.set(0, 0, 0);
       c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
-      c.mat.opacity = Math.min(1, a); c.mat.color.setScalar(1);
-      c.holder.visible = a > 0.002;
+      c.mat.opacity = Math.min(1, a) * topFade(pl); c.mat.color.setScalar(1);
+      c.holder.visible = a * topFade(pl) > 0.002;
       return;
     }
     const a = place(c, pl.y, pl.w / 2, (1 - Math.min(1, a0)) * 30 * k);
     c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
+    if (c.still !== undefined) { const f = topFade(pl); c.mat.opacity *= f; c.holder.visible = c.holder.visible && f > 0.01; }
   });
   gal.forEach((c, i) => {                                // egy síkban: mind y0 magasságán, a szög szerint a gyűrűn
     const a = place(c, P.y0, L.cw / 2, 0, i * P.dth - ps.g * P.steps, P.pitch);

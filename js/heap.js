@@ -54,8 +54,9 @@ function build() {
   list.forEach((i, n) => {
     const x = (Math.random() - 0.5) * (width - pillW);
     const y = top - n * pillH * 1.25 - Math.random() * pillH;
-    const b = M.Bodies.rectangle(x, y, pillW, pillH, {
-      chamfer: { radius: pillH * 0.499 }, friction: 0.35, frictionStatic: 0.7, restitution: 0.18,
+    // a fizikai test kicsit nagyobb a látható pillnél (7%): így a pillek nem érnek egymáshoz és a padlóhoz, levegősek maradnak
+    const b = M.Bodies.rectangle(x, y, pillW * 1.07, pillH * 1.07, {
+      chamfer: { radius: pillH * 1.07 * 0.499 }, friction: 0.35, frictionStatic: 0.7, restitution: 0.18,
       frictionAir: 0.012, density: 0.0012,
     });
     M.Body.setAngle(b, (Math.random() - 0.5) * 2.4);
