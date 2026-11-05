@@ -96,14 +96,17 @@ function pillLayout(o) {
   const text = { y: textTop + textH / 2, w: tw, h: textH };          // középen: oldalra tolva szemből is elfordulva állna
   const img = { y: imgTop + imgH / 2, w: imgW, h: imgH };
   const R = Rc, Rz = Rc * ZS;
-  // a galéria csigavonalban emelkedik a henger palástján, de sűrűn és simán (áramló szalag, nem külön lépcsőfokok):
-  // a szomszéd képek kicsit egymásba érnek (dth, dy kicsi), és a szalag irányába dőlnek (lásd place, S.pjRoll)
-  const dth = Math.min(1.4, cw * 0.95 / Rc), dy = ch * 0.42;
+  const dth = Math.min(1.4, cw * 1.08 / Rc);                          // a szomszéd képek a paláston nem érnek egymásba
+  // a galéria EGY síkban (egy magasságon) áll, nem lépcsőzve: gyűrű a henger palástján. Amikor a közepére ér (sG), a lap
+  // megáll, és a görgetés (spin) forgatja végig a képeket az elsőtől az utolsóig; utána a lap megy tovább (mint a kártyáknál)
   const y0 = textTop + textH + 90 * u + ch / 2;
-  const bottom = y0 + (n - 1) * dy + ch / 2 + 140 * u;
+  const pitch = ch * 0.12 / dth;                                          // a gyűrű enyhe csigavonala: radiánonként ennyit ereszkedik (px)
+  const bottom = y0 + ch / 2 + 140 * u + pitch * 2.2;
   const floor = bottom + Math.max(pillH * 3.6, vh * 0.9);                // alatta a leesett pillek halma
-  return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(0, floor + (mob ? 10 : 16) - vh),
-    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, ZS, Rlim, dth, dy, y0, w1: dth / dy * 0.3 },
+  const sG = Math.max(0, y0 - vh / 2), steps = (n - 1) * dth, spin = steps * 420;   // 420 px görgetés fordulatonként (rad)
+  const rate = dth / (ch * 0.5) * 0.3;                                    // csavarodás a lap magasságával (rad / px): fent lassan, olvashatóan
+  return { mode: 'pill', vw, vh, mob, gw, u, g: o.g, cw, ch, n, list: [], sMax: Math.max(sG, floor + (mob ? 10 : 16) - vh) + spin,
+    pill: { Wp, top, bottom, len: bottom - top, title, img, text, R, Rz, ZS, Rlim, dth, y0, w1: rate, sG, spin, steps, pitch },
     heap: { floor, width: vw, k: o.k, vh, vw, pillW } };
 }
 function drawPillTitle(g, w, h, q) {
@@ -281,7 +284,13 @@ function setStretch(d) {
   pp.mat.uniforms.uHalf.value.set(pp.L0 / 2 + d, pp.Ww / 2);
 }
 const ease = x => x * x * (3 - 2 * x), lerp = (a, b, t) => a + (b - a) * t;
-
+// a pill-oldal görgetési fázisai: lap görög → (a galéria középen) a lap áll, a gyűrű forog (g: 0..1) → a lap görög tovább
+function pillScroll() {
+  const P = L.pill;
+  if (s < P.sG) return { v: s, g: 0 };
+  if (s < P.sG + P.spin) return { v: P.sG, g: (s - P.sG) / P.spin };
+  return { v: s - P.spin, g: 1 };
+}
 // a meghajlított sík legszélső pontja (px) a henger tengelyétől oldalra, ha a paláston th szögben áll (sn, cs)
 // (cz: a kamera távolsága px-ben, zs: a henger mélységi lapítása; az elöl lévő pont a perspektíva miatt kijjebb látszik)
 function edgeX(b, sn, cs, hw, Rc, cz, zs) {
@@ -304,8 +313,8 @@ function bendPlane(c, R, b) {
   }
   c.geo.attributes.position.needsUpdate = true;
 }
-function updatePillPage(dt) {
-  const P = L.pill, k = visH / L.vh, v = s;
+function updatePillPage(dt, ps) {
+  const P = L.pill, k = visH / L.vh, v = ps.v;
   const toW = py => -(py - v - L.vh / 2) * k;
   // kinövés: a pill kicsiben felállítva elfordul (0–0,55 s), aztán kiszélesedik és lefelé megnyúlik, a teteje a helyére úszik
   // (0,3–1,3 s). A látható szélesség / hossz → méretarány + nyújtás (a hossz sosem rövidebb a pill arányánál).
@@ -327,13 +336,11 @@ function updatePillPage(dt) {
   // a lap tetején a cím és a borító (az első kép) szemben áll, és csak akkor kezd fordulni, amikor a borító közepe
   // a képernyő közepére ért (A ettől a magasságtól számol; a szöveg utána már a hengerrel fordul)
   const yFront = Math.max(L.vh / 2, P.img.y);
-  // fent lassan (olvashatóan), a galériánál képenként dth: a csigavonal a lap magasságával arányos csavarodás
-  const A = y => { y = Math.max(y, yFront); return y < P.y0 ? (y - P.y0) * P.w1 : (y - P.y0) * P.dth / P.dy; };
+  const A = y => (Math.max(y, yFront) - P.y0) * P.w1;                  // ugyanaz a csavarodás felfelé mindenkinek
   const phi = A(v + L.vh / 2), camZ = camera.position.z;
-  const roll01 = S.pjRoll / 100;
-  const place = (c, y, hw, rise, flow = false) => {
+  const place = (c, y, hw, rise, extra = 0, droop = 0) => {
     appear(c, dt);
-    const th = A(y) - phi, sn = Math.sin(th), cs = Math.cos(th);
+    const th = A(y) - phi + extra, sn = Math.sin(th), cs = Math.cos(th);
     const fade = 1 - THREE.MathUtils.smoothstep(Math.abs(th), 0.7 * Math.PI, 0.97 * Math.PI);   // a hátsó oldalon kifutva eltűnik (a gyűrű nem ér körbe)
     // a henger palástján (Rc): szemből majdnem egyenes (olvasható), oldalra fordulva ráhajlik a hengerre, legalább annyira,
     // hogy a széle ne lógjon ki a pillből (b = 1: pontosan a paláston)
@@ -341,14 +348,10 @@ function updatePillPage(dt) {
     while (b < 1 && edgeX(b, sn, cs, hw, P.R, camZ / k, P.ZS) > P.Rlim) b = Math.min(1, b + 0.04);
     bendPlane(c, P.R * k, b);
     const zz = cs * P.R * k, pz = (camZ - zz * P.ZS) / camZ;
-    c.holder.position.set(sn * P.R * k, toW(y) * pz - rise, zz);
-    // a szalag irányába dől (Patrik: „áramvonalasan”): a csigavonal érintője a képen: oldalirányú sebesség R·cos(th), lefelé dy/dth
-    let roll = 0;
-    if (flow && roll01 > 0) {
-      let den = P.R * cs; if (Math.abs(den) < P.R * 0.15) den = P.R * 0.15 * (cs < 0 ? -1 : 1);
-      roll = clamp(Math.atan(-(P.dy / P.dth) / den), -0.9, 0.9) * roll01;
-    }
-    c.holder.rotation.set(0, th, roll);
+    // a gyűrű enyhe csigavonala (Patrik rajza): a szemben álló kép a magasságán marad, a jobbra elforduló képek lejjebb, a balra
+    // elfordulók feljebb ülnek (a szög arányában; a kép szélén a vetület miatt meredekebbnek látszik)
+    c.holder.position.set(sn * P.R * k, toW(y + droop * th) * pz - rise, zz);
+    c.holder.rotation.set(0, th, 0);
     const a = Math.max(0, c.a);
     c.mat.opacity = Math.min(1, a) * fade;
     c.mat.color.setScalar(0.4 + 0.6 * (cs + 1) / 2);                        // hátul halványabb
@@ -371,8 +374,8 @@ function updatePillPage(dt) {
     const a = place(c, pl.y, pl.w / 2, (1 - Math.min(1, a0)) * 30 * k);
     c.holder.scale.setScalar(Math.max(0.0001, 0.96 + 0.04 * Math.min(1, a)));
   });
-  gal.forEach((c, i) => {                                // csigavonal: képenként dy lejjebb, dth-val elfordulva
-    const a = place(c, P.y0 + i * P.dy, L.cw / 2, 0, true);
+  gal.forEach((c, i) => {                                // egy síkban: mind y0 magasságán, a szög szerint a gyűrűn
+    const a = place(c, P.y0, L.cw / 2, 0, i * P.dth - ps.g * P.steps, P.pitch);
     c.holder.scale.setScalar(Math.max(0.0001, a));
   });
 }
@@ -491,7 +494,7 @@ export function updateProject(dt) {
   if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
   if (s < 0) { s = 0; vel = Math.max(0, vel); }
   if (s > L.sMax) { s = L.sMax; vel = Math.min(0, vel); }
-  if (L.pill) { updateHeap(dt, s, isOpen && !closing); updatePillPage(dt); return; }
+  if (L.pill) { const ps = pillScroll(); updateHeap(dt, ps.v, isOpen && !closing); updatePillPage(dt, ps); return; }
   updateHeap(dt, s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin), isOpen && !closing);
   // fázisok: lap görög → (galéria középen) a lap áll, a henger forog → a lap görög tovább
   const v = s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin);
