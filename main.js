@@ -14,7 +14,7 @@ const N = PROJECTS.length;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 25, pfrost: 40, ptint: 35, holo: 65, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
+const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 25, pfrost: 18, ptint: 12, topac: 82, holo: 65, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
 const S = Object.assign({}, DEFAULTS);
 
 /* ---------- Renderer ---------- */
@@ -473,7 +473,7 @@ resize();
 
 /* ---------- Panel ---------- */
 const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
-const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wspeed', 'surge', 'curve', 'pfrost', 'ptint', 'holo'];
+const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wspeed', 'surge', 'curve', 'pfrost', 'ptint', 'topac', 'holo'];
 let builtDepth = S.depth, geoPending = false;
 function rebuildGeo() {
   geoPending = false;
@@ -1579,7 +1579,7 @@ function projUpdate(dt) {
     t.hv = damp(t.hv, j === pHover ? 1 : 0, 10, dt);
     const u = t.mat.uniforms;
     u.uSize.value.set(Math.max(1, r.w), Math.max(1, r.h));
-    u.uArc.value = t.arc; u.uY.value = t.cy; u.uAlpha.value = 1;
+    u.uArc.value = t.arc; u.uY.value = t.cy; u.uAlpha.value = S.topac / 100;   // a csempéken is átsejlik a hologram
     u.uHover.value = t.hv; u.uLift.value = t.hv * 12;
   });
   if (pTarget) {
