@@ -14,7 +14,7 @@ const N = PROJECTS.length;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 25, pfrost: 40, ptint: 35, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
+const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 25, pfrost: 40, ptint: 35, pview: 1, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
 const S = Object.assign({}, DEFAULTS);
 
 /* ---------- Renderer ---------- */
@@ -495,6 +495,7 @@ function applySettings() {
   document.getElementById('c-bpm').checked = S.bpmSync;
   WU.uStyle.value = S.wstyle;
   [0, 1].forEach(v => document.getElementById('ws-' + v).setAttribute('aria-pressed', String(S.wstyle === v)));
+  [0, 1].forEach(v => document.getElementById('pv-' + v).setAttribute('aria-pressed', String(S.pview === v)));
   CTL.forEach(k => {
     const el = document.getElementById('c-' + k);
     el.value = S[k];
@@ -504,6 +505,7 @@ function applySettings() {
 CTL.forEach(k => document.getElementById('c-' + k).addEventListener('input', e => { S[k] = +e.target.value; applySettings(); }));
 document.getElementById('c-bpm').addEventListener('change', e => { S.bpmSync = e.target.checked; });
 [0, 1].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));
+[0, 1].forEach(v => document.getElementById('pv-' + v).addEventListener('click', () => { S.pview = v; applySettings(); }));   // a következő megnyitástól érvényes
 document.getElementById('reset').addEventListener('click', () => { Object.assign(S, DEFAULTS); applySettings(); });
 panelBtn.addEventListener('click', () => {
   const open = panel.hidden;
@@ -1089,7 +1091,7 @@ const LAYER_PANEL = 5, LAYER_TILES = 6;
 const clamp01 = x => Math.min(1, Math.max(0, x));
 const backOut = x => { const c = 0.9; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
 const outCubic = x => 1 - Math.pow(1 - x, 3);
-let pT = 0, pTarget = 0, sel = -1, pEase = 0, pCentered = false;
+let pT = 0, pTarget = 0, sel = -1, pEase = 0, pCentered = false, pMode = 0;
 let sPos = 0, sTarget = 0, pxVel = 0, pSnapAt = 0, pWheelDir = 0;
 let pDrag = false, pDragX = 0, pDragY = 0, pDragT = 0, pFling = 0;
 let pL = null, pFrom = null, pCap = -1, pHover = -1, pmx = -1, pmy = -1, pResizeT = 0;
@@ -1430,14 +1432,15 @@ function openProject(i) {
   sel = i; pCentered = false; pCap = -1; pHover = -1;
   pFrom = pillRect(i);
   pL = projLayout();
-  sPos = sTarget = 0; pxVel = 0; pSnapAt = 0; pWheelDir = 0;
-  buildTiles();
+  pMode = S.pview; pxVel = 0; pSnapAt = 0; pWheelDir = 0;
+  if (pMode === 1) { clearTiles(); zCur = -1; zVel = 0; sPos = i + 0.02; sTarget = i + 0.5; }   // a távoli nézetből repül be
+  else { sPos = sTarget = 0; buildTiles(); }
   pTarget = 1;
   hovered = -1; pointerIn = false;
   document.body.classList.add('proj');
   whoEl.hidden = true; backBtn.hidden = false;
-  hintEl.innerHTML = 'Görgess vagy húzd<br>Esc → vissza';
-  canvas.setAttribute('aria-label', PROJECTS[i].name + ' projekt: görgetésre átrendeződő csempék');
+  hintEl.innerHTML = pMode === 1 ? 'Görgess → következő projekt<br>Esc → vissza' : 'Görgess vagy húzd<br>Esc → vissza';
+  canvas.setAttribute('aria-label', PROJECTS[i].name + (pMode === 1 ? ' projekt plakátja; görgetésre a következő projekt' : ' projekt: görgetésre átrendeződő csempék'));
   canvas.style.cursor = 'default';
 }
 function closeProject() {
@@ -1451,10 +1454,316 @@ function closeProject() {
 }
 backBtn.addEventListener('click', closeProject);
 
+/* ---------- Zoom-nézet: perspektivikus „végtelen zoom” a plakátok között, előtérben óriási liquid glass betűkkel ---------- */
+// mélységek (kamera z-je: -3 = távoli nézet, 0 = a plakáton landolva, 0.85 = belemerülve a fotóba)
+const Z_PANEL = 1, Z_TEXT = 0.97, Z_PHOTO = 0.9, Z_NAME = -1.7, Z_ID = -1.0, CAM0 = -3, CAM_DIVE = 0.85;
+const ACCENTS = ['#e5322d', '#0d99ff', '#f2b705', '#2bb673', '#8b5cf6', '#ff6a00'];
+const LAYER_POSTER = 7, LAYER_LETTERS = 8, LAYER_BLIT2 = 9;
+const isZoom = () => S.pview === 1;
+let zCache = new Map(), zCur = -1, zVel = 0;
+
+// második render target: a panel + plakát ide kerül, ezt törik meg az üvegbetűk
+const rt2 = new THREE.WebGLRenderTarget(4, 4, {
+  samples: renderer.capabilities.isWebGL2 ? 4 : 0, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+});
+const blit2 = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  uniforms: { uTex: { value: rt2.texture }, uRes: U.uRes }, depthTest: false, depthWrite: false,
+  vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: 'uniform sampler2D uTex; uniform vec2 uRes; void main() { gl_FragColor = texture2D(uTex, gl_FragCoord.xy / uRes); }',
+}));
+blit2.frustumCulled = false;
+scene.add(onLayer(blit2, LAYER_BLIT2));
+window.addEventListener('resize', () => rt2.setSize(bufSize.x, bufSize.y));
+rt2.setSize(bufSize.x, bufSize.y);
+
+const FSQ_VS = 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }';
+// plakát-réteg: képernyőtérbeli téglalap, a (méretezett) panel lekerekített alakjára vágva
+const posterFS = /* glsl */`
+  precision highp float;
+  uniform sampler2D uMap;
+  uniform vec4 uRect, uClip;
+  uniform float uClipRad, uAlpha;
+  void main() {
+    vec2 p = gl_FragCoord.xy;
+    vec2 uv = (p - uRect.xy) / uRect.zw;
+    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) discard;
+    vec2 h = uClip.zw * 0.5;
+    vec2 q = abs(p - uClip.xy - h) - h + uClipRad;
+    float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uClipRad;
+    if (d > 1.0) discard;
+    vec4 c = texture2D(uMap, uv);
+    gl_FragColor = vec4(c.rgb, c.a * uAlpha * clamp(0.5 - d, 0.0, 1.0));
+  }`;
+// üvegbetű: előre kiszámolt távolságmezőből (SDF) perem, normál, fénytörés, diszperzió és csillanás
+const letterFS = /* glsl */`
+  precision highp float;
+  uniform sampler2D uBg, uSdf;
+  uniform vec2 uRes, uTexSize;
+  uniform vec4 uRect;
+  uniform float uRange, uAlpha, uScale, uRefr, uDisp, uLightAng, uLightInt, uTint;
+  void main() {
+    vec2 p = gl_FragCoord.xy;
+    vec2 uv = (p - uRect.xy) / uRect.zw;
+    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) discard;
+    float v = texture2D(uSdf, uv).r;
+    float k = uRect.z / uTexSize.x;                                  // képernyő-px / textúra-px
+    float dist = (v - 0.5) * 2.0 * uRange * k;                        // >0 a betűn belül (px)
+    if (dist < -1.0) discard;
+    float alpha = clamp(dist + 0.5, 0.0, 1.0);
+    // a normál több texelnyi (átlós mintákkal is) átlagolt gradiensből → nincsenek lapos „facetták” a nagyított peremen
+    vec2 e = 2.5 / uTexSize;
+    float a1 = texture2D(uSdf, uv + vec2(e.x, e.y)).r, a2 = texture2D(uSdf, uv + vec2(-e.x, e.y)).r;
+    float a3 = texture2D(uSdf, uv + vec2(e.x, -e.y)).r, a4 = texture2D(uSdf, uv + vec2(-e.x, -e.y)).r;
+    vec2 g = vec2(texture2D(uSdf, uv + vec2(e.x, 0.0)).r - texture2D(uSdf, uv - vec2(e.x, 0.0)).r,
+                  texture2D(uSdf, uv + vec2(0.0, e.y)).r - texture2D(uSdf, uv - vec2(0.0, e.y)).r) * 2.0
+           + vec2(a1 - a2 + a3 - a4, a1 + a2 - a3 - a4);
+    vec2 n = -normalize(g + 1e-6);                                    // kifelé mutató normál
+    float B = uRange * k * 0.9;                                       // a perem szélessége nő a betűvel
+    float t = clamp(dist / max(B, 1.0), 0.0, 1.0);
+    float bend = pow(1.0 - t, 1.5);
+    vec2 off = -n * bend * uRefr * min(B, 160.0 * uScale) * 0.9;
+    float kd = uDisp * 0.35 * bend;
+    vec2 lens = (p - (uRect.xy + uRect.zw * 0.5)) * -0.035;           // a lap kicsit nagyít, mint egy vastag üveg
+    vec3 col;
+    col.r = texture2D(uBg, (p + lens + off * (1.0 - kd)) / uRes).r;
+    col.g = texture2D(uBg, (p + lens + off) / uRes).g;
+    col.b = texture2D(uBg, (p + lens + off * (1.0 + kd)) / uRes).b;
+    col = mix(col, vec3(0.06, 0.06, 0.07), 0.12 + uTint * 0.3);
+    float la = radians(uLightAng);
+    vec2 L = vec2(-cos(la), -sin(la));
+    float f = dot(n, L);
+    float spec = pow(max(f, 0.0), 2.0) + 0.5 * pow(max(-f, 0.0), 2.5);
+    float rim = smoothstep(2.2 * uScale, 0.0, dist);
+    col += (rim * (0.2 + 0.9 * spec) + bend * spec * 0.35 + pow(bend, 6.0) * 0.12) * uLightInt;
+    gl_FragColor = vec4(col, alpha * uAlpha);
+  }`;
+function fsq(fs, uniforms, layer) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    uniforms, vertexShader: FSQ_VS, fragmentShader: fs, transparent: true, depthTest: false, depthWrite: false,
+  }));
+  m.frustumCulled = false; m.visible = false;
+  scene.add(onLayer(m, layer));
+  return m;
+}
+const posterU = () => ({ uMap: { value: null }, uRect: { value: new THREE.Vector4() }, uClip: { value: new THREE.Vector4() }, uClipRad: { value: 0 }, uAlpha: { value: 0 } });
+const letterU = () => ({
+  uBg: { value: rt2.texture }, uSdf: { value: null }, uRes: U.uRes, uTexSize: { value: new THREE.Vector2(1, 1) }, uRect: { value: new THREE.Vector4() },
+  uRange: { value: 34 }, uAlpha: { value: 0 }, uScale: { value: 1 }, uTint: pnU.uTint,
+  uRefr: U.uRefr, uDisp: U.uDisp, uLightAng: U.uLightAng, uLightInt: U.uLightInt,
+});
+const photoQ = fsq(posterFS, posterU(), LAYER_POSTER); photoQ.renderOrder = 1;
+const textQ = fsq(posterFS, posterU(), LAYER_POSTER); textQ.renderOrder = 2;
+const nameQ = fsq(letterFS, letterU(), LAYER_LETTERS); nameQ.renderOrder = 1;
+const idQ = fsq(letterFS, letterU(), LAYER_LETTERS); idQ.renderOrder = 2;
+
+// távolságmező (Felzenszwalb-féle pontos euklideszi távolság-transzformáció)
+function edt1d(f, d, v, z, n) {
+  let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+  for (let q = 1; q < n; q++) {
+    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+    k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
+}
+function edt(grid, w, h) {
+  const n = Math.max(w, h), f = new Float64Array(n), d = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) f[y] = grid[y * w + x];
+    edt1d(f, d, v, z, h);
+    for (let y = 0; y < h; y++) grid[y * w + x] = d[y];
+  }
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) f[x] = grid[y * w + x];
+    edt1d(f, d, v, z, w);
+    for (let x = 0; x < w; x++) grid[y * w + x] = Math.sqrt(d[x]);
+  }
+}
+function makeSDF(text, R) {
+  const fs = 340, c = document.createElement('canvas'), g = c.getContext('2d');
+  const font = `800 ${fs}px Archivo, "Helvetica Neue", Arial, sans-serif`;
+  g.font = font;
+  const m = g.measureText(text), pad = R + 4;
+  const asc = Math.ceil(m.actualBoundingBoxAscent || fs * 0.9), desc = Math.ceil(m.actualBoundingBoxDescent || fs * 0.2);
+  const W = Math.ceil(m.width + 2 * pad), H = asc + desc + 2 * pad;
+  c.width = W; c.height = H;
+  g.font = font; g.fillStyle = '#fff'; g.textBaseline = 'alphabetic';
+  g.fillText(text, pad, pad + asc);
+  const img = g.getImageData(0, 0, W, H).data, N2 = W * H;
+  const inside = new Float64Array(N2), outside = new Float64Array(N2);
+  // az élsimított fedettségből indulunk (pixelen belüli él), így az átlós és íves peremek sem lépcsőznek
+  for (let i = 0; i < N2; i++) {
+    const a = img[i * 4 + 3] / 255;
+    if (a >= 1) { outside[i] = 0; inside[i] = 1e20; }
+    else if (a <= 0) { outside[i] = 1e20; inside[i] = 0; }
+    else { const d = 0.5 - a; outside[i] = d > 0 ? d * d : 0; inside[i] = d < 0 ? d * d : 0; }
+  }
+  edt(inside, W, H); edt(outside, W, H);
+  // félpontos lebegőpontos tárolás: 8 biten a nagyított betűk peremén lépcsőzés látszana
+  const data = new Uint16Array(N2 * 4), toHalf = THREE.DataUtils.toHalfFloat;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, o = ((H - 1 - y) * W + x) * 4;                     // függőleges tükrözés (a textúra alulról indul)
+    const v = toHalf(0.5 + 0.5 * Math.max(-1, Math.min(1, (inside[i] - outside[i]) / R)));
+    data[o] = data[o + 1] = data[o + 2] = v; data[o + 3] = toHalf(1);
+  }
+  const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat, THREE.HalfFloatType);
+  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+  return { tex, w: W, h: H, R };
+}
+
+// plakát elrendezése a panelen belül (px, a panel bal felső sarkától)
+function posterLayout(W, H) {
+  const wide = W > H * 1.1;
+  return wide
+    ? { photo: { x: W * 0.04, y: H * 0.07, w: W * 0.34, h: H * 0.62 }, nameY: H * 0.84, nameX: W * 0.27, nameMax: W * 0.69, wide }
+    : { photo: { x: W * 0.06, y: H * 0.05, w: W * 0.62, h: H * 0.42 }, nameY: H * 0.6, nameX: W * 0.06, nameMax: W * 0.88, wide };
+}
+function paintPoster(i) {
+  const p = PROJECTS[i], L = pL, W = L.w, H = L.h, lay = posterLayout(W, H), acc = ACCENTS[i % ACCENTS.length];
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), sc = Math.min(dpr, 2048 / Math.max(W, H));
+  const mono = s => `500 ${Math.round(s)}px "Geist Mono", ui-monospace, monospace`;
+  const disp = (w, s) => `${w} ${Math.round(s)}px Archivo, "Helvetica Neue", Arial, sans-serif`;
+  // „fotó”: színes blokk a projekt mintájával (helyőrző a saját képnek)
+  const ph = lay.photo, pc = document.createElement('canvas');
+  const psc = Math.min(dpr, 1400 / Math.max(ph.w, ph.h));
+  pc.width = Math.round(ph.w * psc); pc.height = Math.round(ph.h * psc);
+  let g = pc.getContext('2d'); g.scale(psc, psc);
+  const gr = g.createRadialGradient(ph.w * 0.35, ph.h * 0.3, 0, ph.w * 0.5, ph.h * 0.5, Math.max(ph.w, ph.h) * 0.85);
+  gr.addColorStop(0, acc); gr.addColorStop(1, '#140606');
+  g.fillStyle = gr; g.fillRect(0, 0, ph.w, ph.h);
+  motifAt(g, i, ph.w * 0.55, ph.h * 0.55, Math.min(ph.w, ph.h) * 0.75, 'rgba(0,0,0,0.5)');
+  g.fillStyle = 'rgba(0,0,0,0.55)'; g.font = mono(11); g.fillText('KÉP · HELYŐRZŐ', 14, ph.h - 14);
+  // szövegréteg (átlátszó háttér)
+  const tc = document.createElement('canvas');
+  tc.width = Math.round(W * sc); tc.height = Math.round(H * sc);
+  g = tc.getContext('2d'); g.scale(sc, sc);
+  const pad = Math.max(16, Math.min(W, H) * 0.045), ms = Math.max(10, Math.min(13, H * 0.018));
+  g.fillStyle = '#ececee'; g.textBaseline = 'alphabetic';
+  let fs = Math.min(H * (lay.wide ? 0.26 : 0.16), 260); g.font = disp(800, fs);
+  const nw = g.measureText(p.name).width;
+  if (nw > lay.nameMax) { fs *= lay.nameMax / nw; g.font = disp(800, fs); }
+  g.fillText(p.name, lay.nameX, lay.nameY);
+  const rx = lay.wide ? W * 0.43 : pad, ry = lay.wide ? pad + ms : lay.photo.y + lay.photo.h + pad * 0.6;
+  g.font = mono(ms); g.fillStyle = 'rgba(236,236,238,0.75)';
+  if (lay.wide) {
+    g.fillText((p.id + '  ·  ' + p.cat).toUpperCase(), rx, ry);
+    g.fillText(p.meta.toUpperCase(), rx, ry + ms * 1.6);
+    g.textAlign = 'right'; g.fillText('PATRIK MADARÁSZ', W - pad, ry); g.fillText('2025 — 2026', W - pad, ry + ms * 1.6); g.textAlign = 'left';
+  } else {
+    g.textAlign = 'right'; g.fillText(p.id, W - pad, pad + ms); g.fillText(p.cat.toUpperCase(), W - pad, pad + ms * 2.6); g.textAlign = 'left';
+  }
+  g.font = disp(500, Math.max(12, ms * 1.15)); g.fillStyle = 'rgba(236,236,238,0.8)';
+  const bodyY = lay.wide ? lay.nameY - fs * 0.95 - ms * 6 : lay.nameY + fs * 0.45;
+  const bodyX = lay.wide ? W * 0.43 : pad;
+  wrapText(g, 'Ide jön a projekt rövid leírása: mi volt a feladat, hogyan jutottam el a megoldásig, és mi lett a vége.', bodyX, bodyY, lay.wide ? W * 0.3 : W - 2 * pad, ms * 1.5);
+  g.font = mono(ms); g.fillStyle = 'rgba(236,236,238,0.6)';
+  g.fillText((p.meta + ' · ' + p.cat).toUpperCase(), lay.nameX + 4, Math.min(H - pad, lay.nameY + ms * 2.4));
+  const mk = c => { const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; return t; };
+  return { photo: mk(pc), text: mk(tc), lay, name: makeSDF(p.name.toUpperCase(), 34), id: makeSDF(p.id, 34) };
+}
+function zAssets(i) {
+  if (!zCache.has(i)) {
+    zCache.set(i, paintPoster(i));
+    for (const k of [...zCache.keys()]) {                        // legfeljebb 2 projekt van a memóriában
+      if (zCache.size <= 2) break;
+      if (k !== i) { const a = zCache.get(k); [a.photo, a.text, a.name.tex, a.id.tex].forEach(t => t.dispose()); zCache.delete(k); }
+    }
+  }
+  return zCache.get(i);
+}
+function zClear() {
+  zCache.forEach(a => [a.photo, a.text, a.name.tex, a.id.tex].forEach(t => t.dispose()));
+  zCache.clear(); zCur = -1;
+  [photoQ, textQ, nameQ, idQ].forEach(m => { m.visible = false; });
+}
+const zMod = s => ((Math.floor(s) % N) + N) % N;
+// kamera-pálya egy projekten belül: u 0→0.5 előrerepülés a betűkön át a plakátig, 0.5→1 belemerülés a fotóba
+function zCam(u) {
+  if (u <= 0.5) return { cam: CAM0 * Math.pow(1 - u / 0.5, 1.25), dive: 0 };
+  const w = (u - 0.5) / 0.5;
+  return { cam: CAM_DIVE * Math.pow(w, 1.5), dive: w };
+}
+// a landolt panel képernyő-téglalapja → egy mélységi réteg nézete
+const zScale = (z, cam, D) => D / Math.max(1e-4, z - cam);
+function zXf(r, F, s) { return { x: F.x + (r.x - F.x) * s, y: F.y + (r.y - F.y) * s, w: r.w * s, h: r.h * s }; }
+function zPanelRect(s) {
+  const L = pL, u = s - Math.floor(s), { cam, dive } = zCam(u);
+  const a = zAssets(zMod(s)), ph = a.lay.photo;
+  const C = { x: L.x + L.w / 2, y: L.y + L.h / 2 }, P = { x: L.x + ph.x + ph.w / 2, y: L.y + ph.y + ph.h / 2 };
+  const fk = THREE.MathUtils.smoothstep(dive, 0, 0.35);
+  const F = { x: C.x + (P.x - C.x) * fk, y: C.y + (P.y - C.y) * fk };
+  const sp = zScale(Z_PANEL, cam, Z_PANEL);
+  const r = zXf({ x: L.x, y: L.y, w: L.w, h: L.h }, F, sp);
+  r.r = L.r * Math.min(sp, 3); r.F = F; r.cam = cam; r.u = u; r.a = a;
+  return r;
+}
+function zSnap(v, dir) {
+  const b = v - 0.5;
+  return (dir > 0 ? Math.ceil(b - 0.001) : dir < 0 ? Math.floor(b + 0.001) : Math.round(b)) + 0.5;
+}
+function zUpdate(T) {
+  // T: a panel aktuális téglalapja (a nyitó animációval együtt)
+  const sc = bufSize.x / innerWidth, H = innerHeight, L = pL;
+  const i = zMod(sPos);
+  if (i !== zCur) {                                              // projektváltás a hurokban
+    zCur = i;
+    if (sel !== i) { sel = i; pCentered = false; }
+    const a = zAssets(i);
+    photoQ.material.uniforms.uMap.value = a.photo; textQ.material.uniforms.uMap.value = a.text;
+    nameQ.material.uniforms.uSdf.value = a.name.tex; nameQ.material.uniforms.uTexSize.value.set(a.name.w, a.name.h);
+    idQ.material.uniforms.uSdf.value = a.id.tex; idQ.material.uniforms.uTexSize.value.set(a.id.w, a.id.h);
+    pCap = -1;
+  }
+  const z = zPanelRect(sPos), a = z.a, cam = z.cam, u = z.u;
+  const vis = THREE.MathUtils.smoothstep(u, 0.0, 0.015) * (1 - THREE.MathUtils.smoothstep(u, 0.94, 1.0));   // rövid elsötétülés a vágásnál
+  const show = clamp01((pT - 0.3) / 0.45) * vis;
+  // a nyitó-csukó animáció alatt a plakát a panel aktuális téglalapjához igazodik
+  const kx = T.w / z.w;
+  const toBuf = r => [r.x * sc, (H - r.y - r.h) * sc, r.w * sc, r.h * sc];
+  const clip = toBuf(T);
+  const place = (r, zl) => {
+    const s = zScale(zl, cam, zl);
+    const landed = { x: L.x + r.x, y: L.y + r.y, w: r.w, h: r.h };
+    const v = zXf(landed, z.F, s);                                 // a mélységi réteg nézete a zoom fókuszpontja körül
+    return { x: T.x + (v.x - z.x) * kx, y: T.y + (v.y - z.y) * kx, w: v.w * kx, h: v.h * kx };
+  };
+  const pr = place(a.lay.photo, Z_PHOTO), tr = place({ x: 0, y: 0, w: L.w, h: L.h }, Z_TEXT);
+  const setQ = (q, r) => {
+    const U2 = q.material.uniforms;
+    U2.uRect.value.set(...toBuf(r)); U2.uClip.value.set(...clip); U2.uClipRad.value = pnU.uRad.value; U2.uAlpha.value = show;
+    q.visible = show > 0.002;
+  };
+  setQ(photoQ, pr); setQ(textQ, tr);
+  // óriási üvegbetűk az előtérben: gyorsabban nőnek, szétrepülnek, átrepülünk rajtuk
+  const letter = (q, sd, zl, wBase, oy) => {
+    const s = zScale(zl, cam, zl - CAM0);
+    const U2 = q.material.uniforms;
+    if (zl - cam < 0.03 || u > 0.5) { q.visible = false; return; }
+    const w = wBase * s, h = w * sd.h / sd.w;
+    const cx = z.F.x, cy = z.F.y + oy * s;
+    const r = { x: T.x + (cx - w / 2 - z.x) * kx, y: T.y + (cy - h / 2 - z.y) * kx, w: w * kx, h: h * kx };
+    U2.uRect.value.set(...toBuf(r)); U2.uScale.value = sc;
+    U2.uAlpha.value = show * (1 - THREE.MathUtils.smoothstep(s, 5, 9));   // nagyon közel elhalványul
+    q.visible = U2.uAlpha.value > 0.002;
+  };
+  const big = L.w > L.h ? 1 : 1.6;                                   // álló képernyőn nagyobb betűk
+  letter(nameQ, a.name, Z_NAME, L.w * 1.55 * big, -L.h * 0.16);
+  letter(idQ, a.id, Z_ID, L.w * 0.75 * big, L.h * 0.34);
+  if (pTarget && pCap !== i) {
+    pCap = i;
+    const p = PROJECTS[i];
+    capMeta.textContent = p.id + ' · ' + p.cat + ' — ' + String(i + 1).padStart(2, '0') + ' / ' + String(N).padStart(2, '0');
+    capName.textContent = p.name;
+  }
+  return vis;
+}
+
 function projWheel(e) {
   const k = e.deltaMode === 1 ? 32 : (e.deltaMode === 2 ? innerHeight : 1);
   const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * k;
-  sTarget = Math.max(-0.15, Math.min(SCENES - 0.85, sTarget + d / (pL.innerH * 0.9)));
+  if (pMode === 1) sTarget += d / (innerHeight * 1.6);
+  else sTarget = Math.max(-0.15, Math.min(SCENES - 0.85, sTarget + d / (pL.innerH * 0.9)));
   if (Math.abs(d) > 0.5) pWheelDir = Math.sign(d);
   pSnapAt = performance.now() + 170;
 }
@@ -1466,7 +1775,7 @@ function projPointerMove(e) {
   if (!pDrag) return;
   const dx = e.clientX - pDragX, dy = e.clientY - pDragY; pDragX = e.clientX; pDragY = e.clientY;
   const d = -(Math.abs(dx) > Math.abs(dy) ? dx : dy) / (pL.innerH * 0.9);   // felfelé vagy balra húzva előre
-  const out = sTarget < 0 || sTarget > SCENES - 1;
+  const out = pMode === 0 && (sTarget < 0 || sTarget > SCENES - 1);
   sTarget += d * (out ? 0.35 : 1);                                         // a végeken gumiszerűen ellenáll
   const now = performance.now(), dts = Math.max(8, now - pDragT) / 1000; pDragT = now;
   pFling = pFling * 0.5 + (d / dts) * 0.5;
@@ -1476,10 +1785,12 @@ function projDragEnd() {
   if (!pDrag) return;
   pDrag = false;
   if (performance.now() - pDragT > 90) pFling = 0;
-  sTarget = snapTo(sTarget, Math.abs(pFling) > 0.4 ? Math.sign(pFling) : 0);
+  const fd = Math.abs(pFling) > 0.4 ? Math.sign(pFling) : 0;
+  sTarget = pMode === 1 ? zSnap(sTarget, fd) : snapTo(sTarget, fd);
   canvas.style.cursor = 'default';
 }
 function projStep(dir) {
+  if (pMode === 1) { sTarget = zSnap(sTarget, 0) + dir; pSnapAt = 0; return; }
   sTarget = Math.max(0, Math.min(SCENES - 1, Math.round(sTarget) + dir)); pSnapAt = 0;
 }
 // képernyőpont → melyik csempe (a henger-leképezés megfordítása)
@@ -1500,12 +1811,13 @@ function hitTile(cx, cy) {
 }
 function projClick(cx, cy) {
   if (cx < pL.x || cx > pL.x + pL.w || cy < pL.y || cy > pL.y + pL.h) { closeProject(); return; }   // a panelen kívül → vissza
+  if (pMode === 1) { projStep(1); return; }                                                           // a plakátra kattintva a következő projekt
   if (hitTile(cx, cy) >= 0) projStep(Math.round(sTarget) >= SCENES - 1 ? -(SCENES - 1) : 1);        // csempére kattintva tovább (a végén elölről)
 }
 window.addEventListener('resize', () => {
   if (!pL) return;
   clearTimeout(pResizeT);
-  pResizeT = setTimeout(() => { if (pTarget) { pL = projLayout(); buildTiles(); } }, 150);
+  pResizeT = setTimeout(() => { if (pTarget) { pL = projLayout(); if (pMode === 1) zClear(); else buildTiles(); } }, 150);
 });
 
 function projUpdate(dt) {
@@ -1513,7 +1825,7 @@ function projUpdate(dt) {
   if (dir) pT = clamp01(pT + dir * dt / (reduced ? 0.2 : (dir > 0 ? 1.1 : 0.8)));
   pEase = pT * pT * (3 - 2 * pT);
   if (pT === 0) {
-    if (sel >= 0 && !pTarget) { clearTiles(); sel = -1; pL = null; setCaption(hovered); }
+    if (sel >= 0 && !pTarget) { clearTiles(); zClear(); sel = -1; pL = null; setCaption(hovered); }
     panelQuad.visible = false;
     stack.visible = true;
     return;
@@ -1525,19 +1837,34 @@ function projUpdate(dt) {
     scrollPos = t; scrollVel = 0; pCentered = true;
   }
   const L = pL, sc = bufSize.x / innerWidth, H = innerHeight;
+  const zoom = pMode === 1;
+  let TT = { x: L.x, y: L.y, w: L.w, h: L.h, r: L.r };
+  if (zoom) {                                                      // zoom: projektről projektre, végtelen hurokban
+    if (!pDrag && pSnapAt && performance.now() > pSnapAt) { sTarget = zSnap(sTarget, pWheelDir); pSnapAt = 0; pWheelDir = 0; }
+    const prev = sPos;
+    if (pDrag) { sPos = damp(sPos, sTarget, 14, dt); zVel = 0; }
+    else if (!pTarget || pT > 0.75) {                              // rugó: lassan indul, gyorsul, puhán áll meg (a nyitás végéig vár)
+      const K = reduced ? 60 : 7, Dm = 2 * Math.sqrt(K);
+      zVel += ((sTarget - sPos) * K - zVel * Dm) * dt;
+      sPos += zVel * dt;
+    }
+    pxVel = (sPos - prev) / Math.max(dt, 1e-3) * L.innerH * 0.5;
+    TT = zPanelRect(sPos);
+  }
 
   // panel: a pill alakjából folyékonyan nyílik ki — előbb szélességben, aztán magasságban
   const from = pTarget ? pFrom : pillRect(sel);
   const ew = backOut(clamp01(pT * 1.4)), eh = backOut(clamp01(pT * 1.4 - 0.25));
-  const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2, tcx = L.x + L.w / 2, tcy = L.y + L.h / 2;
-  const w = Math.max(1, from.w + (L.w - from.w) * ew), h = Math.max(1, from.h + (L.h - from.h) * eh);
+  const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2, tcx = TT.x + TT.w / 2, tcy = TT.y + TT.h / 2;
+  const w = Math.max(1, from.w + (TT.w - from.w) * ew), h = Math.max(1, from.h + (TT.h - from.h) * eh);
   const cx = fcx + (tcx - fcx) * ew, cy = fcy + (tcy - fcy) * eh;
-  const rad = Math.min(w / 2, h / 2, from.h / 2 + (L.r - from.h / 2) * clamp01(eh));
+  const rad = Math.min(w / 2, h / 2, from.h / 2 + (TT.r - from.h / 2) * clamp01(eh));
   pnU.uRect.value.set((cx - w / 2) * sc, (H - cy - h / 2) * sc, w * sc, h * sc);
   pnU.uRad.value = rad * sc; pnU.uScale.value = sc;
   pnU.uAlpha.value = THREE.MathUtils.smoothstep(pT, 0, 0.06);
   pnU.uFrost.value = S.pfrost / 100; pnU.uTint.value = S.ptint / 100;
   panelQuad.visible = true;
+  if (zoom) { pnU.uAlpha.value *= zUpdate({ x: cx - w / 2, y: cy - h / 2, w, h }); return; }
 
   // görgetés jelenetről jelenetre
   if (!pDrag) {
@@ -1665,6 +1992,25 @@ function frame() {
   camera.layers.set(LAYER_BG);
   renderer.setRenderTarget(rt);
   renderer.render(scene, camera);
+  if (panelQuad.visible && pMode === 1) {
+    // zoom-nézet: háttér + pillek + üveg panel + plakát → rt2, erre jönnek a mindezt megtörő üvegbetűk
+    camera.layers.set(LAYER_BLIT);
+    renderer.setRenderTarget(rt2);
+    renderer.render(scene, camera);
+    renderer.autoClear = false;
+    if (stack.visible) { camera.layers.set(LAYER_GLASS); renderer.render(scene, camera); }
+    camera.layers.set(LAYER_PANEL); renderer.render(scene, camera);
+    camera.layers.set(LAYER_POSTER); renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+    renderer.autoClear = true;
+    camera.layers.set(LAYER_BLIT2); renderer.render(scene, camera);
+    renderer.autoClear = false;
+    camera.layers.set(LAYER_LETTERS); renderer.render(scene, camera);
+    camera.layers.set(LAYER_PL); renderer.render(scene, camera);
+    renderer.autoClear = true;
+    requestAnimationFrame(frame);
+    return;
+  }
   // 2) a kész háttér kirajzolása a képernyőre
   renderer.setRenderTarget(null);
   camera.layers.set(LAYER_BLIT);
