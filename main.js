@@ -14,7 +14,7 @@ const N = PROJECTS.length;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 25, pfrost: 40, ptint: 35, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
+const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 25, pfrost: 40, ptint: 35, holo: 65, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
 const S = Object.assign({}, DEFAULTS);
 
 /* ---------- Renderer ---------- */
@@ -473,7 +473,7 @@ resize();
 
 /* ---------- Panel ---------- */
 const panel = document.getElementById('panel'), panelBtn = document.getElementById('panelBtn');
-const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wspeed', 'surge', 'curve', 'pfrost', 'ptint'];
+const CTL = ['ang', 'int', 'refr', 'depth', 'disp', 'frost', 'splay', 'spin', 'react', 'wlight', 'wpush', 'wspeed', 'surge', 'curve', 'pfrost', 'ptint', 'holo'];
 let builtDepth = S.depth, geoPending = false;
 function rebuildGeo() {
   geoPending = false;
@@ -1433,6 +1433,7 @@ function openProject(i) {
   sPos = sTarget = 0; pxVel = 0; pSnapAt = 0; pWheelDir = 0;
   buildTiles();
   pTarget = 1;
+  holoPlay('open');                                                 // „én forgatom”: nyitáskor a forgató mozdulat
   hovered = -1; pointerIn = false;
   document.body.classList.add('proj');
   whoEl.hidden = true; backBtn.hidden = false;
@@ -1443,6 +1444,7 @@ function openProject(i) {
 function closeProject() {
   if (!pTarget) return;
   pTarget = 0; pDrag = false;
+  holoPlay('swipeR');
   document.body.classList.remove('proj');
   whoEl.hidden = false; backBtn.hidden = true;
   hintEl.innerHTML = HINT_STACK;
@@ -1592,6 +1594,188 @@ function projUpdate(dt) {
   }
 }
 
+/* ---------- Hologram: én, pontfelhőként az üvegek mögött; kattintásra „én forgatom” a tartalmat ---------- */
+// assets/holo.mp4: három szürke sáv egymás mellett — fény | maszk | ál-mélység (tools/holo.py készíti a felvételből)
+const HSEG = { idle: [0, 12.933], open: [12.933, 18.933], step: [18.933, 22.533], swipeR: [22.533, 24.533], swipeL: [24.533, 26.433] };
+const HOLO_Z = -4.2;
+const holoLite = innerWidth <= 720 || touchUI;                     // telefonon kevesebb pont, kevesebb vonal
+const HGW = holoLite ? 96 : 150, HGH = Math.round(HGW * 16 / 9);
+let hCur = 'idle', hScene = -1, hGlitch = 0, hFill = 0, hReady = false, hWant = true, hSeek = false;
+
+const hVid = document.createElement('video');
+Object.assign(hVid, { muted: true, playsInline: true, preload: 'auto', loop: false });
+// egyben töltjük be (3 MB): így a mozdulatok közti ugrás mindig azonnali, bármilyen szerverről
+fetch('assets/holo.mp4').then(r => r.ok ? r.blob() : Promise.reject(r.status))
+  .then(b => { hVid.src = URL.createObjectURL(b); })
+  .catch(() => { hVid.src = 'assets/holo.mp4'; });
+hVid.setAttribute('playsinline', ''); hVid.setAttribute('muted', ''); hVid.setAttribute('aria-hidden', 'true');
+hVid.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+document.body.appendChild(hVid);
+const hTex = new THREE.VideoTexture(hVid);
+hTex.minFilter = THREE.LinearFilter; hTex.magFilter = THREE.LinearFilter; hTex.generateMipmaps = false;
+hVid.addEventListener('loadeddata', () => { hReady = true; });
+hVid.addEventListener('seeked', () => { hSeek = false; });   // az ugrás nem azonnali: addig nem ellenőrzünk
+const hTryPlay = () => { if (hWant && S.holo > 0) hVid.play().catch(() => {}); };
+hVid.addEventListener('canplay', hTryPlay);
+// ha a böngésző nem engedi magától elindítani (pl. iPhone energiatakarékos mód), az első érintésre indul
+document.addEventListener('pointerdown', hTryPlay, { once: true });
+document.addEventListener('visibilitychange', () => { if (document.hidden) hVid.pause(); else hTryPlay(); });
+
+const HU = {
+  uTex: { value: hTex }, uTime: { value: 0 }, uGain: { value: 0 }, uBeat: { value: 0 }, uFill: { value: 0 }, uGlitch: { value: 0 },
+  uSize: { value: new THREE.Vector2(1, 1) }, uDepth: { value: 1 }, uPt: { value: 2 }, uTexel: { value: new THREE.Vector2(1 / 1080, 1 / 640) },
+};
+const HOLO_COMMON = /* glsl */`
+  uniform sampler2D uTex;
+  uniform float uTime, uGain, uBeat, uFill, uGlitch, uDepth, uPt;
+  uniform vec2 uSize, uTexel;
+  float hash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+  float L(vec2 uv) { return texture2D(uTex, vec2(uv.x / 3.0, uv.y)).r; }
+  float M(vec2 uv) { return texture2D(uTex, vec2((uv.x + 1.0) / 3.0, uv.y)).r; }
+  float D(vec2 uv) { return texture2D(uTex, vec2((uv.x + 2.0) / 3.0, uv.y)).r; }
+  // a pont helye: a videó-sík, a mélység szerint kidomborítva; vágásnál glitch-csúszás
+  vec3 holoPos(vec2 uv, float seed) {
+    float g = uGlitch * step(0.82, hash(vec2(floor(uv.y * 40.0), floor(uTime * 24.0))));
+    uv.x += (hash(vec2(floor(uv.y * 40.0), uTime)) - 0.5) * 0.12 * g;
+    float d = D(uv);
+    vec3 p = vec3((uv.x - 0.5) * uSize.x, (uv.y - 0.5) * uSize.y, (d - 0.35) * uDepth);
+    p += (vec3(hash(uv + seed), hash(uv.yx + seed), hash(uv * 1.7)) - 0.5) * uBeat * 0.06 * uSize.x;   // ütésre kicsit szétszóródik
+    return p;
+  }`;
+// pontok
+const hGeoP = new THREE.BufferGeometry();
+{
+  const n = HGW * HGH, pos = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  for (let y = 0; y < HGH; y++) for (let x = 0; x < HGW; x++) {
+    const i = y * HGW + x;
+    uv[i * 2] = (x + 0.5 + (Math.random() - 0.5) * 0.6) / HGW; uv[i * 2 + 1] = (y + 0.5 + (Math.random() - 0.5) * 0.6) / HGH;
+  }
+  hGeoP.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  hGeoP.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+}
+const holoPoints = new THREE.Points(hGeoP, new THREE.ShaderMaterial({
+  uniforms: HU, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: HOLO_COMMON + /* glsl */`
+    varying float vA;
+    void main() {
+      float m = M(uv);
+      if (m < 0.3) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; vA = 0.0; return; }
+      float l = L(uv);
+      vec2 e = uTexel * 3.0 * vec2(3.0, 1.0);
+      // perem és redők: a maszk és a fény meredeksége → ezek világítanak, a többi halvány
+      float edge = abs(M(uv + vec2(e.x, 0.0)) - M(uv - vec2(e.x, 0.0))) + abs(M(uv + vec2(0.0, e.y)) - M(uv - vec2(0.0, e.y)));
+      float crease = abs(L(uv + vec2(e.x, 0.0)) - L(uv - vec2(e.x, 0.0))) + abs(L(uv + vec2(0.0, e.y)) - L(uv - vec2(0.0, e.y)));
+      vec4 mv = modelViewMatrix * vec4(holoPos(uv, 0.0), 1.0);
+      gl_Position = projectionMatrix * mv;
+      float tw = 0.75 + 0.25 * sin(uTime * 3.0 + hash(uv) * 40.0);   // finom vibrálás
+      float foot = smoothstep(0.0, 0.14, uv.y);                       // alul (ahol a kép levágja a testet) elhalványul
+      vA = (0.08 + pow(l, 1.8) * 0.42 + min(edge, 0.6) * 0.55 + pow(crease, 1.5) * 1.1 + uFill * (0.35 + l)) * tw * smoothstep(0.3, 0.7, m) * foot;
+      gl_PointSize = uPt * (0.55 + l * 0.6 + min(edge, 0.6) * 0.8 + uFill * 0.8 + uBeat * 0.4);
+    }`,
+  fragmentShader: /* glsl */`
+    uniform float uGain;
+    varying float vA;
+    void main() {
+      vec2 c = gl_PointCoord - 0.5;
+      float a = smoothstep(0.5, 0.1, length(c));
+      gl_FragColor = vec4(vec3(0.86, 0.91, 1.0) * vA * a * uGain, 1.0);
+    }`,
+}));
+// vonalak: rövid „háló” a közeli pontok között, néhány hosszú szállal
+const hGeoL = new THREE.BufferGeometry();
+{
+  const NL = holoLite ? 2200 : 5200, uv = new Float32Array(NL * 4), oth = new Float32Array(NL * 4), seed = new Float32Array(NL * 2), pos = new Float32Array(NL * 6);
+  for (let k = 0; k < NL; k++) {
+    const u = 0.15 + Math.random() * 0.7, v = Math.random() * 0.95, long = Math.random() < 0.12;
+    const r = long ? 0.08 + Math.random() * 0.25 : 0.01 + Math.random() * 0.035, a = Math.random() * Math.PI * 2;
+    uv[k * 4] = u; uv[k * 4 + 1] = v; uv[k * 4 + 2] = u + Math.cos(a) * r * 0.56; uv[k * 4 + 3] = v + Math.sin(a) * r;
+    seed[k * 2] = seed[k * 2 + 1] = Math.random();
+    oth[k * 4] = uv[k * 4 + 2]; oth[k * 4 + 1] = uv[k * 4 + 3]; oth[k * 4 + 2] = uv[k * 4]; oth[k * 4 + 3] = uv[k * 4 + 1];   // a szál másik vége
+  }
+  hGeoL.setAttribute('aOther', new THREE.BufferAttribute(oth, 2));
+  hGeoL.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  hGeoL.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  hGeoL.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+}
+const holoLines = new THREE.LineSegments(hGeoL, new THREE.ShaderMaterial({
+  uniforms: HU, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: HOLO_COMMON + /* glsl */`
+    attribute float aSeed;
+    attribute vec2 aOther;
+    varying float vA;
+    void main() {
+      float m = M(uv);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(holoPos(uv, 0.0), 1.0);
+      float fl = smoothstep(0.55, 1.0, sin(uTime * (0.6 + aSeed) + aSeed * 50.0) * 0.5 + 0.5);   // a szálak lassan fel-le villannak
+      vA = step(0.4, m) * step(0.4, M(aOther)) * (0.03 + 0.16 * fl + uBeat * 0.15 + uFill * 0.12) * (0.35 + L(uv)) * smoothstep(0.0, 0.14, uv.y);
+    }`,
+  fragmentShader: /* glsl */`
+    uniform float uGain;
+    varying float vA;
+    void main() { gl_FragColor = vec4(vec3(0.8, 0.86, 1.0) * vA * uGain, 1.0); }`,
+}));
+// „telítődés”: ütésre az egész alak tömör, izzó fehérre telik
+const holoFill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 60, 106), new THREE.ShaderMaterial({
+  uniforms: HU, transparent: true, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending,
+  vertexShader: HOLO_COMMON + /* glsl */`
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(holoPos(uv, 1.0), 1.0); }`,
+  fragmentShader: HOLO_COMMON + /* glsl */`
+    varying vec2 vUv;
+    void main() {
+      float m = smoothstep(0.35, 0.8, M(vUv)), l = L(vUv);
+      gl_FragColor = vec4(vec3(0.82, 0.88, 1.0) * m * (0.35 + 0.65 * l) * uFill * uGain * 0.9 * smoothstep(0.0, 0.14, vUv.y), 1.0);
+    }`,
+}));
+const holo = new THREE.Group();
+[holoFill, holoLines, holoPoints].forEach((o, k) => { o.frustumCulled = false; o.renderOrder = k; holo.add(onLayer(o, LAYER_BG)); });
+holo.position.z = HOLO_Z;
+holo.visible = false;
+scene.add(holo);
+
+function holoResize() {
+  const d = camera.position.distanceTo(new THREE.Vector3(0, 0, HOLO_Z));
+  const visHh = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * d;
+  const h = visHh * 0.98, w = h * 9 / 16;
+  HU.uSize.value.set(w, h); HU.uDepth.value = w * 0.55;
+  HU.uPt.value = Math.max(1.5, bufSize.y * 0.98 / HGH * 0.95);
+  holo.position.y = -visHh * 0.04;
+}
+window.addEventListener('resize', holoResize);
+holoResize();
+
+// egy mozdulat lejátszása a videóból; a végén visszaáll a nyugalmi loopra
+function holoPlay(name) {
+  if (!HSEG[name] || !hReady) return;
+  hCur = name; hGlitch = 1; hSeek = true;
+  try { hVid.currentTime = HSEG[name][0] + 0.02; } catch (_) { hSeek = false; }
+  hTryPlay();
+}
+function holoUpdate(dt) {
+  const on = S.holo > 0 && hReady;
+  holo.visible = on;
+  if (!on) { if (!hVid.paused && S.holo === 0) hVid.pause(); return; }
+  if (hVid.paused) hTryPlay();
+  const seg = HSEG[hCur];
+  if (!hSeek && (hVid.currentTime >= seg[1] - 0.05 || hVid.currentTime < seg[0] - 0.3)) {
+    if (hCur === 'idle') { hSeek = true; try { hVid.currentTime = HSEG.idle[0]; } catch (_) { hSeek = false; } } else holoPlay('idle');
+  }
+  // lapozás a projektnézetben → legyintés abba az irányba
+  if (pTarget) {
+    const sc = Math.round(sTarget);
+    if (sc !== hScene) { if (hScene >= 0 && hCur === 'idle') holoPlay(sc > hScene ? 'swipeL' : 'swipeR'); hScene = sc; }
+  } else hScene = -1;
+  hGlitch = Math.max(0, hGlitch - dt * 3);
+  hFill = damp(hFill, Math.min(1, surgeS * 0.55) * musicAmt, 10, dt);
+  HU.uTime.value += dt;
+  HU.uGain.value = (S.holo / 100) * (1 - pEase * 0.25);
+  HU.uBeat.value = pulse * musicAmt;
+  HU.uFill.value = hFill;
+  HU.uGlitch.value = hGlitch;
+  holo.rotation.y = parX * 0.45 + Math.sin(HU.uTime.value * 0.23) * 0.06;   // az egér felé fordul → látszik a mélység
+  holo.rotation.x = -parY * 0.12;
+}
+
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   let h = -1;
@@ -1658,6 +1842,7 @@ function frame() {
 
   projUpdate(dt);
   updateAudio(dt);
+  holoUpdate(dt);
   if (actx) updateTime();
   plUpdate(dt);
 
