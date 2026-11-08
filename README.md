@@ -2,7 +2,7 @@
 
 Statikus weboldal: forgó, 3D liquid glass pillek a projektekkel, a két szélen zenére reagáló fényhullámokkal, és egy blob-szerűen kinyíló, liquid glass zenelejátszóval.
 
-**Projektnézet (teszt):** egy pillre kattintva (vagy Enterrel a középsőt) a pill folyékonyan egy matt liquid glass panellé nyílik, mögötte átlátszanak a hullámok. A panelen a projekt csempéi egy vízszintes hengeren csúsznak: görgővel / trackpaddel / húzással / nyilakkal lapozható, oszloponként ráugrik. Vissza: Esc, a bal felső gomb, vagy kattintás a panelen kívülre. Nyitott panelnél a pillek nem renderelődnek.
+**Projektnézet (teszt):** egy pillre kattintva (vagy Enterrel a középsőt) a pill folyékonyan egy matt liquid glass panellé nyílik, mögötte átlátszanak a hullámok. A csempék felülről beesnek, majd görgetésre (görgő, trackpad, húzás, nyilak, vagy kattintás egy csempére) jelenetről jelenetre átrendeződnek: újak csúsznak be, széttolják és átméretezik a többit, a régiek kicsúsznak. Az egész enyhén egy vízszintes hengerre hajlik. Álló képernyőn a rács elfordul (oszlopok helyett sorok). Vissza: Esc, a bal felső gomb, vagy kattintás a panelen kívülre. Nyitott panelnél a pillek nem renderelődnek.
 
 ## Felépítés
 
@@ -29,6 +29,6 @@ Vercelen: **Add New → Project → Import** ezt a repót, a Framework Preset le
 ## Hol mit állíts
 
 - **Projektek:** `main.js` elején a `PROJECTS` lista (jelenleg placeholderek).
-- **Projektnézet csempéi:** `main.js`, `COLS` (oszlopok szélessége és a csempék típusa/magassága) és `paintTile` (a helyőrző tartalom rajzolása — ide kerülnek majd a saját képek). A panelen: Görbület, Matt üveg, Tónus.
+- **Projektnézet:** `main.js`, `TILES` (melyik csempe melyik jelenetben hol van, és merről jön be / merre megy ki) és `paintTile` (a helyőrző tartalom rajzolása — ide kerülnek majd a saját képek). A panelen: Görbület, Matt üveg, Tónus.
 - **Alapbeállítások:** `main.js`, `DEFAULTS` objektum (üveg, hullám, reakció).
 - **Saját zene:** a lejátszó borítójára kattintva tölthető be böngészőben; a demó loop kódból generált.

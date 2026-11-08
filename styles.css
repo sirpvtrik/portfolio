@@ -164,4 +164,5 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
   .caption .name { font-size: 22px; }
   .top-right .stack-label { display: none; }
   .back-long { display: none; }
+  body.proj .caption { visibility: hidden; }
 }

@@ -14,7 +14,7 @@ const N = PROJECTS.length;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 45, pfrost: 40, ptint: 35, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
+const DEFAULTS = { ang: -45, int: 80, refr: 100, depth: 55, disp: 50, frost: 0, splay: 100, spin: reduced ? 10 : 40, curve: 25, pfrost: 40, ptint: 35, react: 55, wlight: 50, wpush: 40, wspeed: reduced ? 12 : 40, surge: 50, bpmSync: false, wstyle: 0 };
 const S = Object.assign({}, DEFAULTS);
 
 /* ---------- Renderer ---------- */
@@ -1084,27 +1084,37 @@ function updateAudio(dt) {
   WU.uPush.value = (S.wpush / 100) * (0.2 + 0.8 * reach) + scrollPush * 0.3 + syncPulse * 0.02 + pEase * 0.08;   // nyitott panelnél az üveg mögé úsznak
 }
 
-/* ---------- Projektnézet: a pill liquid glass panellé nyílik, rajta egy vízszintes hengeren csúsznak a csempék ---------- */
+/* ---------- Projektnézet: a pill liquid glass panellé nyílik; görgetésre a csempék jelenetről jelenetre átrendeződnek (beesnek, széttolódnak, kicsúsznak), egy enyhén ívelt hengeren ---------- */
 const LAYER_PANEL = 5, LAYER_TILES = 6;
 const clamp01 = x => Math.min(1, Math.max(0, x));
 const backOut = x => { const c = 0.9; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
 const outCubic = x => 1 - Math.pow(1 - x, 3);
 let pT = 0, pTarget = 0, sel = -1, pEase = 0, pCentered = false;
-let pxPos = 0, pxTarget = 0, pxVel = 0, pxMax = 0, pSnapAt = 0, pWheelDir = 0;
-let pDrag = false, pDragX = 0, pDragT = 0, pFling = 0;
+let sPos = 0, sTarget = 0, pxVel = 0, pSnapAt = 0, pWheelDir = 0;
+let pDrag = false, pDragX = 0, pDragY = 0, pDragT = 0, pFling = 0;
 let pL = null, pFrom = null, pCap = -1, pHover = -1, pmx = -1, pmy = -1, pResizeT = 0;
 const tiles = [];
 
-// oszlopok: [szélesség az egységhez képest, [[csempe típusa, magasság aránya], ...]] — mint egy bento rács
-const COLS = [
-  [1.3,  [['cover', 1]]],
-  [0.62, [['text', 0.56], ['img', 0.44]]],
-  [0.95, [['photo', 1]]],
-  [0.58, [['stat', 0.42], ['photo', 0.58]]],
-  [1.35, [['img', 1]]],
-  [0.62, [['quote', 1]]],
-  [0.9,  [['photo', 0.5], ['img', 0.5]]],
+// Jelenetek: minden görgetés-lépés egy új bento elrendezés. A csempék be-/kicsúsznak (in/out irány),
+// a maradók átméreteződnek és széttolják egymást. r: { jelenet: [x, y, szélesség, magasság] } a panel belsejének arányában.
+const TILES = [
+  { kind: 'photo', in: 'top',    out: 'left',   r: { 0: [0, 0, 0.26, 1], 1: [0, 0, 0.26, 0.56] } },
+  { kind: 'cover', in: 'top',    out: 'left',   r: { 0: [0.26, 0, 0.48, 1], 1: [0.26, 0, 0.48, 1] } },
+  { kind: 'img',   in: 'top',    out: 'left',   r: { 0: [0.74, 0, 0.26, 1], 1: [0.74, 0.4, 0.26, 0.6], 2: [0, 0.34, 1, 0.66], 3: [0, 0, 1, 1] } },
+  { kind: 'text',  in: 'bottom', out: 'left',   r: { 1: [0, 0.56, 0.26, 0.44] } },
+  { kind: 'stat',  in: 'top',    out: 'top',    r: { 1: [0.74, 0, 0.26, 0.4], 2: [0, 0, 1, 0.34] } },
+  { kind: 'photo', in: 'right',  out: 'left',   r: { 4: [0, 0, 1, 1], 5: [0, 0.38, 0.6, 0.62] } },
+  { kind: 'quote', in: 'top',    out: 'left',   r: { 5: [0, 0, 0.6, 0.38] } },
+  { kind: 'img',   in: 'right',  out: 'bottom', r: { 5: [0.6, 0, 0.4, 1], 6: [0, 0, 0.32, 1], 7: [0, 0.46, 0.32, 0.54] } },
+  { kind: 'num',   in: 'right',  out: 'bottom', r: { 6: [0.32, 0, 0.34, 1], 7: [0.32, 0.46, 0.34, 0.54] } },
+  { kind: 'photo', in: 'right',  out: 'bottom', r: { 6: [0.66, 0, 0.34, 1], 7: [0.66, 0.46, 0.34, 0.54] } },
+  { kind: 'wide',  in: 'top',    out: 'bottom', r: { 7: [0, 0, 1, 0.46], 8: [0, 0.52, 1, 0.48] } },
+  { kind: 'outro', in: 'top',    out: 'top',    r: { 8: [0, 0, 0.72, 0.52] } },
+  { kind: 'photo', in: 'top',    out: 'right',  r: { 8: [0.72, 0, 0.28, 0.52] } },
 ];
+const SCENES = 9;
+// szöveges csempéknél a tartalom egy sarokhoz tapad (mint egy átméretezett doboz), a képek kitöltve vágódnak
+const ANCHOR = { cover: [0, 1], text: [0, 0], stat: [0, 0], num: [0, 0], quote: [0, 0], outro: [0, 0] };
 const DURS = [['4', 'hét'], ['2', 'hónap'], ['3', 'hét'], ['6', 'hét'], ['5', 'hét'], ['2', 'hét']];
 
 // --- az üveg panel: képernyőtérbeli lekerekített téglalap, a hullámok mattan, a perem fénytörve látszik át rajta
@@ -1188,7 +1198,7 @@ const tileVS = /* glsl */`
   void main() {
     vUv = uv;
     vec2 lp = position.xy * uSize;
-    float th = (uArc + lp.x) / uR;                     // ív menti helyzet → szög a hengeren
+    float th = (uArc + lp.x) / uR;                     // vízszintes helyzet → szög a hengeren
     vec3 p = vec3(uR * sin(th) + uOrigin.x, uY + lp.y + uOrigin.y, uR * (cos(th) - 1.0) + uLift);
     vShade = cos(th);
     gl_Position = projectionMatrix * vec4(p * uK - vec3(0.0, 0.0, uD), 1.0);
@@ -1196,22 +1206,30 @@ const tileVS = /* glsl */`
 const tileFS = /* glsl */`
   precision highp float;
   uniform sampler2D uMap;
-  uniform vec2 uSize;
+  uniform vec2 uSize, uTex, uAnchor;
   uniform vec4 uClip;
-  uniform float uRad, uAlpha, uHover, uFade;
+  uniform float uRad, uAlpha, uHover, uFade, uMode;
   varying vec2 vUv;
   varying float vShade;
   float sdRR(vec2 p, vec2 h, float r) { vec2 q = abs(p) - h + r; return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r; }
   void main() {
     vec2 f = gl_FragCoord.xy;
     float cx = min(f.x - uClip.x, uClip.z - f.x), cy = min(f.y - uClip.y, uClip.w - f.y);
-    float clip = smoothstep(0.0, uFade, cx) * clamp(cy, 0.0, 1.0);   // a panel szélén alácsúszik és elhalványul
+    float clip = smoothstep(0.0, uFade, cx) * smoothstep(0.0, uFade, cy);   // a panel szélén alácsúszik
     if (clip <= 0.0) discard;
     float d = sdRR((vUv - 0.5) * uSize, uSize * 0.5, uRad);
     float aa = max(fwidth(d), 1e-3);
     float a = clamp(0.5 - d / aa, 0.0, 1.0);
     if (a <= 0.0) discard;
-    vec3 col = texture2D(uMap, vUv).rgb;
+    vec2 uv;
+    if (uMode < 0.5) {                                   // kép: kitöltve, középre vágva (object-fit: cover)
+      float s = max(uSize.x / uTex.x, uSize.y / uTex.y);
+      uv = 0.5 + (vUv - 0.5) * uSize / (uTex * s);
+    } else {                                             // szöveg: 1:1 méretben, a sarokhoz tapadva
+      vec2 lp = vec2(vUv.x, 1.0 - vUv.y) * uSize + (uTex - uSize) * uAnchor;
+      uv = vec2(lp.x / uTex.x, 1.0 - lp.y / uTex.y);
+    }
+    vec3 col = texture2D(uMap, clamp(uv, 0.001, 0.999)).rgb;
     col *= mix(0.4, 1.0, smoothstep(0.45, 1.0, vShade));          // a henger oldalán sötétebb
     float rim = 1.0 - smoothstep(0.0, aa * 1.6, -d);
     col += rim * (0.16 + uHover * 0.3);
@@ -1231,96 +1249,125 @@ function motifAt(g, i, cx, cy, size, color) {
   g.save(); g.translate(cx, cy); g.scale(size / 300, size / 300); g.translate(-925, -TH / 2);
   drawMotif(g, ((i % 6) + 6) % 6, color); g.restore();
 }
-// helyőrző tartalom — a saját képek/szövegek ide kerülnek majd
-function paintTile(c, kind, p, i, k) {
-  const g = c.getContext('2d'), W = c.width, H = c.height, m = Math.min(W, H), pad = Math.max(14, m * 0.075);
+// helyőrző tartalom — a saját képek/szövegek ide kerülnek majd.
+// W×H: a vászon (a csempe legnagyobb mérete), ref: a legkisebb méret, ehhez igazodik a betűméret
+function paintTile(g, kind, W, H, ref, p, i, k) {
+  const m = Math.min(ref.w, ref.h), pad = Math.max(14, Math.min(26, m * 0.08));
   const mono = s => `500 ${Math.round(s)}px "Geist Mono", ui-monospace, monospace`;
   const disp = (w, s) => `${w} ${Math.round(s)}px Archivo, "Helvetica Neue", Arial, sans-serif`;
-  const ms = Math.max(11, m * 0.04);
+  const ms = Math.max(10, Math.min(13, m * 0.04));
   g.textBaseline = 'alphabetic';
-  if (kind === 'cover') {
-    const gr = g.createRadialGradient(W * 0.7, H * 0.45, 0, W * 0.7, H * 0.45, Math.max(W, H) * 0.8);
+  if (kind === 'cover') {                                  // a bal alsó sarokhoz tapad
+    const gr = g.createRadialGradient(W * 0.75, H * 0.4, 0, W * 0.75, H * 0.4, Math.max(W, H) * 0.8);
     gr.addColorStop(0, '#26262b'); gr.addColorStop(1, '#0b0b0c');
     g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    motifAt(g, i, W * 0.68, H * 0.42, Math.min(W * 0.55, H * 0.75), 'rgba(255,255,255,0.4)');
-    g.fillStyle = 'rgba(255,255,255,0.6)'; g.font = mono(ms);
-    g.fillText((p.id + '  ·  ' + p.cat).toUpperCase(), pad, pad + ms);
-    let fs = H * 0.2; g.font = disp(800, fs);
+    motifAt(g, i, ref.w * 0.66, H - ref.h * 0.58, Math.min(ref.w * 0.5, ref.h * 0.6), 'rgba(255,255,255,0.4)');
+    let fs = Math.min(ref.h * 0.17, 120); g.font = disp(800, fs);
     const nw = g.measureText(p.name.toUpperCase()).width;
-    if (nw > W - 2 * pad) { fs *= (W - 2 * pad) / nw; g.font = disp(800, fs); }
-    g.fillStyle = '#fff'; g.fillText(p.name.toUpperCase(), pad - fs * 0.04, H - pad - ms * 2.2);
+    if (nw > ref.w - 2 * pad) { fs *= (ref.w - 2 * pad) / nw; g.font = disp(800, fs); }
+    g.fillStyle = 'rgba(255,255,255,0.6)'; g.font = mono(ms);
+    g.fillText((p.id + '  ·  ' + p.cat).toUpperCase(), pad, H - pad - ms * 2.4 - fs * 1.02);
+    g.fillStyle = '#fff'; g.font = disp(800, fs); g.fillText(p.name.toUpperCase(), pad - fs * 0.04, H - pad - ms * 2.2);
     g.fillStyle = 'rgba(255,255,255,0.6)'; g.font = mono(ms); g.fillText(p.meta.toUpperCase(), pad, H - pad);
-  } else if (kind === 'text') {
-    g.fillStyle = '#ececee'; g.fillRect(0, 0, W, H);
-    g.fillStyle = '#6b6b70'; g.font = mono(ms); g.fillText('A PROJEKTRŐL', pad, pad + ms);
-    const fs = Math.max(13, Math.min(W * 0.075, H * 0.085));
-    g.fillStyle = '#111113'; g.font = disp(500, fs);
-    wrapText(g, 'Ide jön a projekt rövid leírása: mi volt a feladat, hogyan jutottam el a megoldásig, és mi lett a vége.', pad, pad + ms * 2 + fs * 1.4, W - 2 * pad, fs * 1.18);
-    g.fillStyle = '#6b6b70'; g.font = mono(ms); g.fillText(p.id + ' / 0' + N, pad, H - pad);
-  } else if (kind === 'stat') {
-    g.fillStyle = '#0d99ff'; g.fillRect(0, 0, W, H);
-    const [num, unit] = DURS[i % DURS.length];
-    g.fillStyle = 'rgba(255,255,255,0.75)'; g.font = mono(ms); g.fillText('IDŐTARTAM', pad, pad + ms);
-    const fs = Math.min(H * 0.5, W * 0.5), us = Math.max(13, fs * 0.28);
-    g.fillStyle = '#fff'; g.font = disp(800, fs);
-    g.fillText(num, pad - fs * 0.05, H - pad - us * 1.35);
-    g.font = disp(500, us); g.fillText(unit, pad, H - pad);
-  } else if (kind === 'quote') {
-    g.fillStyle = '#18181b'; g.fillRect(0, 0, W, H);
-    const fs = Math.max(14, Math.min(W * 0.1, H * 0.06));
-    g.fillStyle = '#ececee'; g.font = disp(500, fs);
-    wrapText(g, '„Egy mondat, ami összefoglalja a projekt hangulatát.”', pad, pad + fs, W - 2 * pad, fs * 1.18);
-    g.fillStyle = '#85858c'; g.font = mono(ms); g.fillText('— MEGJEGYZÉS', pad, H - pad);
-  } else {
+  } else if (kind === 'text' || kind === 'quote' || kind === 'outro') {
+    const light = kind === 'text';
+    g.fillStyle = light ? '#ececee' : (kind === 'quote' ? '#18181b' : '#0f0f11'); g.fillRect(0, 0, W, H);
+    const label = { text: 'A PROJEKTRŐL', quote: 'MEGJEGYZÉS', outro: 'KÖVETKEZŐ LÉPÉS' }[kind];
+    const body = {
+      text: 'Ide jön a projekt rövid leírása: mi volt a feladat, hogyan jutottam el a megoldásig, és mi lett a vége.',
+      quote: '„Egy mondat, ami összefoglalja a projekt hangulatát.”',
+      outro: 'Köszönöm, hogy végignézted. Ha tetszett, vagy közös munkán gondolkodsz, írj bátran.',
+    }[kind];
+    g.fillStyle = light ? '#6b6b70' : '#85858c'; g.font = mono(ms); g.fillText(label, pad, pad + ms);
+    const fs = kind === 'text' ? Math.max(14, Math.min(ref.w * 0.08, ref.h * 0.085, 34)) : Math.max(16, Math.min(ref.w * 0.065, ref.h * 0.13, 44));
+    g.fillStyle = light ? '#111113' : '#ececee'; g.font = disp(500, fs);
+    wrapText(g, body, pad, pad + ms * 2 + fs * 1.3, ref.w - 2 * pad, fs * 1.18);
+  } else if (kind === 'stat' || kind === 'num') {
+    g.fillStyle = kind === 'stat' ? '#0d99ff' : '#ececee'; g.fillRect(0, 0, W, H);
+    const [num, unit] = kind === 'stat' ? DURS[i % DURS.length] : [String(8 + i * 3), 'kép'];
+    const dark = kind === 'num';
+    g.fillStyle = dark ? '#6b6b70' : 'rgba(255,255,255,0.75)'; g.font = mono(ms);
+    g.fillText(kind === 'stat' ? 'IDŐTARTAM' : 'A PROJEKTBEN', pad, pad + ms);
+    const fs = Math.min(ref.h * 0.5, ref.w * 0.42, 160), us = Math.max(13, fs * 0.28);
+    g.fillStyle = dark ? '#111113' : '#fff'; g.font = disp(800, fs);
+    const y = pad + ms * 1.6 + fs * 0.82;
+    g.fillText(num, pad - fs * 0.05, y);
+    const nw = g.measureText(num).width;
+    g.font = disp(500, us); g.fillText(unit, pad + nw + us * 0.3, y);
+  } else if (kind === 'wide') {                             // hullám-motívum, a háttér visszhangja
+    g.fillStyle = '#08080a'; g.fillRect(0, 0, W, H);
+    g.lineWidth = 1.2;
+    for (let n = 0; n < 26; n++) {
+      g.strokeStyle = `rgba(255,255,255,${0.08 + 0.3 * Math.pow(Math.sin(n / 25 * Math.PI), 2)})`;
+      g.beginPath();
+      for (let x = 0; x <= W; x += 6) {
+        const u = x / W, y = H * (0.5 + 0.3 * Math.sin(u * 5 + n * 0.12 + i) * Math.sin(u * Math.PI) + (n - 13) * 0.008);
+        x ? g.lineTo(x, y) : g.moveTo(x, y);
+      }
+      g.stroke();
+    }
+  } else {                                                  // kép helyőrző: világos „stúdió” vagy sötét
     const light = kind === 'photo';
     const gr = g.createRadialGradient(W * 0.5, H * 0.38, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
     if (light) { gr.addColorStop(0, '#e6e6e9'); gr.addColorStop(1, '#b4b4ba'); } else { gr.addColorStop(0, '#2c2c31'); gr.addColorStop(1, '#101012'); }
     g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    motifAt(g, i + k, W / 2, H / 2, Math.min(W, H) * 0.62, light ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.42)');
-    g.fillStyle = light ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)'; g.font = mono(ms);
-    g.fillText('KÉP ' + String(k + 1).padStart(2, '0') + ' · HELYŐRZŐ', pad, H - pad);
+    motifAt(g, i + k, W / 2, H / 2, Math.min(ref.w, ref.h) * 0.6, light ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.42)');
   }
 }
 
 function projLayout() {
-  const W = innerWidth, H = innerHeight, mob = W <= 720;
+  const W = innerWidth, mob = W <= 720;
   const top = document.querySelector('.ui .row').getBoundingClientRect().bottom + 14;
-  const bottom = document.querySelector('.caption').getBoundingClientRect().top - 14;
+  // mobilon a felirat elrejtve (a név a borítón van), a panel a hangszóró-gombig ér
+  const bottom = mob ? document.getElementById('pl').getBoundingClientRect().bottom - 64 - 14 : document.querySelector('.caption').getBoundingClientRect().top - 14;
   const mx = Math.round(Math.max(14, Math.min(W * 0.045, 56)));
   const pad = mob ? 10 : 14;
   const w = W - 2 * mx, innerW = w - 2 * pad;
   const avail = Math.max(220, bottom - top);
-  const innerH = Math.round(Math.max(150, Math.min(avail - 2 * pad, innerW * 1.1)));
+  const innerH = Math.round(Math.max(150, Math.min(avail - 2 * pad, innerW * 2)));
   const h = innerH + 2 * pad;
-  const unit = Math.min(innerH * 0.75, innerW / 1.35);   // kb. három oszlop fér el egyszerre
-  const gap = Math.round(Math.min(14, Math.max(8, innerH * 0.022)));
-  const tr = Math.round(Math.min(20, Math.max(10, innerH * 0.032)));
-  const cols = [], list = [];
-  let x = 0;
-  COLS.forEach(([cw, items], c) => {
-    const wpx = Math.round(cw * unit), hAvail = innerH - gap * (items.length - 1);
-    let y = 0;
-    items.forEach(([kind, fr]) => { const th = Math.round(fr * hAvail); list.push({ kind, col: c, x, w: wpx, y, h: th }); y += th + gap; });
-    cols.push({ x, w: wpx }); x += wpx + gap;
-  });
-  return { x: mx, y: Math.round(top + (avail - h) / 2), w, h, pad, innerW, innerH, r: tr + pad, tr, cols, list, total: x - gap };
+  const gap = Math.round(Math.min(14, Math.max(8, innerH * 0.02)));
+  const tr = Math.round(Math.min(20, Math.max(10, innerH * 0.03)));
+  const flip = innerW < innerH * 0.85;   // álló képernyőn a rács elfordul: az oszlopokból sorok lesznek
+  return { x: mx, y: Math.round(top + (avail - h) / 2), w, h, pad, innerW, innerH, r: tr + pad, tr, gap, flip };
+}
+const FLIP_DIR = { top: 'left', left: 'top', bottom: 'right', right: 'bottom' };
+const dirOf = d => pL.flip ? FLIP_DIR[d] : d;
+// arány → px (a hézagot úgy vonjuk le, hogy a panel szélén a csempe pontosan a széléig érjen)
+function fracRect(f) {
+  if (pL.flip) f = [f[1], f[0], f[3], f[2]];
+  const L = pL, gx = L.innerW + L.gap, gy = L.innerH + L.gap;
+  return { x: f[0] * gx, y: f[1] * gy, w: f[2] * gx - L.gap, h: f[3] * gy - L.gap };
+}
+function offRect(r, dir) {
+  const L = pL, o = L.gap * 3;
+  if (dir === 'top') return { x: r.x, y: -r.h - o, w: r.w, h: r.h };
+  if (dir === 'bottom') return { x: r.x, y: L.innerH + o, w: r.w, h: r.h };
+  if (dir === 'left') return { x: -r.w - o, y: r.y, w: r.w, h: r.h };
+  return { x: L.innerW + o, y: r.y, w: r.w, h: r.h };
+}
+const lerpRect = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, w: a.w + (b.w - a.w) * t, h: a.h + (b.h - a.h) * t });
+const inOut = x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+// egy csempe helye a görgetés adott pontján; a csúszás oszloponként késleltetve indul → egymás után érkeznek, együtt tolódnak
+function tileRect(t, s) {
+  const k = Math.max(0, Math.min(SCENES - 2, Math.floor(s))), f = s - k;
+  const a = t.r[k], b = t.r[k + 1];
+  if (!a && !b) return null;
+  const ra = a ? fracRect(a) : offRect(fracRect(b), dirOf(t.in));
+  const rb = b ? fracRect(b) : offRect(fracRect(a), dirOf(t.out));
+  const cxN = ((a || b)[0] + (a || b)[2] / 2 + (b || a)[0] + (b || a)[2] / 2) / 2;
+  const lt = inOut(clamp01((f - cxN * 0.3) / 0.7));
+  return lerpRect(ra, rb, lt);
 }
 
 function drum() {
-  const L = pL, R = L.innerW / (0.08 + 1.6 * S.curve / 100);
-  const Aw = R * Math.asin(Math.min(0.98, L.innerW / (2 * R)));   // ennyi ív fér el a panel fél szélességén
-  return { R, Aw };
+  const R = pL.innerW / (0.08 + 1.6 * S.curve / 100);
+  return { R };
 }
-function snaps() {
-  const out = pL.cols.map(c => Math.min(pxMax, c.x)); out.push(pxMax);
-  return out;
-}
-// ráugrás: ha volt irány (görgő, lendület), a következő oszlopra abban az irányban — így egy görgő-kattanás is továbblép
+// ráugrás egész jelenetre; ha volt irány (görgő, lendület), abba az irányba lép — így egy görgő-kattanás is továbbvisz
 function snapTo(v, dir) {
-  const s = snaps();
-  if (dir > 0) return s.find(x => x >= v - 1) ?? pxMax;
-  if (dir < 0) { for (let j = s.length - 1; j >= 0; j--) if (s[j] <= v + 1) return s[j]; return 0; }
-  return s.reduce((b, x) => Math.abs(x - v) < Math.abs(b - v) ? x : b, 0);
+  const r = dir > 0 ? Math.ceil(v - 0.001) : dir < 0 ? Math.floor(v + 0.001) : Math.round(v);
+  return Math.max(0, Math.min(SCENES - 1, r));
 }
 
 function clearTiles() {
@@ -1330,25 +1377,31 @@ function clearTiles() {
 function buildTiles() {
   clearTiles();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  pL.list.forEach((t, k) => {
-    const sc = Math.min(dpr, 2048 / Math.max(t.w, t.h));
+  TILES.forEach((d, k) => {
+    // a csempe legnagyobb és legkisebb mérete a jeleneteken át → ekkora vászon, ehhez a betűméret
+    let mw = 0, mh = 0, nw = 1e9, nh = 1e9;
+    Object.values(d.r).forEach(f => { const r = fracRect(f); mw = Math.max(mw, r.w); mh = Math.max(mh, r.h); nw = Math.min(nw, r.w); nh = Math.min(nh, r.h); });
+    const anchor = ANCHOR[d.kind];
+    const sc = Math.min(dpr, 1600 / Math.max(mw, mh));
     const c = document.createElement('canvas');
-    c.width = Math.max(2, Math.round(t.w * sc)); c.height = Math.max(2, Math.round(t.h * sc));
-    paintTile(c, t.kind, PROJECTS[sel], sel, k);
+    c.width = Math.max(2, Math.round(mw * sc)); c.height = Math.max(2, Math.round(mh * sc));
+    const g = c.getContext('2d'); g.scale(sc, sc);
+    paintTile(g, d.kind, mw, mh, { w: nw, h: nh }, PROJECTS[sel], sel, k);
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     const mat = new THREE.ShaderMaterial({
       uniforms: Object.assign({}, TU, {
-        uMap: { value: tex }, uSize: { value: new THREE.Vector2(t.w, t.h) }, uArc: { value: 0 }, uY: { value: 0 },
-        uRad: { value: pL.tr }, uAlpha: { value: 0 }, uHover: { value: 0 }, uLift: { value: 0 },
+        uMap: { value: tex }, uSize: { value: new THREE.Vector2(1, 1) }, uTex: { value: new THREE.Vector2(mw, mh) },
+        uMode: { value: anchor ? 1 : 0 }, uAnchor: { value: new THREE.Vector2(...(anchor || [0, 0])) },
+        uArc: { value: 0 }, uY: { value: 0 }, uRad: { value: pL.tr }, uAlpha: { value: 0 }, uHover: { value: 0 }, uLift: { value: 0 },
       }),
       vertexShader: tileVS, fragmentShader: tileFS,
       transparent: true, depthTest: false, depthWrite: false, extensions: { derivatives: true },
     });
     const mesh = onLayer(new THREE.Mesh(tileGeo, mat), LAYER_TILES);
-    mesh.frustumCulled = false;
+    mesh.frustumCulled = false; mesh.visible = false;
     scene.add(mesh);
-    tiles.push(Object.assign({}, t, { mesh, mat, tex, hv: 0 }));
+    tiles.push(Object.assign({}, d, { mesh, mat, tex, hv: 0, rect: null }));
   });
 }
 
@@ -1377,14 +1430,14 @@ function openProject(i) {
   sel = i; pCentered = false; pCap = -1; pHover = -1;
   pFrom = pillRect(i);
   pL = projLayout();
-  pxPos = pxTarget = 0; pxVel = 0; pSnapAt = 0;
+  sPos = sTarget = 0; pxVel = 0; pSnapAt = 0; pWheelDir = 0;
   buildTiles();
   pTarget = 1;
   hovered = -1; pointerIn = false;
   document.body.classList.add('proj');
   whoEl.hidden = true; backBtn.hidden = false;
-  hintEl.innerHTML = 'Görgess vagy húzd oldalra<br>Esc → vissza';
-  canvas.setAttribute('aria-label', PROJECTS[i].name + ' projekt: vízszintesen görgethető csempék');
+  hintEl.innerHTML = 'Görgess vagy húzd<br>Esc → vissza';
+  canvas.setAttribute('aria-label', PROJECTS[i].name + ' projekt: görgetésre átrendeződő csempék');
   canvas.style.cursor = 'default';
 }
 function closeProject() {
@@ -1399,36 +1452,35 @@ function closeProject() {
 backBtn.addEventListener('click', closeProject);
 
 function projWheel(e) {
-  const k = e.deltaMode === 1 ? 32 : (e.deltaMode === 2 ? innerWidth : 1);
+  const k = e.deltaMode === 1 ? 32 : (e.deltaMode === 2 ? innerHeight : 1);
   const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * k;
-  pxTarget = Math.max(-80, Math.min(pxMax + 80, pxTarget + d));
+  sTarget = Math.max(-0.15, Math.min(SCENES - 0.85, sTarget + d / (pL.innerH * 0.9)));
   if (Math.abs(d) > 0.5) pWheelDir = Math.sign(d);
   pSnapAt = performance.now() + 170;
 }
 function projDragStart(e) {
-  pDrag = true; pDragX = e.clientX; pDragT = performance.now(); pFling = 0; pSnapAt = 0;
+  pDrag = true; pDragX = e.clientX; pDragY = e.clientY; pDragT = performance.now(); pFling = 0; pSnapAt = 0;
 }
 function projPointerMove(e) {
   if (e.pointerType !== 'touch') { pmx = e.clientX; pmy = e.clientY; }
   if (!pDrag) return;
-  const dx = e.clientX - pDragX; pDragX = e.clientX;
-  const out = pxTarget < 0 || pxTarget > pxMax;
-  pxTarget -= dx * (out ? 0.35 : 1);                           // a végeken gumiszerűen ellenáll
+  const dx = e.clientX - pDragX, dy = e.clientY - pDragY; pDragX = e.clientX; pDragY = e.clientY;
+  const d = -(Math.abs(dx) > Math.abs(dy) ? dx : dy) / (pL.innerH * 0.9);   // felfelé vagy balra húzva előre
+  const out = sTarget < 0 || sTarget > SCENES - 1;
+  sTarget += d * (out ? 0.35 : 1);                                         // a végeken gumiszerűen ellenáll
   const now = performance.now(), dts = Math.max(8, now - pDragT) / 1000; pDragT = now;
-  pFling = pFling * 0.5 + (-dx / dts) * 0.5;
-  if (Math.abs(e.clientX - downX) > 6) canvas.style.cursor = 'grabbing';
+  pFling = pFling * 0.5 + (d / dts) * 0.5;
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) canvas.style.cursor = 'grabbing';
 }
 function projDragEnd() {
   if (!pDrag) return;
   pDrag = false;
   if (performance.now() - pDragT > 90) pFling = 0;
-  const dir = Math.abs(pFling) > 250 ? Math.sign(pFling) : 0;
-  pxTarget = snapTo(Math.max(0, Math.min(pxMax, pxTarget + pFling * 0.22)), dir);   // lendület, majd ráugrik egy oszlopra
+  sTarget = snapTo(sTarget, Math.abs(pFling) > 0.4 ? Math.sign(pFling) : 0);
   canvas.style.cursor = 'default';
 }
 function projStep(dir) {
-  const s = snaps(), cur = s.reduce((b, v, j) => Math.abs(v - pxTarget) < Math.abs(s[b] - pxTarget) ? j : b, 0);
-  pxTarget = s[Math.max(0, Math.min(s.length - 1, cur + dir))]; pSnapAt = 0;
+  sTarget = Math.max(0, Math.min(SCENES - 1, Math.round(sTarget) + dir)); pSnapAt = 0;
 }
 // képernyőpont → melyik csempe (a henger-leképezés megfordítása)
 function hitTile(cx, cy) {
@@ -1442,31 +1494,23 @@ function hitTile(cx, cy) {
   const a = R * th, Y = sy / f - o.y;
   for (let j = 0; j < tiles.length; j++) {
     const t = tiles[j];
-    if (Math.abs(a - t.arc) < t.w / 2 && Math.abs(Y - t.cy) < t.h / 2) return j;
+    if (t.mesh.visible && Math.abs(a - t.arc) < t.rect.w / 2 && Math.abs(Y - t.cy) < t.rect.h / 2) return j;
   }
   return -1;
 }
 function projClick(cx, cy) {
   if (cx < pL.x || cx > pL.x + pL.w || cy < pL.y || cy > pL.y + pL.h) { closeProject(); return; }   // a panelen kívül → vissza
-  const j = hitTile(cx, cy);
-  if (j < 0) return;
-  const { Aw } = drum(), t = tiles[j];
-  pxTarget = Math.max(0, Math.min(pxMax, t.x + t.w / 2 - Aw)); pSnapAt = 0;   // a csempe oszlopa középre csúszik
+  if (hitTile(cx, cy) >= 0) projStep(Math.round(sTarget) >= SCENES - 1 ? -(SCENES - 1) : 1);        // csempére kattintva tovább (a végén elölről)
 }
 window.addEventListener('resize', () => {
   if (!pL) return;
   clearTimeout(pResizeT);
-  pResizeT = setTimeout(() => {
-    if (!pTarget) return;
-    const old = pL.total; pL = projLayout();
-    pxPos *= pL.total / old; pxTarget *= pL.total / old;
-    buildTiles();
-  }, 150);
+  pResizeT = setTimeout(() => { if (pTarget) { pL = projLayout(); buildTiles(); } }, 150);
 });
 
 function projUpdate(dt) {
   const dir = Math.sign(pTarget - pT);
-  if (dir) pT = clamp01(pT + dir * dt / (reduced ? 0.2 : (dir > 0 ? 0.95 : 0.7)));
+  if (dir) pT = clamp01(pT + dir * dt / (reduced ? 0.2 : (dir > 0 ? 1.1 : 0.8)));
   pEase = pT * pT * (3 - 2 * pT);
   if (pT === 0) {
     if (sel >= 0 && !pTarget) { clearTiles(); sel = -1; pL = null; setCaption(hovered); }
@@ -1484,7 +1528,7 @@ function projUpdate(dt) {
 
   // panel: a pill alakjából folyékonyan nyílik ki — előbb szélességben, aztán magasságban
   const from = pTarget ? pFrom : pillRect(sel);
-  const ew = backOut(clamp01(pT * 1.3)), eh = backOut(clamp01(pT * 1.3 - 0.25));
+  const ew = backOut(clamp01(pT * 1.4)), eh = backOut(clamp01(pT * 1.4 - 0.25));
   const fcx = from.x + from.w / 2, fcy = from.y + from.h / 2, tcx = L.x + L.w / 2, tcy = L.y + L.h / 2;
   const w = Math.max(1, from.w + (L.w - from.w) * ew), h = Math.max(1, from.h + (L.h - from.h) * eh);
   const cx = fcx + (tcx - fcx) * ew, cy = fcy + (tcy - fcy) * eh;
@@ -1495,46 +1539,53 @@ function projUpdate(dt) {
   pnU.uFrost.value = S.pfrost / 100; pnU.uTint.value = S.ptint / 100;
   panelQuad.visible = true;
 
-  // görgetés
-  const { R, Aw } = drum();
-  pxMax = Math.max(0, L.total - 2 * Aw);
+  // görgetés jelenetről jelenetre
   if (!pDrag) {
-    if (pSnapAt && performance.now() > pSnapAt) { pxTarget = snapTo(pxTarget, pWheelDir); pSnapAt = 0; pWheelDir = 0; }
-    if (!pSnapAt) pxTarget = Math.max(0, Math.min(pxMax, pxTarget));
+    if (pSnapAt && performance.now() > pSnapAt) { sTarget = snapTo(sTarget, pWheelDir); pSnapAt = 0; pWheelDir = 0; }
+    if (!pSnapAt) sTarget = Math.max(0, Math.min(SCENES - 1, sTarget));
   }
-  const prev = pxPos;
-  pxPos = damp(pxPos, pxTarget, pDrag ? 24 : 9, dt);
-  pxVel = (pxPos - prev) / Math.max(dt, 1e-3);
+  const prev = sPos;
+  sPos = damp(sPos, sTarget, pDrag ? 18 : (reduced ? 20 : 4.2), dt);
+  pxVel = (sPos - prev) / Math.max(dt, 1e-3) * L.innerH;
 
-  TU.uR.value = R;
+  TU.uR.value = drum().R;
   const tf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   TU.uD.value = camera.position.length(); TU.uK.value = 2 * tf * TU.uD.value / H;
   TU.uOrigin.value.set(tcx - innerWidth / 2, H / 2 - tcy);
   const cl = L.pad * 0.35;
-  TU.uClip.value.set((L.x + cl) * sc, (H - L.y - L.h) * sc, (L.x + L.w - cl) * sc, (H - L.y) * sc);
+  TU.uClip.value.set((L.x + cl) * sc, (H - L.y - L.h + cl) * sc, (L.x + L.w - cl) * sc, (H - L.y - cl) * sc);
   TU.uFade.value = Math.max(1, (L.pad - cl) * sc);
 
-  // csempék: balról jobbra, egymás után csúsznak be
-  const tIn = clamp01((pT - 0.4) / 0.6);
+  // nyitáskor a csempék felülről esnek be balról jobbra, csukáskor ugyanígy kirepülnek felfelé
+  const tIn = clamp01((pT - 0.42) / 0.58);
   pHover = pTarget && !pDrag && pmx >= 0 ? hitTile(pmx, pmy) : -1;
-  let cap = 0, capD = 1e9;
   tiles.forEach((t, j) => {
-    const base = t.x + t.w / 2 - pxPos - Aw;
-    const delay = clamp01((base + Aw) / (2 * Aw)) * 0.45;
-    const pc = outCubic(clamp01((tIn - delay) / 0.55));
-    t.arc = base + (1 - pc) * L.innerW * 0.4;
-    t.cy = L.innerH / 2 - (t.y + t.h / 2);
+    let r = tileRect(t, Math.max(0, Math.min(SCENES - 1, sPos)));
+    if (r && sPos < 0) r = lerpRect(r, offRect(r, 'top'), Math.min(1, -sPos * 2));       // gumi a végeken
+    if (r && sPos > SCENES - 1) r = { x: r.x - (sPos - SCENES + 1) * L.innerW * 0.25, y: r.y, w: r.w, h: r.h };
+    const inPanel = r && r.y < L.innerH && r.y + r.h > 0 && r.x < L.innerW && r.x + r.w > 0;
+    if (r && tIn < 1 && inPanel) {                                          // csak ami épp a panelen van, az esik be / repül ki
+      const lt = inOut(clamp01((tIn - clamp01((r.x + r.w / 2) / L.innerW) * 0.35) / 0.65));
+      r = lerpRect(offRect(r, 'top'), r, lt);
+    }
+    const vis = !!r && r.y < L.innerH + L.pad && r.y + r.h > -L.pad && r.x < L.innerW + L.pad && r.x + r.w > -L.pad;
+    t.mesh.visible = vis;
+    if (!vis) return;
+    t.rect = r;
+    t.arc = r.x + r.w / 2 - L.innerW / 2;
+    t.cy = L.innerH / 2 - (r.y + r.h / 2);
     t.hv = damp(t.hv, j === pHover ? 1 : 0, 10, dt);
     const u = t.mat.uniforms;
-    u.uArc.value = t.arc; u.uY.value = t.cy; u.uAlpha.value = pc;
-    u.uHover.value = t.hv; u.uLift.value = t.hv * 14 + (1 - pc) * -60;
-    if (Math.abs(base) < capD) { capD = Math.abs(base); cap = t.col; }
+    u.uSize.value.set(Math.max(1, r.w), Math.max(1, r.h));
+    u.uArc.value = t.arc; u.uY.value = t.cy; u.uAlpha.value = 1;
+    u.uHover.value = t.hv; u.uLift.value = t.hv * 12;
   });
   if (pTarget) {
+    const cap = Math.round(Math.max(0, Math.min(SCENES - 1, sPos)));
     if (cap !== pCap) {
       pCap = cap;
       const p = PROJECTS[sel];
-      capMeta.textContent = p.id + ' · ' + p.cat + ' — ' + String(cap + 1).padStart(2, '0') + ' / ' + String(L.cols.length).padStart(2, '0');
+      capMeta.textContent = p.id + ' · ' + p.cat + ' — ' + String(cap + 1).padStart(2, '0') + ' / ' + String(SCENES).padStart(2, '0');
       capName.textContent = p.name;
     }
     if (!pDrag) canvas.style.cursor = pHover >= 0 ? 'pointer' : (pmx >= L.x && pmx <= L.x + L.w && pmy >= L.y && pmy <= L.y + L.h ? 'grab' : 'zoom-out');
