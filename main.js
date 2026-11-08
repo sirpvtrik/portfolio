@@ -1084,7 +1084,7 @@ function updateAudio(dt) {
   WU.uPush.value = (S.wpush / 100) * (0.2 + 0.8 * reach) + scrollPush * 0.3 + syncPulse * 0.02 + pEase * 0.08;   // nyitott panelnél az üveg mögé úsznak
 }
 
-/* ---------- Projektnézet: a pill liquid glass panellé nyílik; görgetésre a csempék jelenetről jelenetre átrendeződnek (beesnek, széttolódnak, kicsúsznak), egy enyhén ívelt hengeren ---------- */
+/* ---------- Projektnézet: a pill liquid glass panellé nyílik; görgetésre a csempék jelenetről jelenetre átrendeződnek (beesnek, széttolódnak, kicsúsznak), egy fent-lent enyhén hajló hengeren ---------- */
 const LAYER_PANEL = 5, LAYER_TILES = 6;
 const clamp01 = x => Math.min(1, Math.max(0, x));
 const backOut = x => { const c = 0.9; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
@@ -1198,8 +1198,8 @@ const tileVS = /* glsl */`
   void main() {
     vUv = uv;
     vec2 lp = position.xy * uSize;
-    float th = (uArc + lp.x) / uR;                     // vízszintes helyzet → szög a hengeren
-    vec3 p = vec3(uR * sin(th) + uOrigin.x, uY + lp.y + uOrigin.y, uR * (cos(th) - 1.0) + uLift);
+    float th = (uY + lp.y) / uR;                       // függőleges helyzet → szög a vízszintes tengelyű hengeren (fent-lent hajlik)
+    vec3 p = vec3(uArc + lp.x + uOrigin.x, uR * sin(th) + uOrigin.y, uR * (cos(th) - 1.0) + uLift);
     vShade = cos(th);
     gl_Position = projectionMatrix * vec4(p * uK - vec3(0.0, 0.0, uD), 1.0);
   }`;
@@ -1361,7 +1361,7 @@ function tileRect(t, s) {
 }
 
 function drum() {
-  const R = pL.innerW / (0.08 + 1.6 * S.curve / 100);
+  const R = pL.innerH / (0.08 + 1.6 * S.curve / 100);
   return { R };
 }
 // ráugrás egész jelenetre; ha volt irány (görgő, lendület), abba az irányba lép — így egy görgő-kattanás is továbbvisz
@@ -1488,13 +1488,13 @@ function hitTile(cx, cy) {
   const { R } = drum(), Dpx = TU.uD.value / TU.uK.value, o = TU.uOrigin.value;
   const sx = cx - innerWidth / 2, sy = innerHeight / 2 - cy;
   let lo = -Math.PI / 2, hi = Math.PI / 2;
-  const scr = th => (R * Math.sin(th) + o.x) * Dpx / (Dpx - R * (Math.cos(th) - 1));
-  for (let n = 0; n < 24; n++) { const mid = (lo + hi) / 2; if (scr(mid) < sx) lo = mid; else hi = mid; }
+  const scr = th => (R * Math.sin(th) + o.y) * Dpx / (Dpx - R * (Math.cos(th) - 1));
+  for (let n = 0; n < 24; n++) { const mid = (lo + hi) / 2; if (scr(mid) < sy) lo = mid; else hi = mid; }
   const th = (lo + hi) / 2, f = Dpx / (Dpx - R * (Math.cos(th) - 1));
-  const a = R * th, Y = sy / f - o.y;
+  const a = R * th, X = sx / f - o.x;
   for (let j = 0; j < tiles.length; j++) {
     const t = tiles[j];
-    if (t.mesh.visible && Math.abs(a - t.arc) < t.rect.w / 2 && Math.abs(Y - t.cy) < t.rect.h / 2) return j;
+    if (t.mesh.visible && Math.abs(X - t.arc) < t.rect.w / 2 && Math.abs(a - t.cy) < t.rect.h / 2) return j;
   }
   return -1;
 }

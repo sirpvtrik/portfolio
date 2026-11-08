@@ -2,7 +2,7 @@
 
 Statikus weboldal: forgó, 3D liquid glass pillek a projektekkel, a két szélen zenére reagáló fényhullámokkal, és egy blob-szerűen kinyíló, liquid glass zenelejátszóval.
 
-**Projektnézet (teszt):** egy pillre kattintva (vagy Enterrel a középsőt) a pill folyékonyan egy matt liquid glass panellé nyílik, mögötte átlátszanak a hullámok. A csempék felülről beesnek, majd görgetésre (görgő, trackpad, húzás, nyilak, vagy kattintás egy csempére) jelenetről jelenetre átrendeződnek: újak csúsznak be, széttolják és átméretezik a többit, a régiek kicsúsznak. Az egész enyhén egy vízszintes hengerre hajlik. Álló képernyőn a rács elfordul (oszlopok helyett sorok). Vissza: Esc, a bal felső gomb, vagy kattintás a panelen kívülre. Nyitott panelnél a pillek nem renderelődnek.
+**Projektnézet (teszt):** egy pillre kattintva (vagy Enterrel a középsőt) a pill folyékonyan egy matt liquid glass panellé nyílik, mögötte átlátszanak a hullámok. A csempék felülről beesnek, majd görgetésre (görgő, trackpad, húzás, nyilak, vagy kattintás egy csempére) jelenetről jelenetre átrendeződnek: újak csúsznak be, széttolják és átméretezik a többit, a régiek kicsúsznak. A panel teteje és alja felé a csempék enyhén hátrahajlanak (vízszintes tengelyű henger), oldalt egyenesek. Álló képernyőn a rács elfordul (oszlopok helyett sorok). Vissza: Esc, a bal felső gomb, vagy kattintás a panelen kívülre. Nyitott panelnél a pillek nem renderelődnek.
 
 ## Felépítés
 
