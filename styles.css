@@ -31,6 +31,19 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
 .dim { color: var(--dim); }
 .stack-label { display: grid; gap: 4px; }
+.top-left { display: flex; align-items: flex-start; min-height: 36px; }
+.back {
+  pointer-events: auto; appearance: none; display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 16px 0 10px; border-radius: 999px; border: 1px solid var(--line);
+  background: rgba(236,236,238,0.08); color: var(--fg); cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  transition: background .2s ease, transform .2s ease;
+}
+.back:hover { background: rgba(236,236,238,0.16); }
+.back:active { transform: scale(0.97); }
+.back:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+.back svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .top-right { display: flex; align-items: flex-start; gap: 14px; position: relative; text-align: right; }
 .logo-top { position: absolute; top: calc(24px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: 58px; height: auto; fill: var(--fg); overflow: visible; }
 
@@ -150,4 +163,5 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
   .caption { order: 1; }
   .caption .name { font-size: 22px; }
   .top-right .stack-label { display: none; }
+  .back-long { display: none; }
 }

@@ -27,7 +27,10 @@
 <div class="ui">
   <svg class="logo-top" id="logoTop" viewBox="0 0 335.11 155.11" role="img" aria-label="MP"></svg>
   <div class="row">
-    <div class="stack-label"><span>Patrik Madarász</span><span class="dim">Munkák / Válogatás</span></div>
+    <div class="top-left">
+      <div class="stack-label" id="who"><span>Patrik Madarász</span><span class="dim">Munkák / Válogatás</span></div>
+      <button class="back" id="back" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg>Vissza<span class="back-long">&nbsp;a munkákhoz</span></button>
+    </div>
     <div class="top-right">
       <div class="stack-label"><span>06 projekt</span><span class="dim">2025 — 2026</span></div>
       <button class="btn square" id="panelBtn" type="button" aria-expanded="false" aria-controls="panel" aria-label="Glass beállítások">
@@ -51,6 +54,12 @@
         </div>
         <div class="sec">
           <div class="ctl"><label for="c-spin">Forgás</label><input type="range" id="c-spin" min="0" max="100" step="1"><output for="c-spin"></output></div>
+        </div>
+        <div class="sec">
+          <div class="sec-title">Projektnézet</div>
+          <div class="ctl"><label for="c-curve">Görbület</label><input type="range" id="c-curve" min="0" max="100" step="1"><output for="c-curve"></output></div>
+          <div class="ctl"><label for="c-pfrost">Matt üveg</label><input type="range" id="c-pfrost" min="0" max="100" step="1"><output for="c-pfrost"></output></div>
+          <div class="ctl"><label for="c-ptint">Tónus</label><input type="range" id="c-ptint" min="0" max="100" step="1"><output for="c-ptint"></output></div>
         </div>
         <div class="sec">
           <div class="sec-title">Hullám</div>
@@ -94,7 +103,7 @@
       <span class="meta dim" id="capMeta">Válassz egy pillt</span>
       <span class="name" id="capName">&nbsp;</span>
     </div>
-    <div class="hint dim">Görgess vagy húzd<br>Hangszóró → lejátszó</div>
+    <div class="hint dim" id="hint">Görgess vagy húzd<br>Kattints → projekt</div>
   </div>
 </div>
 
