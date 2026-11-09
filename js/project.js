@@ -16,7 +16,7 @@ import { onSelect, restorePills, paletteOf, pills } from './pills.js';
 import { setWavesCentered, setWaveColor } from './waves.js';
 import { damp } from './util.js';
 import { setupHeap, resetHeap, updateHeap, heapPointer, preloadHeap } from './heap.js';
-import { drumLayout, buildDrum, updateDrum, disposeDrum, drumRests, drumStart, drumSkipIntro, drumClose } from './drum.js';
+import { drumLayout, buildDrum, updateDrum, disposeDrum, drumStart, drumSkipIntro, drumClose } from './drum.js';
 
 const root = document.getElementById('project');
 const input = document.getElementById('pjInput');
@@ -29,8 +29,8 @@ const geoKey = () => S.depth + '/' + S.thick + '/' + S.pjMode;   // Depth, Vasta
 let D = DETAIL_TEST, cur = -1;                   // a nyitott projekt tartalma (a projekt saját detail-je a DETAIL_TEST fölött) és sorszáma
 let pp = null, morphT = 99, pillStart = null;    // a megnyúlt pill (teszt) és a kiinduló helyzete (a toronybeli pill)
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
-let lastInput = 0, restAt = 0;                   // henger: az utolsó görgető mozdulat ideje és a cél-nyugvópont
-let wLast = 0, wAcc = 0, wLock = false, wStepT = 0, wPrev = 0, dragS0 = 0;   // henger: görgetési mozdulatok (egy mozdulat = egy lépés)
+let lastInput = 0;
+let tgt = 0;                                      // henger: a görgetés célja; a lap lágyan követi (folyamatos, „smooth” görgetés)
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 
@@ -401,7 +401,7 @@ function open(i) {
   isOpen = true; closing = false; s = 0; vel = 0; openT = 0;
   cur = i; D = PROJECTS[i].detail ? Object.assign({}, DETAIL_TEST, PROJECTS[i].detail) : DETAIL_TEST;
   // teszt-forma: a kiválasztott pill helyéről nő ki a projekt teste (a toronybeli pill eltűnik, a restorePills visszahozza)
-  pillStart = null; morphT = reduced ? 99 : 0; restAt = 0; lastInput = 0;
+  pillStart = null; morphT = reduced ? 99 : 0; tgt = 0; lastInput = 0;
   if (S.pjMode === 2) { drumStart(); if (reduced) drumSkipIntro(); }   // henger: a pill a helyéről nyúlik szét
   if ((S.pjMode === 1 || S.pjMode === 2) && pills[i]) {
     const h = pills[i].holder, w = new THREE.Vector3();
@@ -450,37 +450,17 @@ export function requestCardRebuild() {
 backBtn.addEventListener('click', close);
 
 /* ---------- Görgetés: lendület + súrlódás, mint a pilleknél ---------- */
-// henger: lapozás lépésenként. A célt (restAt) a következő / előző nyugvópontra tesszük, és a lap rugóval odamegy.
-function drumGo(dir) {
-  const r = drumRests();
-  let i = r.indexOf(restAt);
-  if (i < 0) i = r.reduce((b, v, j) => Math.abs(v - s) < Math.abs(r[b] - s) ? j : b, 0);
-  restAt = r[clamp(i + dir, 0, r.length - 1)];
-}
-// egy görgető mozdulat (egérgörgő-kattanás vagy touchpad-söprés a lendületével együtt) pontosan egy lépés: az első
-// ~30 px után lép, utána a mozdulat lecsengő lendülete már nem visz tovább (ez vitt át véletlenül a következő lépésre);
-// új mozdulat: rövid szünet után, vagy ha lecsengés közben újra erősödik
-function drumWheel(d) {
-  const now = performance.now(), a = Math.abs(d);
-  if (now - wLast > 160) { wLock = false; wAcc = 0; }
-  else if (wLock && now - wStepT > 260 && a > wPrev * 1.8 + 6) { wLock = false; wAcc = 0; }
-  wLast = now; wPrev = a;
-  if (wLock) return;
-  if (Math.sign(d) !== Math.sign(wAcc)) wAcc = 0;
-  wAcc += d;
-  if (Math.abs(wAcc) >= 30) { drumGo(Math.sign(wAcc)); wLock = true; wStepT = now; wAcc = 0; }
-}
 input.addEventListener('wheel', e => {
   e.preventDefault();
   const k = e.deltaMode === 1 ? 32 : (e.deltaMode === 2 ? innerHeight : 1);
-  if (L && L.drum) { drumWheel(e.deltaY * k); return; }
+  if (L && L.drum) { tgt = clamp(tgt + e.deltaY * k, 0, L.sMax); return; }   // henger: a cél mozdul, a lap lágyan követi
   vel = clamp(vel + e.deltaY * k * 5, -7000, 7000);
   lastInput = performance.now();
 }, { passive: false });
 input.addEventListener('pointerdown', e => {
   try { input.setPointerCapture(e.pointerId); } catch (_) {}
   if (heapPointer('down', e)) { vel = 0; return; }            // pillre esett: azt húzzuk, nem a lapot
-  dragging = true; dragY = e.clientY; dragT = performance.now(); vel = 0; dragS0 = s;
+  dragging = true; dragY = e.clientY; dragT = performance.now(); vel = 0; tgt = s;
 });
 input.addEventListener('pointermove', e => {
   if (heapPointer('move', e) || !dragging) return;
@@ -490,10 +470,9 @@ input.addEventListener('pointermove', e => {
   lastInput = now;
 });
 const endDrag = () => {
-  if (dragging && L && L.drum) {                     // henger: elengedve a húzás irányában egy lépés (kis húzásnál vissza)
-    const d = s - dragS0, fl = performance.now() - dragT < 90 ? vel : 0;
-    if (Math.abs(d) > 0.12 * L.drum.STEP || Math.abs(fl) > 600) drumGo(Math.sign(Math.abs(d) > 0.12 * L.drum.STEP ? d : fl));
-    vel = 0; dragging = false; return;
+  if (dragging && L && L.drum) {                     // henger: elengedve a lendülettel még tovább siklik
+    const fl = performance.now() - dragT < 90 ? vel : 0;
+    tgt = clamp(s + fl * 0.35, 0, L.sMax); vel = 0; dragging = false; return;
   }
   if (dragging && performance.now() - dragT > 90) vel = 0; dragging = false;
 };
@@ -505,7 +484,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { close(); return; }
   if (e.target && /INPUT|BUTTON/.test(e.target.tagName) && e.target !== backBtn) return;
   const step = { ArrowDown: 700, PageDown: 1600, ' ': 1600, ArrowUp: -700, PageUp: -1600 }[e.key];
-  if (step && L && L.drum) { drumGo(Math.sign(step)); e.preventDefault(); return; }
+  if (step && L && L.drum) { tgt = clamp(tgt + Math.sign(step) * (Math.abs(step) > 1000 ? 0.85 * L.vh : 160), 0, L.sMax); e.preventDefault(); return; }
   if (step) { vel = clamp(vel + step, -7000, 7000); lastInput = performance.now(); e.preventDefault(); }
 });
 
@@ -525,13 +504,12 @@ function appear(c, dt) {
   c.av += ((target - c.a) * (closing ? 160 : 90) - c.av * (closing ? 22 : 12.5)) * dt;
   c.a += c.av * dt;
 }
-// henger: a lap rugóval megy a cél-nyugvópontra (restAt); húzás közben az ujjat követi, legfeljebb egy lépésnyit
-function snapDrum(dt) {
-  if (dragging) { s = clamp(s, restAt - L.drum.STEP * 1.1, restAt + L.drum.STEP * 1.1); vel = 0; return; }
-  const K = 55, D = 2 * Math.sqrt(K);                                  // kritikus csillapítás: túllendülés nélkül, lágyan ér be
-  const n = Math.min(8, Math.ceil(Math.min(dt, 0.25) * 120)), h = Math.min(dt, 0.25) / Math.max(1, n);   // lassú gépen is ugyanolyan gyors
-  for (let i = 0; i < n; i++) { vel += ((restAt - s) * K - vel * D) * h; s += vel * h; }
-  if (Math.abs(restAt - s) < 0.5 && Math.abs(vel) < 6) { s = restAt; vel = 0; }
+// henger: folyamatos, lágy görgetés: a lap exponenciálisan követi a célt (mint a „smooth scroll” oldalakon); húzás
+// közben az ujjat követi
+function smoothDrum(dt) {
+  if (dragging) { tgt = clamp(s, 0, L.sMax); return; }
+  s += (tgt - s) * (1 - Math.exp(-dt * 7));
+  if (Math.abs(tgt - s) < 0.05) s = tgt;
 }
 export function updateProject(dt) {
   const liftT = isOpen && !closing ? 0 : 1.4;                       // a kamera egyenesen néz a kártyákra
@@ -542,7 +520,7 @@ export function updateProject(dt) {
   }
   openT += dt;
   // fizika
-  if (L.drum) { if (!closing) snapDrum(dt); }
+  if (L.drum) { if (!closing) smoothDrum(dt); }
   else if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
   if (s < 0) { s = 0; vel = Math.max(0, vel); }
   if (s > L.sMax) { s = L.sMax; vel = Math.min(0, vel); }

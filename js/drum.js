@@ -1,15 +1,12 @@
 // Projekt-oldal: henger (Patrik ötlete, Figma: Desktop – 13; S.pjMode = 2).
 // A kiválasztott vízszintes pill elforgatás nélkül a teljes képernyőre nyúlik szét: a stadion négy negyedét toljuk szét,
-// így a lekerekített sarkok nem torzulnak, ez az üvegtest. Mögötte a tartalom egy vízszintes tengelyű hengeren gördül:
-// a henger BELSŐ oldalán (Patrik referenciája): alulról gördül fel, a perem felé közelebb jön és szétnyílik, szemben egyenes,
-// fent ugyanígy kiszélesedve gördül ki.
-// Görgetésre lépésenként halad (STEP px görgetés egy lépés; megállva a következő lépéshatárra ugrik, project.js):
-//  0: a cím középen → 1: alá felgördül a leírás (a cím kicsit feljebb megy) → 2: a cím és a leírás együtt felmegy, jön a
-//  borító → 3: a borító felmegy, az 1. kép az 1. helyre → 4: 2. kép a 2. helyre → 5: 3. kép a 3. helyre → onnan helyenként
-//  cserélődnek (az 1. hely képe felmegy, alulról a következő jön a helyére; aztán a 2., a 3. hely…) → a végén az utolsók is
-//  felmennek, és a képernyő aljára lehullanak a pillek (js/heap.js).
-// Galéria-videó ({ src, video }): amikor a kép a helyére ért, egyszer lejátszódik, és az utolsó kockáján áll meg (az maga a
-// poszter); ha a kép elment, visszaáll az elejére, és újra feljövet újra lejátszódik.
+// így a lekerekített sarkok nem torzulnak, ez az üvegtest. Mögötte a tartalom egy oszlopban, folyamatosan, lágyan gördül
+// (Patrik referenciája: errormade.tech): a képernyő közepén sík, a teteje és az alja felé a pálya felénk hajlik, így a
+// kilépő / belépő képek a széleken kiszélesednek, „szétnyílnak”, és lent mindig látszik, mi jön. Sorrend: cím → leírás
+// (a szavai széthúzva jönnek alulról, és középre érve összeállnak) → borító → további nagy képek (detail.full) → galéria
+// (gépen soronként 3, telefonon 1) → a végén a képernyő aljára lehullanak a pillek (js/heap.js).
+// Galéria-videó ({ src, video }): amikor a kép a képernyő közepéhez ér, egyszer lejátszódik, és az utolsó kockáján áll
+// meg (az maga a poszter); ha messze elment, visszaáll az elejére.
 // Vissza: a tartalom elhalványul, a test visszacsukódik a pill helyére (a toronyban az a pill a helyén marad).
 import { PW, PH, S } from './config.js';
 import { onLayer, LAYER_BG, LAYER_GLASS, U, camera, renderer } from './scene.js';
@@ -19,8 +16,6 @@ import { stadium, glassSlab, faceZ } from './glassgeo.js';
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = x => x * x * (3 - 2 * x);
-// a lépésen belüli mozgás: a lágy indulás / megállás csak részben, így a görgetés elejétől látszik a mozgás (nem „ragad”)
-const stepEase = x => 0.4 * x + 0.6 * ease(x);
 const lerp = (a, b, t) => a + (b - a) * t;
 const srcOf = g => (g && typeof g === 'object') ? g.src : g;
 
@@ -35,7 +30,7 @@ function wrap(g, text, maxW) {
   return lines;
 }
 
-/* ---------- Elrendezés és menetrend (px; u: a henger palástján felfelé mért távolság a szemközti vonaltól) ---------- */
+/* ---------- Elrendezés (px; y: lefelé, a tartalom tetejétől; yc: az elem közepe, s = yc-nél áll a képernyő közepén) ---------- */
 export function drumLayout(o) {
   const { vw, vh, k, name, cat, intro, cover, gallery } = o, full = o.full || [];
   const mob = vw <= 720, f = mob ? 1 : Math.min(vw / 1440, vh / 1024);           // a Figma-keret (1440 × 1024) arányában
@@ -46,59 +41,40 @@ export function drumLayout(o) {
   measure.font = `400 ${ds}px ${FONT}`;
   const lines = wrap(measure, intro || '', dW);
   const dH = Math.max(1, lines.length) * dl + ds * 0.6;
-  const tRest = mob ? 44 : 29 * f, dCen = -((mob ? 70 : 64 * f) + dH / 2);      // Figma: a cím 29 px-szel a közép fölött, a leírás 64 px-szel alatta
   // borító (Figma: 1131 × 712, 20 px sarok)
   let cvW = mob ? vw - 72 : Math.min(1131 * f, vw - 120), cvH = cvW * 712 / 1131;
   if (cvH > vh * 0.7) { cvH = vh * 0.7; cvW = cvH * 1131 / 712; }
-  // galéria: 3 hely egymás mellett (Figma: 443 × 627, 20 px köz). Telefonon egyszerre egy, nagyobb kép, és oldalról jön
-  // (Patrik): egy függőleges tengelyű henger belső oldalán jobbról gördül be, balra megy ki, a széleken szétnyílva
+  // galéria: gépen soronként 3 kép (Figma: 443 × 627, 20 px köz), telefonon egy, nagyobb
   const cols = mob ? 1 : 3, gx = mob ? 0 : 20 * f;
   let cw = mob ? vw - 72 : 443 * f, ch = cw * 627 / 443;
   if (ch > vh * (mob ? 0.62 : 0.66)) { ch = vh * (mob ? 0.62 : 0.66); cw = ch * 443 / 627; }
   const radius = (mob ? 14 : 20 * f);
-  const R = vh * 0.55, STEP = Math.max(340, vh * 0.48);                         // egy lépés ennyi görgetés (rövidebb: finomabb)
-  // A henger BELSŐ oldala látszik (Patrik referenciája): a tartalom a képernyő tetejéhez / aljához közeledve felénk jön,
-  // kiszélesedik és szétnyílik. OUT(h): ennyi úton (u) ér ki az elem teljesen a képernyőről (az alsó széle a tetején túl),
-  // a kamera perspektívájával számolva, így a lépés elejétől látszik a mozgás (nincs holtjáték a képen kívül)
-  const camZ = (vh / 2) / Math.tan(THREE.MathUtils.degToRad(16));                // a kamera távolsága px-ben (fov 32°)
-  const yScr = u => { const p = u / R; return R * Math.sin(p) * camZ / Math.max(1, camZ - R * (1 - Math.cos(p))); };
-  const OUT = h => { let u = 0; while (u < R * Math.PI / 2 + h && yScr(u - h / 2) < vh / 2 + 12) u += 4; return u; };
-  // telefonon a galéria vízszintesen: ugyanez a függőleges tengelyű hengerre (Rh), a képernyő szélességével
-  const Rh = vw * 0.9;
-  const xScr = u => { const p = u / Rh; return Rh * Math.sin(p) * camZ / Math.max(1, camZ - Rh * (1 - Math.cos(p))); };
-  const OUTX = w => { let u = 0; while (u < Rh * Math.PI / 2 + w && xScr(u - w / 2) < vw / 2 + 12) u += 4; return u; };
+  const G = Math.max(64, vh * 0.12), Gr = mob ? Math.max(28, vh * 0.04) : Math.max(24, 36 * f);   // szakaszok és galéria-sorok köze
+  // a pálya: középen sík (±A), a széleken r sugarú ívben felénk hajlik (a kilépő képek kiszélesednek, szétnyílnak)
+  const A = vh * 0.26, Rc = vh * 0.36;
   const items = [];
-  const pairD = OUT(0) - (dCen - dH / 2) + 10;                                    // a cím és a leírás együtt megy fel, amíg a leírás is kiér
-  items.push({ kind: 'title', w: tW, h: tH, x: 0, name, cat, t, keys: [[0, 0], [STEP, tRest], [2 * STEP, tRest + pairD]] });
-  // a leírás szavai a képernyő szélességében széthúzva gördülnek fel alulról, és ahogy a helyükre érnek, összeállnak
-  // bekezdéssé (Patrik referenciája, Cinetic); a sík ezért a teljes széthúzott szélesség
-  const sW = mob ? vw - 40 : Math.max(dW + 24, vw - 160);
-  items.push({ kind: 'desc', w: sW, dW, h: dH, x: 0, lines, ds, dl, spread: [0, STEP], keys: [[0, -OUT(dH)], [STEP, dCen], [2 * STEP, dCen + pairD]] });
-  if (cover) items.push({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius, keys: [[STEP, -OUT(cvH)], [2 * STEP, 0], [3 * STEP, OUT(cvH)]] });
-  // további nagy képek a borító után (a projekt detail.full listája, Patrik: a „Használat” oldal): ugyanúgy, ugyanakkorában
-  // gördülnek fel és tovább, mint a borító; a galéria ennyivel később kezdődik
-  const F = full.length;
-  full.forEach((src, j) => {
-    const e = j + 2;
-    items.push({ kind: 'img', w: cvW, h: cvH, x: 0, src: srcOf(src), radius,
-      keys: [[e * STEP, -OUT(cvH)], [(e + 1) * STEP, 0], [(e + 2) * STEP, OUT(cvH)]] });
-  });
-  const n = gallery.length;
+  items.push({ kind: 'title', w: tW, h: tH, x: 0, name, cat, t, yc: 0 });
+  // a leírás kezdetben a képernyő alján (széthúzva), felfelé jövet áll össze
+  const sW = mob ? vw - 84 : Math.max(dW + 24, vw - 160);                      // a szélén ne érjen bele az üveg lencséjébe
+  const dY = vh * 0.36;
+  items.push({ kind: 'desc', w: sW, dW, h: dH, x: 0, lines, ds, dl, spread: true, yc: dY });
+  let y = dY + dH / 2 + G;                                                         // a következő elem teteje
+  const add = (it, h) => { it.yc = y + h / 2; items.push(it); y += h; };
+  if (cover) { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius }, cvH); y += G; }
+  full.forEach(src => { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: srcOf(src), radius }, cvH); y += G; });
+  const rows = Math.ceil(gallery.length / cols);
   gallery.forEach((g, j) => {
-    const e = j + 2 + F, x = j + 2 + F + cols, col = j % cols;                     // e: ebben a lépésben jön fel, x: ebben megy el
-    const side = mob;                                                              // telefonon oldalról: jobbról be, balra ki
-    const uIn = side ? OUTX(cw) : -OUT(ch), uOut = side ? -OUTX(cw) : OUT(ch);
-    items.push({ kind: 'img', w: cw, h: ch, x: (col - (cols - 1) / 2) * (cw + gx), src: srcOf(g), video: g && g.video, radius,
-      axis: side ? 'x' : 'y', arrive: (e + 1) * STEP, leave: x * STEP,
-      keys: [[e * STEP, uIn], [(e + 1) * STEP, 0], [x * STEP, 0], [(x + 1) * STEP, uOut]] });
+    const r = Math.floor(j / cols), col = j % cols, inRow = Math.min(cols, gallery.length - r * cols);
+    items.push({ kind: 'img', w: cw, h: ch, x: (col - (inRow - 1) / 2) * (cw + gx), src: srcOf(g), video: g && g.video, radius,
+      yc: y + r * (ch + Gr) + ch / 2 });
   });
-  const last = n ? n + cols + 2 + F : 3 + F;
-  const sMax = last * STEP + STEP * 0.5;                                            // a végén kis hely a lehulló pilleknek
-  const rests = []; for (let i = 0; i <= last; i++) rests.push(i * STEP);
-  rests.push(sMax);
+  if (rows) y += rows * ch + (rows - 1) * Gr;
+  const lastBottom = y;
+  // a végén a pillek halma: a padló a tartalom alatt, a lap végén a képernyő aljára kerül
+  const floor = lastBottom + vh / 2 + vh * 0.42;
+  const sMax = Math.max(0, floor - vh + (mob ? 36 : 64));
   const pillW = Math.min(PW / k, (mob ? vw : 900) / 3.3);
-  return { vw, vh, k, mob, f, R, Rh, STEP, items, rests, sMax,
-    heap: { floor: sMax + vh - (mob ? 36 : 64), width: vw, k, vh, vw, pillW } };
+  return { vw, vh, k, mob, f, A, Rc, items, sMax, heap: { floor, width: vw, k, vh, vw, pillW } };
 }
 
 /* ---------- Rajzolók ---------- */
@@ -188,7 +164,6 @@ function clipped(mat) {
 let group = null, DL = null, kk = 1, st = null, body = null, items = [];
 let morphT = 99, closeT = -1, ca = 0;
 
-export const drumRests = () => (DL ? DL.rests : [0]);
 export function drumStart() { morphT = 0; closeT = -1; ca = 0; }       // nyitás: a pill kinyúlik
 export function drumSkipIntro() { morphT = 99; }                         // újraépítéskor (átméretezés, csúszka) nincs újra kinyúlás
 export function drumClose() { closeT = 0; }                              // Vissza: összecsukódás
@@ -200,8 +175,8 @@ function texFromCanvas(cv) {
 }
 function makeItem(it, k) {
   const q = Math.min(2, window.devicePixelRatio || 1) * (it.kind === 'title' ? 1.5 : 1);   // a széles leírás kisebb felbontással (kockánként újrarajzolódik)
-  const geo = it.axis === 'x' ? new THREE.PlaneGeometry(it.w * k, it.h * k, 48, 1) : new THREE.PlaneGeometry(it.w * k, it.h * k, 1, 48);
-  const o = { it, geo, base: geo.attributes.position.array.slice(), holder: new THREE.Group(), bend: -1, mats: [], texs: [], played: false };
+  const geo = new THREE.PlaneGeometry(it.w * k, it.h * k, 1, Math.max(24, Math.min(96, Math.round(it.h / 10))));
+  const o = { it, geo, base: geo.attributes.position.array.slice(), holder: new THREE.Group(), lastU: NaN, mats: [], texs: [], played: false };
   group.add(o.holder);
   const add = (mat, z, order) => {
     clipped(mat);
@@ -300,42 +275,32 @@ function setStretch(dx, dy, sc) {
   // a szélén a csíkfény és a vékony fényes él megmarad
   u.uFace.value = lerp(1, 0.06, grow);
 }
-// a sík a henger felületére hajlik (vízszintes tengely): b = 0 egyenes, 1 = a henger sugarán
-function bendY(o, Rw, b) {
-  if (Math.abs(b - o.bend) < 0.004) return;
-  o.bend = b;
-  const p = o.geo.attributes.position.array, q = o.base, r = Rw / Math.max(b, 1e-3);
+// a pálya (px, u: a képernyő közepétől felfelé mért távolság a pálya mentén): középen sík, a széleken Rc sugarú ívben
+// felénk hajlik (z); a negyedív után nem megy tovább (ott már a képen kívül van)
+function pathAt(u, out) {
+  const A = DL.A, Rc = DL.Rc, au = Math.abs(u), sg = u < 0 ? -1 : 1;
+  if (au <= A) { out[0] = u; out[1] = 0; return out; }
+  const t = Math.min((au - A) / Rc, Math.PI / 2);
+  out[0] = sg * (A + Rc * Math.sin(t)); out[1] = Rc * (1 - Math.cos(t));
+  return out;
+}
+const P = [0, 0];
+// az elem csúcsait a pályára tesszük (u: az elem közepe a pályán)
+function placeOnPath(o, u, k) {
+  if (Math.abs(u - o.lastU) < 0.05) return;
+  o.lastU = u;
+  const p = o.geo.attributes.position.array, q = o.base;
   for (let i = 0; i < p.length; i += 3) {
-    const t = q[i + 1] / r;
-    p[i + 1] = r * Math.sin(t); p[i + 2] = r * (1 - Math.cos(t));      // belső oldal: a szélei felénk hajlanak
+    pathAt(u + q[i + 1] / k, P);
+    p[i + 1] = P[0] * k; p[i + 2] = P[1] * k;
   }
   o.geo.attributes.position.needsUpdate = true;
-}
-// ugyanez függőleges tengelyre (telefonon az oldalról jövő képek): a sík vízszintesen hajlik a hengerre, a szélei felénk
-function bendX(o, Rw, b) {
-  if (Math.abs(b - o.bend) < 0.004) return;
-  o.bend = b;
-  const p = o.geo.attributes.position.array, q = o.base, r = Rw / Math.max(b, 1e-3);
-  for (let i = 0; i < p.length; i += 3) {
-    const t = q[i] / r;
-    p[i] = r * Math.sin(t); p[i + 2] = r * (1 - Math.cos(t));
-  }
-  o.geo.attributes.position.needsUpdate = true;
-}
-// a menetrend: kulcspontok (görgetés, u) között lépésenként lágyan
-function uAt(keys, s) {
-  if (s <= keys[0][0]) return keys[0][1];
-  for (let i = 0; i < keys.length - 1; i++) {
-    const [s0, u0] = keys[i], [s1, u1] = keys[i + 1];
-    if (s <= s1) return s1 > s0 ? u0 + (u1 - u0) * stepEase((s - s0) / (s1 - s0)) : u1;
-  }
-  return keys[keys.length - 1][1];
 }
 
 /* ---------- Kockánként ---------- */
 export function updateDrum(dt, s, closing) {
   if (!body) return;
-  const k = kk, R = DL.R;
+  const k = kk;
   // kinyúlás / összecsukódás: vízszintesen kicsit előbb nyúlik, mint függőlegesen; közben a pill helyéről középre úszik
   let mx, my, mp;
   if (closing) {
@@ -365,36 +330,30 @@ export function updateDrum(dt, s, closing) {
     clipU.uClip.value.set((DL.vw / 2 + body.holder.position.x * px) * dpr, (DL.vh / 2 + body.holder.position.y * px) * dpr, hw * dpr, hh * dpr);
     clipU.uClipR.value = Math.min(hw, hh, (PH / 2) * sxy * px) * dpr;
   }
-  // a tartalom a henger palástján
+  // a tartalom a pályán: középen sík, a széleken felénk hajlik
+  const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
   items.forEach(o => {
-    const it = o.it, u = uAt(it.keys, s), side = it.axis === 'x', phi = u / (side ? DL.Rh : R);
-    if (it.spread) {                                 // a leírás szavai felgördülés közben állnak össze
-      const p = clamp((s - it.spread[0]) / (it.spread[1] - it.spread[0]), 0, 1);
+    const it = o.it, u = s - it.yc;
+    if (it.spread) {                                 // a leírás szavai felfelé jövet, a közép alatt állnak össze
+      const p = u >= -vh * 0.06 ? 1 : 1 - THREE.MathUtils.smoothstep(-u, vh * 0.06, vh * 0.4);
       if (Math.abs(p - o.p) > 0.002 || (p !== o.p && (p === 0 || p === 1))) { o.p = p; o.redraw(); }
     }
-    const vis = Math.abs(phi) < Math.PI / 2 && ca > 0.002;
+    const vis = Math.abs(u) - it.h / 2 < lim && ca > 0.002;
     o.holder.visible = vis;
-    if (vis && side) {                               // telefonon oldalról: függőleges tengelyű henger belső oldala
-      bendX(o, DL.Rh * k, 0.12 + 0.88 * THREE.MathUtils.smoothstep(Math.abs(phi), 0.1, 1.2));
-      o.holder.position.set(Math.sin(phi) * DL.Rh * k, 0, (1 - Math.cos(phi)) * DL.Rh * k);
-      o.holder.rotation.set(0, -phi, 0);
-      o.mats.forEach(m => { m.opacity = ca; });
-    } else if (vis) {
-      bendY(o, R * k, 0.12 + 0.88 * THREE.MathUtils.smoothstep(Math.abs(phi), 0.1, 1.2));
-      // a henger belső felületén: fent / lent felénk jön (nagyobb, szétnyílik), és a henger tengelye felé néz
-      o.holder.position.set(it.x * k, Math.sin(phi) * R * k, (1 - Math.cos(phi)) * R * k);
-      o.holder.rotation.set(phi, 0, 0);
+    if (vis) {
+      placeOnPath(o, u, k);
+      o.holder.position.set(it.x * k, 0, 0);
       o.mats.forEach(m => { m.opacity = ca; });
     }
-    if (o.video) {                                   // a helyére ért → egyszer lejátszódik; ha elment, vissza az elejére
-      const v = o.video, here = s >= it.arrive - 0.15 * DL.STEP && s <= it.leave + 0.5 * DL.STEP;
+    if (o.video) {                                   // a közepéhez ért → egyszer lejátszódik; ha messze elment, vissza az elejére
+      const v = o.video, here = Math.abs(u) < vh * 0.22;
       const now = performance.now();
       if (here && !o.played && !closing && now > (o.retryAt || 0)) {
         o.played = true; try { v.currentTime = 0; } catch (_) {}
         const pr = v.play();
         if (pr && pr.catch) pr.catch(() => { o.played = false; o.retryAt = performance.now() + 400; });   // nem indult: kicsit később újra
       }
-      if (o.played && (s < it.arrive - 0.6 * DL.STEP || s > it.leave + DL.STEP)) { o.played = false; v.pause(); try { v.currentTime = 0; } catch (_) {} }
+      if (o.played && Math.abs(u) > vh * 1.1) { o.played = false; v.pause(); try { v.currentTime = 0; } catch (_) {} }
       if (!v.paused) o.texs[0].needsUpdate = true;
     }
   });
