@@ -158,6 +158,23 @@ function imageDrawer(it, onLoad) {
   };
 }
 
+/* ---------- Vágás a test körvonalára ---------- */
+// A tartalom csak az üvegtesten belül látszik (Patrik: a test és a képernyő széle közti résben, a sarkokon kívül ne
+// látsszon, mert elárulja, hogy nem a hengerből jön): a test aktuális körvonala (lekerekített téglalap, a pufferben
+// pixelben) minden tartalom-anyag végén levágja a képpontot, 1 px-es lágy széllel.
+const clipU = { uClip: { value: new THREE.Vector4(0, 0, 1e5, 1e5) }, uClipR: { value: 0 } };
+function clipped(mat) {
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uClip = clipU.uClip; sh.uniforms.uClipR = clipU.uClipR;
+    sh.fragmentShader = 'uniform vec4 uClip;\nuniform float uClipR;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      vec2 cq = abs(gl_FragCoord.xy - uClip.xy) - uClip.zw + uClipR;
+      float csd = length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - uClipR;
+      gl_FragColor.a *= clamp(0.5 - csd, 0.0, 1.0);`);
+  };
+  mat.customProgramCacheKey = () => 'drumClip';
+  return mat;
+}
+
 /* ---------- Állapot ---------- */
 let group = null, DL = null, kk = 1, st = null, body = null, items = [];
 let morphT = 99, closeT = -1, ca = 0;
@@ -178,6 +195,7 @@ function makeItem(it, k) {
   const o = { it, geo, base: geo.attributes.position.array.slice(), holder: new THREE.Group(), bend: -1, mats: [], texs: [], played: false };
   group.add(o.holder);
   const add = (mat, z, order) => {
+    clipped(mat);
     const m = onLayer(new THREE.Mesh(geo, mat), LAYER_BG); m.position.z = z; m.renderOrder = order; m.frustumCulled = false;
     o.holder.add(m); o.mats.push(mat);
   };
@@ -243,7 +261,7 @@ export function buildDrum(grp, layout, k, opts) {
   // ülnek az íven
   const fz = faceZ(depth01, th), cz = camera.position.z, pf = (cz - fz) / cz, inset = 10, Rpx = 50;
   const sc1 = Rpx * k * pf / (PH / 2);
-  body = { holder, geo, mat, bmat, base: geo.attributes.position.array.slice(), dx: -1, dy: -1, sc: 1, sc1,
+  body = { holder, geo, mat, bmat, base: geo.attributes.position.array.slice(), dx: -1, dy: -1, sc: 1, sc1, pf,
     dxF: Math.max(0, (DL.vw / 2 - inset) * k * pf / sc1 - PW / 2), dyF: Math.max(0, (DL.vh / 2 - inset) * k * pf / sc1 - PH / 2) };
   items = DL.items.map(it => makeItem(it, k));
   if (document.fonts && document.fonts.load) {
@@ -331,6 +349,13 @@ export function updateDrum(dt, s, closing) {
   body.bmat.uniforms.uBackK.value = lerp(1, S.pjLight ? 0.2 : 0, grow);
   body.holder.position.set(lerp(s0.x, 0, mp), lerp(s0.y, 0, mp), lerp(s0.z, 0, mp));
   body.holder.scale.set(sxy, sxy, lerp(s0.sc, 1, mp));
+  // a test körvonala a képernyőn (az előlap síkjában): ehhez vágjuk a tartalmat
+  {
+    const px = 1 / (k * body.pf), dpr = renderer.getPixelRatio();
+    const hw = (PW / 2 + body.dx) * sxy * px, hh = (PH / 2 + body.dy) * sxy * px;
+    clipU.uClip.value.set((DL.vw / 2 + body.holder.position.x * px) * dpr, (DL.vh / 2 + body.holder.position.y * px) * dpr, hw * dpr, hh * dpr);
+    clipU.uClipR.value = Math.min(hw, hh, (PH / 2) * sxy * px) * dpr;
+  }
   // a tartalom a henger palástján
   items.forEach(o => {
     const it = o.it, u = uAt(it.keys, s), side = it.axis === 'x', phi = u / (side ? DL.Rh : R);
