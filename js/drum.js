@@ -64,33 +64,27 @@ export function drumLayout(o) {
   full.forEach(src => { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: srcOf(src), radius }, cvH); y += G; });
   let gal = null;
   if (o.cols2 && !mob && gallery.length) {
-    // teszt (Patrik, Figma: Desktop – 17): két oszlop, ellentétes irányban. Amikor a középre ér, a lap megáll, és a
-    // görgetés egy „hurkot” forgat: a jobb oszlop felfelé, a bal lefelé fut; ami fent kimegy jobbra, az balra jön le, ami
-    // lent kimegy balra, az jobbra jön fel (a képek folyamatosan helyet cserélnek). Egy teljes csere után a lap megy tovább.
+    // teszt (Patrik, Figma: Desktop – 17): a képek ugyanúgy gördülnek, mint eddig, soronként kettő (balra és jobbra); középen,
+    // a két kép között egy-egy kis hengeren forognak a fajtanevek: a bal kép neve fentről lefelé, a jobbé lentről felfelé
+    // fordul át, ahogy a sor a közepén áthalad
     let iw = 440 * f, ih = 628 * f;
     if (ih > vh * 0.66) { ih = vh * 0.66; iw = ih * 440 / 628; }
-    const X = Math.min(458 * f, vw / 2 - 30 - iw / 2), lim = A + Rc * Math.PI / 2, d = ih + Math.max(80, vh * 0.3);
-    const nR = Math.ceil(gallery.length / 2), nL = gallery.length - nR;                   // jobbra: középen és alatta, balra: középen és fölötte
-    const Hc = Math.max(Math.max(nR, nL) * d + d, 2 * (lim + ih / 2) + d);               // a hurok fele (a csere a képen kívül történik)
-    // az előző elem kimegy a képből, mielőtt a bal oszlop fölső képei beúsznak
-    const prev = items[items.length - 1];
-    const s0 = Math.max(y + ih / 2, prev ? prev.yc + lim + prev.h / 2 + vh * 0.05 : 0);
-    gal = { s0, spin: Hc, Hc, X, iw, ih, fadeD: vh * 0.35 };
-    let rk = 0, lk = 0;
+    const X = Math.min(458 * f, vw / 2 - 30 - iw / 2), d = ih + Gr;
+    gal = { X, iw, ih, d, nx: 166 * f, nr: (ih / 2 - 15 * f) / Math.sin(Math.PI / 3) };
+    const rowsN = Math.ceil(gallery.length / 2);
     gallery.forEach((g, j) => {
-      const right = j % 2 === 1;                                                          // a pár: balra az első (Lavender), jobbra a második
-      const k = right ? rk++ : lk++;
-      const lam0 = right ? Hc / 2 - k * d : 1.5 * Hc - k * d;
-      const img = { kind: 'img', w: iw, h: ih, x: 0, src: srcOf(g), video: g && g.video, radius: 10 * f, lam0, yc: s0 };
-      items.push(img);
-      if (g && g.name) {
+      const r = Math.floor(j / 2), side = j % 2 ? 1 : -1, yc = y + r * d + ih / 2;
+      items.push({ kind: 'img', w: iw, h: ih, x: side * X, src: srcOf(g), video: g && g.video, radius: 10 * f, yc });
+      const num = (srcOf(g).match(/(\d+)\.\w+$/) || [])[1];
+      const name = (g && g.name) || (num ? 'Poszter ' + num : '');              // a hiányzó fajtanevek helyén egyelőre a poszter száma
+      if (name) {
         const size = Math.max(14, 20 * f);
         measure.font = `400 ${size}px ${FONT}`;
-        const text = g.name.toUpperCase(), w = measure.measureText(text).width + 8;
-        items.push({ kind: 'label', text, size, w, h: 30 * f, x: 0, of: img, yc: s0 });
+        const text = name.toUpperCase(), w = measure.measureText(text).width + 8;
+        items.push({ kind: 'label', text, size, w, h: 30 * f, x: side * gal.nx, drum: side, yc });
       }
     });
-    y = s0 + Hc + ih / 2;
+    y += rowsN * d - Gr;
   }
   const rows = gal ? 0 : Math.ceil(gallery.length / cols);
   if (!gal) gallery.forEach((g, j) => {
@@ -369,41 +363,34 @@ export function updateDrum(dt, s, closing) {
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
   const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
   const GL = DL.gal;
-  let gOff = 0, gProg = 0, gFade = 1;
-  if (GL) {                                          // a két oszlopos galéria: előtte / utána a lap visz, közben a hurok forog
-    if (s < GL.s0) gOff = s - GL.s0; else if (s > GL.s0 + GL.spin) { gOff = s - GL.s0 - GL.spin; gProg = GL.spin; } else gProg = s - GL.s0;
-    gFade = THREE.MathUtils.smoothstep(gOff, -GL.fadeD, 0);
-  }
-  // a hurok: jobb oldal (lam < Hc) felfelé, bal oldal lefelé; visszaad: [u, oldal: +1 jobb / −1 bal]
-  const loopU = lam0 => {
-    const L = 2 * GL.Hc, lam = ((lam0 + gProg) % L + L) % L;
-    return lam < GL.Hc ? [lam - GL.Hc / 2 + gOff, 1] : [1.5 * GL.Hc - lam + gOff, -1];
-  };
   items.forEach(o => {
     const it = o.it;
-    let u = s - it.yc, xx = it.x, fade = 1;
-    if (it.lam0 !== undefined) {
-      const [uu, side] = loopU(it.lam0);
-      u = uu; xx = side * GL.X; it.side = side;
-      if (side < 0 && uu - gOff > GL.ih / 2) fade = gFade;    // a bal oszlop fölötte várakozó képei érkezéskor úsznak be
-      it.uNow = u;
-    } else if (it.of) {                              // a kép felirata: balra a kép jobb felső sarka mellett, jobbra a bal alsó mellett
-      const im = it.of, f = DL.f, sd = im.side || -1;
-      u = (im.uNow ?? 0) + sd * -1 * (im.h / 2 - it.h / 2);
-      xx = sd < 0 ? -GL.X + im.w / 2 + 25 * f + it.w / 2 : GL.X - im.w / 2 - 19 * f - it.w / 2;
-      fade = im.fadeNow ?? 1;
+    const u = s - it.yc;
+    if (it.drum) {                                   // név a középső kis hengeren (a pálya helyett a képernyő közepén áll)
+      // a sor közepén áthaladva: bal név +60° → −60° (fentről le), jobb név −60° → +60° (lentről fel)
+      const th = it.drum * (-Math.PI / 3 + (u / GL.d) * (2 * Math.PI / 3));
+      const vis = Math.abs(th) < Math.PI / 2 - 0.02 && ca > 0.002;
+      o.holder.visible = vis;
+      if (vis) {
+        const r = GL.nr;
+        // a dőlés és a mélység a valódi henger ~60%-a: a Figma-állásban (fent / lent, ±60°) is jól olvasható maradjon
+        o.holder.position.set(it.x * k, r * Math.sin(th) * k, (r * Math.cos(th) - r) * 0.6 * k);
+        o.holder.rotation.set(-th * 0.6, 0, 0);
+        const a = ca * (1 - THREE.MathUtils.smoothstep(Math.abs(th), 1.2, 1.55));
+        o.mats.forEach(m => { m.opacity = a; });
+      }
+      return;
     }
-    it.fadeNow = fade;
     if (it.spread) {                                 // a leírás szavai felfelé jövet, a közép alatt állnak össze
       const p = u >= -vh * 0.06 ? 1 : 1 - THREE.MathUtils.smoothstep(-u, vh * 0.06, vh * 0.4);
       if (Math.abs(p - o.p) > 0.002 || (p !== o.p && (p === 0 || p === 1))) { o.p = p; o.redraw(); }
     }
-    const vis = Math.abs(u) - it.h / 2 < lim && ca * fade > 0.002;
+    const vis = Math.abs(u) - it.h / 2 < lim && ca > 0.002;
     o.holder.visible = vis;
     if (vis) {
       placeOnPath(o, u, k);
-      o.holder.position.set(xx * k, 0, 0);
-      o.mats.forEach(m => { m.opacity = ca * fade; });
+      o.holder.position.set(it.x * k, 0, 0);
+      o.mats.forEach(m => { m.opacity = ca; });
     }
     if (o.video) {                                   // a közepéhez ért → egyszer lejátszódik; ha messze elment, vissza az elejére
       const v = o.video, here = Math.abs(u) < vh * 0.22;
