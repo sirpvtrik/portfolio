@@ -1,7 +1,8 @@
 // Projekt-oldal: henger (Patrik ötlete, Figma: Desktop – 13; S.pjMode = 2).
 // A kiválasztott vízszintes pill elforgatás nélkül a teljes képernyőre nyúlik szét: a stadion négy negyedét toljuk szét,
 // így a lekerekített sarkok nem torzulnak, ez az üvegtest. Mögötte a tartalom egy vízszintes tengelyű hengeren gördül:
-// alulról, a henger aljáról gördül fel, szemben egyenes, fent továbbgördül és a henger tetején eltűnik.
+// a henger BELSŐ oldalán (Patrik referenciája): alulról gördül fel, a perem felé közelebb jön és szétnyílik, szemben egyenes,
+// fent ugyanígy kiszélesedve gördül ki.
 // Görgetésre lépésenként halad (STEP px görgetés egy lépés; megállva a következő lépéshatárra ugrik, project.js):
 //  0: a cím középen → 1: alá felgördül a leírás (a cím kicsit feljebb megy) → 2: a cím és a leírás együtt felmegy, jön a
 //  borító → 3: a borító felmegy, az 1. kép az 1. helyre → 4: 2. kép a 2. helyre → 5: 3. kép a 3. helyre → onnan helyenként
@@ -55,9 +56,14 @@ export function drumLayout(o) {
   if (ch > vh * 0.66) { ch = vh * 0.66; cw = ch * 443 / 627; }
   const radius = (mob ? 14 : 20 * f);
   const R = vh * 0.55, STEP = Math.max(340, vh * 0.48);                         // egy lépés ennyi görgetés (rövidebb: finomabb)
-  const OUT = h => R * Math.PI / 2 + h / 2 + 30;                                  // ennyi úton gördül át a henger tetején / alján
+  // A henger BELSŐ oldala látszik (Patrik referenciája): a tartalom a képernyő tetejéhez / aljához közeledve felénk jön,
+  // kiszélesedik és szétnyílik. OUT(h): ennyi úton (u) ér ki az elem teljesen a képernyőről (az alsó széle a tetején túl),
+  // a kamera perspektívájával számolva, így a lépés elejétől látszik a mozgás (nincs holtjáték a képen kívül)
+  const camZ = (vh / 2) / Math.tan(THREE.MathUtils.degToRad(16));                // a kamera távolsága px-ben (fov 32°)
+  const yScr = u => { const p = u / R; return R * Math.sin(p) * camZ / Math.max(1, camZ - R * (1 - Math.cos(p))); };
+  const OUT = h => { let u = 0; while (u < R * Math.PI / 2 + h && yScr(u - h / 2) < vh / 2 + 12) u += 4; return u; };
   const items = [];
-  const pairD = R * Math.PI / 2 - (dCen - dH / 2) + 30;                           // a cím és a leírás együtt megy fel, eddig
+  const pairD = OUT(0) - (dCen - dH / 2) + 10;                                    // a cím és a leírás együtt megy fel, amíg a leírás is kiér
   items.push({ kind: 'title', w: tW, h: tH, x: 0, name, cat, t, keys: [[0, 0], [STEP, tRest], [2 * STEP, tRest + pairD]] });
   items.push({ kind: 'desc', w: dW + 24, h: dH, x: 0, lines, ds, dl, keys: [[0, -OUT(dH)], [STEP, dCen], [2 * STEP, dCen + pairD]] });
   if (cover) items.push({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius, keys: [[STEP, -OUT(cvH)], [2 * STEP, 0], [3 * STEP, OUT(cvH)]] });
@@ -241,7 +247,7 @@ function bendY(o, Rw, b) {
   const p = o.geo.attributes.position.array, q = o.base, r = Rw / Math.max(b, 1e-3);
   for (let i = 0; i < p.length; i += 3) {
     const t = q[i + 1] / r;
-    p[i + 1] = r * Math.sin(t); p[i + 2] = r * (Math.cos(t) - 1);
+    p[i + 1] = r * Math.sin(t); p[i + 2] = r * (1 - Math.cos(t));      // belső oldal: a szélei felénk hajlanak
   }
   o.geo.attributes.position.needsUpdate = true;
 }
@@ -283,12 +289,13 @@ export function updateDrum(dt, s, closing) {
   // a tartalom a henger palástján
   items.forEach(o => {
     const it = o.it, u = uAt(it.keys, s), phi = u / R;
-    const vis = Math.abs(phi) < Math.PI / 2 + it.h / 2 / R + 0.05 && ca > 0.002;
+    const vis = Math.abs(phi) < Math.PI / 2 && ca > 0.002;
     o.holder.visible = vis;
     if (vis) {
       bendY(o, R * k, 0.12 + 0.88 * THREE.MathUtils.smoothstep(Math.abs(phi), 0.1, 1.2));
-      o.holder.position.set(it.x * k, Math.sin(phi) * R * k, (Math.cos(phi) - 1) * R * k);
-      o.holder.rotation.set(-phi, 0, 0);
+      // a henger belső felületén: fent / lent felénk jön (nagyobb, szétnyílik), és a henger tengelye felé néz
+      o.holder.position.set(it.x * k, Math.sin(phi) * R * k, (1 - Math.cos(phi)) * R * k);
+      o.holder.rotation.set(phi, 0, 0);
       o.mats.forEach(m => { m.opacity = ca; });
     }
     if (o.video) {                                   // a helyére ért → egyszer lejátszódik; ha elment, vissza az elejére
