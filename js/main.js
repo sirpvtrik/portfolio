@@ -9,6 +9,7 @@ import { plUpdate, updateTime } from './player.js';
 import { updateProject } from './project.js';
 import { updateCursor } from './cursor.js';
 import { ctUpdate } from './contact.js';
+import { backUpdate } from './backglass.js';
 
 startLoop(dt => {
   updatePills(dt);           // hover, görgetés, pillek
@@ -18,5 +19,6 @@ startLoop(dt => {
   if (actx) updateTime();    // idősáv
   plUpdate(dt);              // a lejátszó blobja
   ctUpdate(dt);              // a névjegy-blob jobb felül
+  backUpdate(dt);            // a Vissza gomb üvege
   updateProject(dt);         // projekt-aloldal: domború sorok, galéria
 });

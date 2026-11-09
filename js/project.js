@@ -29,7 +29,8 @@ const geoKey = () => S.depth + '/' + S.thick + '/' + S.pjMode;   // Depth, Vasta
 let D = DETAIL_TEST, cur = -1;                   // a nyitott projekt tartalma (a projekt saját detail-je a DETAIL_TEST fölött) és sorszáma
 let pp = null, morphT = 99, pillStart = null;    // a megnyúlt pill (teszt) és a kiinduló helyzete (a toronybeli pill)
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
-let lastInput = 0, restAt = 0;                   // henger: az utolsó görgető mozdulat ideje és az utolsó nyugvópont
+let lastInput = 0, restAt = 0;                   // henger: az utolsó görgető mozdulat ideje és a cél-nyugvópont
+let wLast = 0, wAcc = 0, wLock = false, wStepT = 0, wPrev = 0, dragS0 = 0;   // henger: görgetési mozdulatok (egy mozdulat = egy lépés)
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 
@@ -418,13 +419,14 @@ function open(i) {
 function close() {
   if (!isOpen || closing) return;
   closing = true;
+  document.body.classList.add('project-closing');   // a Vissza gomb (és az üvege, js/backglass.js) elhalványul
   const isDrum = !!(L && L.drum);
   if (isDrum) drumClose();                           // henger: a test visszacsukódik a pill helyére (js/drum.js)
   setTimeout(() => {
     isOpen = false; closing = false;
     dispose(); resetHeap();
     root.hidden = true;
-    document.body.classList.remove('project-open');
+    document.body.classList.remove('project-open', 'project-closing');
     setWavesCentered(true);
     setWaveColor(null);
     restorePills(isDrum ? cur : -1);                 // hengernél a pill a helyén marad, csak a többi esik vissza
@@ -448,16 +450,37 @@ export function requestCardRebuild() {
 backBtn.addEventListener('click', close);
 
 /* ---------- Görgetés: lendület + súrlódás, mint a pilleknél ---------- */
+// henger: lapozás lépésenként. A célt (restAt) a következő / előző nyugvópontra tesszük, és a lap rugóval odamegy.
+function drumGo(dir) {
+  const r = drumRests();
+  let i = r.indexOf(restAt);
+  if (i < 0) i = r.reduce((b, v, j) => Math.abs(v - s) < Math.abs(r[b] - s) ? j : b, 0);
+  restAt = r[clamp(i + dir, 0, r.length - 1)];
+}
+// egy görgető mozdulat (egérgörgő-kattanás vagy touchpad-söprés a lendületével együtt) pontosan egy lépés: az első
+// ~30 px után lép, utána a mozdulat lecsengő lendülete már nem visz tovább (ez vitt át véletlenül a következő lépésre);
+// új mozdulat: rövid szünet után, vagy ha lecsengés közben újra erősödik
+function drumWheel(d) {
+  const now = performance.now(), a = Math.abs(d);
+  if (now - wLast > 160) { wLock = false; wAcc = 0; }
+  else if (wLock && now - wStepT > 260 && a > wPrev * 1.8 + 6) { wLock = false; wAcc = 0; }
+  wLast = now; wPrev = a;
+  if (wLock) return;
+  if (Math.sign(d) !== Math.sign(wAcc)) wAcc = 0;
+  wAcc += d;
+  if (Math.abs(wAcc) >= 30) { drumGo(Math.sign(wAcc)); wLock = true; wStepT = now; wAcc = 0; }
+}
 input.addEventListener('wheel', e => {
   e.preventDefault();
   const k = e.deltaMode === 1 ? 32 : (e.deltaMode === 2 ? innerHeight : 1);
+  if (L && L.drum) { drumWheel(e.deltaY * k); return; }
   vel = clamp(vel + e.deltaY * k * 5, -7000, 7000);
   lastInput = performance.now();
 }, { passive: false });
 input.addEventListener('pointerdown', e => {
   try { input.setPointerCapture(e.pointerId); } catch (_) {}
   if (heapPointer('down', e)) { vel = 0; return; }            // pillre esett: azt húzzuk, nem a lapot
-  dragging = true; dragY = e.clientY; dragT = performance.now(); vel = 0;
+  dragging = true; dragY = e.clientY; dragT = performance.now(); vel = 0; dragS0 = s;
 });
 input.addEventListener('pointermove', e => {
   if (heapPointer('move', e) || !dragging) return;
@@ -466,7 +489,14 @@ input.addEventListener('pointermove', e => {
   s -= dy; vel = clamp(vel * 0.5 + (-dy / dts) * 0.5, -7000, 7000);
   lastInput = now;
 });
-const endDrag = () => { if (dragging && performance.now() - dragT > 90) vel = 0; dragging = false; };
+const endDrag = () => {
+  if (dragging && L && L.drum) {                     // henger: elengedve a húzás irányában egy lépés (kis húzásnál vissza)
+    const d = s - dragS0, fl = performance.now() - dragT < 90 ? vel : 0;
+    if (Math.abs(d) > 0.12 * L.drum.STEP || Math.abs(fl) > 600) drumGo(Math.sign(Math.abs(d) > 0.12 * L.drum.STEP ? d : fl));
+    vel = 0; dragging = false; return;
+  }
+  if (dragging && performance.now() - dragT > 90) vel = 0; dragging = false;
+};
 input.addEventListener('pointerup', e => { heapPointer('up', e); endDrag(); });
 input.addEventListener('pointercancel', e => { heapPointer('up', e); endDrag(); });
 input.addEventListener('pointerleave', e => heapPointer('leave', e));
@@ -475,6 +505,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { close(); return; }
   if (e.target && /INPUT|BUTTON/.test(e.target.tagName) && e.target !== backBtn) return;
   const step = { ArrowDown: 700, PageDown: 1600, ' ': 1600, ArrowUp: -700, PageUp: -1600 }[e.key];
+  if (step && L && L.drum) { drumGo(Math.sign(step)); e.preventDefault(); return; }
   if (step) { vel = clamp(vel + step, -7000, 7000); lastInput = performance.now(); e.preventDefault(); }
 });
 
@@ -494,17 +525,13 @@ function appear(c, dt) {
   c.av += ((target - c.a) * (closing ? 160 : 90) - c.av * (closing ? 22 : 12.5)) * dt;
   c.a += c.av * dt;
 }
-// henger: ha megállt a görgetés, a következő lépéshatárra ugrik a mozgás irányában (kis mozdulatnál vissza), így minden
-// görgető mozdulat egy lépést hoz (a képek „megvárják egymást”)
+// henger: a lap rugóval megy a cél-nyugvópontra (restAt); húzás közben az ujjat követi, legfeljebb egy lépésnyit
 function snapDrum(dt) {
-  if (performance.now() - lastInput < 90 || Math.abs(vel) > 450) return;
-  const rests = drumRests(), STEP = L.drum.STEP, d = s - restAt;
-  let t = restAt;
-  if (!rests.includes(restAt)) t = rests.reduce((a, b) => Math.abs(b - s) < Math.abs(a - s) ? b : a, rests[0]);
-  else if (d > 0.12 * STEP) t = rests.find(r => r >= s - 0.25 * STEP) ?? rests[rests.length - 1];
-  else if (d < -0.12 * STEP) t = [...rests].reverse().find(r => r <= s + 0.25 * STEP) ?? 0;
-  vel += ((t - s) * 70 - vel * 15) * dt;                               // gyorsabban, lágyan ér be (kritikus csillapítás körül)
-  if (Math.abs(t - s) < 0.6 && Math.abs(vel) < 8) { s = t; vel = 0; restAt = t; }
+  if (dragging) { s = clamp(s, restAt - L.drum.STEP * 1.1, restAt + L.drum.STEP * 1.1); vel = 0; return; }
+  const K = 55, D = 2 * Math.sqrt(K);                                  // kritikus csillapítás: túllendülés nélkül, lágyan ér be
+  const n = Math.min(8, Math.ceil(Math.min(dt, 0.25) * 120)), h = Math.min(dt, 0.25) / Math.max(1, n);   // lassú gépen is ugyanolyan gyors
+  for (let i = 0; i < n; i++) { vel += ((restAt - s) * K - vel * D) * h; s += vel * h; }
+  if (Math.abs(restAt - s) < 0.5 && Math.abs(vel) < 6) { s = restAt; vel = 0; }
 }
 export function updateProject(dt) {
   const liftT = isOpen && !closing ? 0 : 1.4;                       // a kamera egyenesen néz a kártyákra
@@ -515,8 +542,8 @@ export function updateProject(dt) {
   }
   openT += dt;
   // fizika
-  if (L.drum && !dragging && !closing) snapDrum(dt);
-  if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
+  if (L.drum) { if (!closing) snapDrum(dt); }
+  else if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
   if (s < 0) { s = 0; vel = Math.max(0, vel); }
   if (s > L.sMax) { s = L.sMax; vel = Math.min(0, vel); }
   if (L.drum) { updateHeap(dt, s, isOpen && !closing); updateDrum(dt, s, closing); return; }

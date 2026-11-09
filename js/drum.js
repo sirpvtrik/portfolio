@@ -187,6 +187,10 @@ function makeItem(it, k) {
     v.muted = true; v.playsInline = true; v.preload = 'auto'; v.loop = false;
     v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
     v.src = it.video;
+    // a DOM-ban (láthatatlanul) tartjuk: a leválasztott videót némely böngésző nem játssza le, vagy nem ad új kockát
+    v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;z-index:-1';
+    v.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(v);
     const vt = new THREE.VideoTexture(v);
     vt.minFilter = THREE.LinearFilter; vt.magFilter = THREE.LinearFilter;
     const refresh = () => { vt.needsUpdate = true; };
@@ -350,7 +354,12 @@ export function updateDrum(dt, s, closing) {
     }
     if (o.video) {                                   // a helyére ért → egyszer lejátszódik; ha elment, vissza az elejére
       const v = o.video, here = s >= it.arrive - 0.15 * DL.STEP && s <= it.leave + 0.5 * DL.STEP;
-      if (here && !o.played && !closing) { o.played = true; try { v.currentTime = 0; } catch (_) {} const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); }
+      const now = performance.now();
+      if (here && !o.played && !closing && now > (o.retryAt || 0)) {
+        o.played = true; try { v.currentTime = 0; } catch (_) {}
+        const pr = v.play();
+        if (pr && pr.catch) pr.catch(() => { o.played = false; o.retryAt = performance.now() + 400; });   // nem indult: kicsit később újra
+      }
       if (o.played && (s < it.arrive - 0.6 * DL.STEP || s > it.leave + DL.STEP)) { o.played = false; v.pause(); try { v.currentTime = 0; } catch (_) {} }
       if (!v.paused) o.texs[0].needsUpdate = true;
     }
@@ -359,7 +368,7 @@ export function updateDrum(dt, s, closing) {
 
 export function disposeDrum() {
   items.forEach(o => {
-    if (o.video) { o.video.pause(); o.video.removeAttribute('src'); o.video.load(); }
+    if (o.video) { o.video.pause(); o.video.removeAttribute('src'); o.video.load(); o.video.remove(); }
     o.geo.dispose(); o.mats.forEach(m => m.dispose()); o.texs.forEach(t => t.dispose());
   });
   if (body) { body.geo.dispose(); body.mat.dispose(); body.bmat.dispose(); }
