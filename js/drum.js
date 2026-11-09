@@ -77,7 +77,8 @@ export function drumLayout(o) {
     if (g && g.name) {
       measure.font = `400 ${ns}px ${FONT}`;
       const text = g.name.toUpperCase(), w = Math.min(cw, measure.measureText(text).width * 1.12 + 8);
-      items.push({ kind: 'label', text, size: ns, w, h: nH, x: x - cw / 2 + w / 2, of: img, yc: yc + ch / 2 + nGap + nH / 2 });
+      // telefonon középre: a kép bal szélénél az üvegtest lencséje torzítaná az első betűt
+      items.push({ kind: 'label', text, size: ns, w, h: nH, x: mob ? x : x - cw / 2 + w / 2, center: mob, of: img, yc: yc + ch / 2 + nGap + nH / 2 });
     }
   });
   if (rows) y += rows * rowH + (rows - 1) * Gr;
@@ -118,9 +119,9 @@ function drawTitle(g, it, q) {
   g.fillStyle = 'rgba(242,242,242,0.7)'; g.fillText((it.cat || '').toUpperCase(), W / 2, y + tc + gap + cc);
 }
 function drawLabel(g, it, q) {
-  g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.textAlign = it.center ? 'center' : 'left'; g.textBaseline = 'middle';
   g.font = `400 ${it.size * q}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = (0.06 * it.size * q) + 'px';
-  g.fillStyle = '#f2f2f2'; g.fillText(it.text, 0, it.h * q / 2);
+  g.fillStyle = '#f2f2f2'; g.fillText(it.text, it.center ? it.w * q / 2 : 0, it.h * q / 2);
 }
 // p = 0: minden sor szavai a teljes szélességben, sorkizártan széthúzva; p = 1: középre zárt bekezdés (dW széles).
 // Az alsó sorok kicsit később állnak össze, így a bekezdés alulról felfelé „zárul”.

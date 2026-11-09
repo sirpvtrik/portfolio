@@ -16,11 +16,11 @@ export const PROJECTS = [
       full: ['assets/projects/zsebkonyv/hasznalat.webp'],
       // galéria: kép, vagy { src, video }: a videó akkor játszódik le (egyszer), amikor a kép a helyére ért, és az utolsó
       // kockáján áll meg (az a poszter maga). A 19-es videó visszafelé van kiírva (Patrik: visszafelé fusson, majd álljon meg).
-      // name: a fajta neve, a kép alatt jelenik meg (Patrik táblája szerint; a „Permanent Maker” az ő írásmódja)
+      // name: a fajta neve, a kép alatt jelenik meg (Patrik táblája szerint)
       gallery: [
         { src: 'assets/projects/zsebkonyv/poszterek-05.webp', video: 'assets/projects/zsebkonyv/poszterek-05.mp4', name: 'Lavender' },   // a RAR 39-ese ugyanez a kép
         { src: 'assets/projects/zsebkonyv/poszterek-30.webp', name: 'Deathstar' },
-        { src: 'assets/projects/zsebkonyv/poszterek-08.webp', name: 'Permanent Maker' },
+        { src: 'assets/projects/zsebkonyv/poszterek-08.webp', name: 'Permanent Marker' },
         { src: 'assets/projects/zsebkonyv/poszterek-12.webp', name: 'Alien Rock Candy' },
         { src: 'assets/projects/zsebkonyv/poszterek-15.webp', name: 'Blue Dream' },
         { src: 'assets/projects/zsebkonyv/poszterek-16.webp', name: 'Runtz' },

@@ -68,6 +68,7 @@ export function backUpdate(dt) {
   if (!quad.visible) { if (magnet) { magnet = false; setCursorMagnet(false); } ring.visible = false; m = mv = 0; return; }
   hov += ((over || (tabbed && document.activeElement === btn) ? 1 : 0) - hov) * Math.min(1, dt * 8);
   cu.uClear.value = 1 - hov;
+  btn.classList.toggle('tinted', hov > 0.35);          // a szürke üvegen a felirat fehér marad (difference nélkül)
   const r = btn.getBoundingClientRect(), sc = bufSize.x / innerWidth;
   const X = r.left * sc, W = r.width * sc, H = r.height * sc, Y = bufSize.y - r.top * sc - H;
   rects[0].set(X, Y, W, H);

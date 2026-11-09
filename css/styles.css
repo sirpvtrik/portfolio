@@ -25,7 +25,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: none; }   /* a kurzor helyett az egérfény (js/cursor.js) */
 
 .ui {
-  position: fixed; inset: 0; pointer-events: none;
+  position: absolute; inset: 0; pointer-events: none;   /* nem fixed és nincs z-indexe: így nem külön réteg, a gombok ikonjai difference-szel a vászonnal keveredhetnek */
   display: grid; grid-template-rows: auto 1fr auto;
   padding-block: calc(26px + env(safe-area-inset-top, 0px)) calc(26px + env(safe-area-inset-bottom, 0px));   /* Figma 261-133: a sarokelemek 26 px-re a képernyő szélétől, */
   padding-left: max(26px, env(safe-area-inset-left, 0px));                                                     /* így a teljes képernyős projekt-test 50 px-es íve */
@@ -146,8 +146,17 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 
 /* ---------- Projekt-aloldal (Figma: Desktop – 2) ----------
    A kártyák 3D üveglapok a WebGL-ben (js/project.js); ez a réteg csak a görgetést / húzást kapja el */
-.ui { z-index: 2; }
-.project { position: fixed; inset: 0; z-index: 1; }
+/* Rétegrend (a .ui és a .project szándékosan nem külön réteg, lásd a difference keverést lent): a vászon fölött a DOM
+   sorrendjében a görgetést elkapó #pjInput, fölötte a .ui sorai; a logó, a Vissza gomb és a panel z-indexszel legfelül */
+.ui > .row, .ui > .bottom { position: relative; }
+.project { position: absolute; inset: 0; }
+.panel { z-index: 5; }
+/* Difference keverés (Patrik: telefonon a világos képek fölött nem látszottak a fehér ikonok): ahol az ikon mögött a kép
+   átlátszik (a Vissza gomb tiszta üvege, a Glass gomb, a csukott lejátszó hangszórója), ott világos fölött sötétre fordul. */
+.back { mix-blend-mode: difference; }
+.back.tinted { mix-blend-mode: normal; }                /* hoverre előjön a szürke üveg: azon a fehér látszik jobban */
+.btn.square svg { mix-blend-mode: difference; }
+.pl:not(.show) .spk svg { mix-blend-mode: difference; }  /* csukott lejátszó: az üvege világos kép fölött világos marad; nyitva a fehér gombján sötét az ikon */
 .pj-input { position: absolute; inset: 0; touch-action: none; cursor: none; }   /* itt is az egérfény a kurzor */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
