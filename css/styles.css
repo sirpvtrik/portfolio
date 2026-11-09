@@ -118,8 +118,6 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 /* Névjegy-blob jobb felül (Figma: Frame 9; js/contact.js): csukva a fotó egy üvegkörben, kinyitva a lejátszóhoz hasonlóan
    folyékonyan nyílik balra (névpill) és lefelé (Behance, Instagram, e-mail). Az üveget a WebGL rajzolja, itt csak a tartalom van. */
 .ct { position: relative; flex: none; width: 58px; height: 58px; margin-top: -11px; pointer-events: none; }
-.top-right > .stack-label { transition: opacity .25s ease; }
-.top-right.ct-open > .stack-label { opacity: 0; }   /* a nyitott névjegy alatt ne látsszon át */
 .ct-in { position: absolute; right: 0; top: 0; width: 212.4px; height: 126px; pointer-events: none; text-transform: none; letter-spacing: 0; text-align: left; }
 .ct.open .ct-in { pointer-events: auto; }
 .ct-av { position: absolute; right: 3.8px; top: 3.8px; width: 50px; height: 50px; padding: 0; border: 0; border-radius: 50%; overflow: hidden; background: none; cursor: pointer; pointer-events: auto; }

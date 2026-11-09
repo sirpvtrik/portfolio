@@ -18,6 +18,8 @@ import { stadium, glassSlab, faceZ } from './glassgeo.js';
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = x => x * x * (3 - 2 * x);
+// a lépésen belüli mozgás: a lágy indulás / megállás csak részben, így a görgetés elejétől látszik a mozgás (nem „ragad”)
+const stepEase = x => 0.4 * x + 0.6 * ease(x);
 const lerp = (a, b, t) => a + (b - a) * t;
 const srcOf = g => (g && typeof g === 'object') ? g.src : g;
 
@@ -52,7 +54,7 @@ export function drumLayout(o) {
   let cw = mob ? (vw - 72 - gx) / 2 : 443 * f, ch = cw * 627 / 443;
   if (ch > vh * 0.66) { ch = vh * 0.66; cw = ch * 443 / 627; }
   const radius = (mob ? 14 : 20 * f);
-  const R = vh * 0.55, STEP = Math.max(420, vh * 0.7);
+  const R = vh * 0.55, STEP = Math.max(340, vh * 0.48);                         // egy lépés ennyi görgetés (rövidebb: finomabb)
   const OUT = h => R * Math.PI / 2 + h / 2 + 30;                                  // ennyi úton gördül át a henger tetején / alján
   const items = [];
   const pairD = R * Math.PI / 2 - (dCen - dH / 2) + 30;                           // a cím és a leírás együtt megy fel, eddig
@@ -193,7 +195,7 @@ export function buildDrum(grp, layout, k, opts) {
   const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, {
     uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
     uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 }, uLens: { value: 1 },
-    uLensW: { value: 0.62 }, uFace: { value: 1 } }) });
+    uLensW: { value: 0.62 }, uFace: { value: 1 }, uSpecK: { value: 1 } }) });
   const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: Object.assign({}, U, { uBackK: { value: 1 } }),
     side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const holder = new THREE.Group(); group.add(holder);
@@ -231,7 +233,6 @@ function setStretch(dx, dy) {
   // ahogy kinő a teljes képernyőre, a lap tükröződései és a hátlap fénye elhalványul (különben az egész kép fénylik);
   // a szélén a csíkfény és a vékony fényes él megmarad
   u.uFace.value = lerp(1, 0.06, grow);
-  body.bmat.uniforms.uBackK.value = lerp(1, 0.2, grow);
 }
 // a sík a henger felületére hajlik (vízszintes tengely): b = 0 egyenes, 1 = a henger sugarán
 function bendY(o, Rw, b) {
@@ -249,7 +250,7 @@ function uAt(keys, s) {
   if (s <= keys[0][0]) return keys[0][1];
   for (let i = 0; i < keys.length - 1; i++) {
     const [s0, u0] = keys[i], [s1, u1] = keys[i + 1];
-    if (s <= s1) return s1 > s0 ? u0 + (u1 - u0) * ease((s - s0) / (s1 - s0)) : u1;
+    if (s <= s1) return s1 > s0 ? u0 + (u1 - u0) * stepEase((s - s0) / (s1 - s0)) : u1;
   }
   return keys[keys.length - 1][1];
 }
@@ -272,6 +273,11 @@ export function updateDrum(dt, s, closing) {
   }
   const s0 = st || { x: 0, y: 0, z: 0, sc: 1 };
   setStretch(body.dxF * mx, body.dyF * my);
+  // „Pill fénye” (Glass panel, S.pjLight): kikapcsolva a kinőtt testen nincs fény, csak a fénytörés (Patrik tesztje);
+  // a toronybeli pill méretében még a megszokott, ahogy nő, elhalványul
+  const grow = clamp(body.dy / Math.max(body.dyF, 1e-3), 0, 1);
+  body.mat.uniforms.uSpecK.value = S.pjLight ? 1 : 1 - grow;
+  body.bmat.uniforms.uBackK.value = lerp(1, S.pjLight ? 0.2 : 0, grow);
   body.holder.position.set(lerp(s0.x, 0, mp), lerp(s0.y, 0, mp), lerp(s0.z, 0, mp));
   body.holder.scale.setScalar(lerp(s0.sc, 1, mp));
   // a tartalom a henger palástján

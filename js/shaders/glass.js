@@ -30,6 +30,8 @@ export const glassFS = /* glsl */`
   uniform float uRim;
   uniform float uLens;    // lencse a lap szélén (liquid glass): 1 = pill, 0 = kártya
   uniform float uLensW;   // a lencse-sáv szélessége a fél magassághoz képest (pill: 0,62; a nagy projekt-testen keskenyebb)
+  uniform float uSpecK;   // minden fény az üvegen (tükröződés, csíkfény, csillanás, kontúr, ragyogás): 1 = pill; a henger-oldal
+                          // testén 0 = fény nélkül (Patrik tesztje), csak a fénytörés marad
   uniform float uFace;    // a sík lap tükröződései (softbox, csíkfény, csillanás): 1 = pill; a teljes képernyős projekt-testen
                           // szinte 0, mert ott a lap egésze egyszerre fényesedett ki (Patrik: „nagyon zavaróan fénylik”)
   uniform vec2 uCurP;     // az egérfény helye (pixel, alulról) és ereje: a perem közelében elkapja a fényt
@@ -117,6 +119,7 @@ export const glassFS = /* glsl */`
       col += vec3(near * (w * 0.9 + lens * 0.3) * uCurL * 0.45);
     }
     col = mix(col, vec3(0.2), uFrost * 0.22);
+    vec3 colRefr = col;                                  // a megtört háttér, fények nélkül (uSpecK)
     // projekt-szín hoverre (mint egy színes üveg billentyű): az üvegen át látott fény színeződik, a vastag részek
     // (perem, oldalfal) izzanak; a fehér tükröződések és csillanások ezután kerülnek rá, így fehérek maradnak
     if (uTintK > 0.001) {
@@ -181,6 +184,7 @@ export const glassFS = /* glsl */`
       col += vec3(0.5 * hair * lf * uGlow * uGlowOn);          // az oldalfalon (súrolva) gyengébb
     }
 
+    col = mix(colRefr, col, uSpecK);
     gl_FragColor = vec4(col, 1.0);
   }`;
 

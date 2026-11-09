@@ -44,7 +44,6 @@ function setOpen(v) {
   clearTimeout(closeT);
   target = v ? 1 : 0;
   ct.classList.toggle('open', v);
-  ct.parentElement.classList.toggle('ct-open', v);                       // a mellette lévő felirat és Glass gomb elhalványul
   if (!v) ct.classList.remove('show');                                  // csukáskor a tartalom azonnal eltűnik
   av.setAttribute('aria-expanded', String(v));
 }

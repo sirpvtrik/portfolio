@@ -20,6 +20,7 @@ function applySettings() {
   U.uGlowOn.value = S.glow ? 1 : 0;
   document.getElementById('c-glow').checked = S.glow;
   document.getElementById('c-pjtext').checked = S.pjTextStill;
+  document.getElementById('c-pjlight').checked = S.pjLight;
   requestGeoRebuild();
   requestCardRebuild();                       // a projekt-kártyák (a galéria is) ugyanazt a peremet kapják
   document.getElementById('c-bpm').checked = S.bpmSync;
@@ -35,7 +36,8 @@ function applySettings() {
 CTL.forEach(k => document.getElementById('c-' + k).addEventListener('input', e => { S[k] = +e.target.value; applySettings(); }));
 document.getElementById('c-bpm').addEventListener('change', e => { S.bpmSync = e.target.checked; });
 document.getElementById('c-glow').addEventListener('change', e => { S.glow = e.target.checked; applySettings(); });
-document.getElementById('c-pjtext').addEventListener('change', e => { S.pjTextStill = e.target.checked; });   // kockánként olvassa, nem kell újraépíteni
+document.getElementById('c-pjtext').addEventListener('change', e => { S.pjTextStill = e.target.checked; });
+document.getElementById('c-pjlight').addEventListener('change', e => { S.pjLight = e.target.checked; });   // kockánként olvassa   // kockánként olvassa, nem kell újraépíteni
 [0, 1].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));
 [0, 1, 2].forEach(v => document.getElementById('pm-' + v).addEventListener('click', () => { S.pjMode = v; applySettings(); }));   // nyitott projektnél azonnal átépül
 document.getElementById('reset').addEventListener('click', () => { Object.assign(S, DEFAULTS); applySettings(); });

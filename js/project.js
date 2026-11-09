@@ -497,13 +497,13 @@ function appear(c, dt) {
 // henger: ha megállt a görgetés, a következő lépéshatárra ugrik a mozgás irányában (kis mozdulatnál vissza), így minden
 // görgető mozdulat egy lépést hoz (a képek „megvárják egymást”)
 function snapDrum(dt) {
-  if (performance.now() - lastInput < 140 || Math.abs(vel) > 350) return;
+  if (performance.now() - lastInput < 90 || Math.abs(vel) > 450) return;
   const rests = drumRests(), STEP = L.drum.STEP, d = s - restAt;
   let t = restAt;
   if (!rests.includes(restAt)) t = rests.reduce((a, b) => Math.abs(b - s) < Math.abs(a - s) ? b : a, rests[0]);
   else if (d > 0.12 * STEP) t = rests.find(r => r >= s - 0.25 * STEP) ?? rests[rests.length - 1];
   else if (d < -0.12 * STEP) t = [...rests].reverse().find(r => r <= s + 0.25 * STEP) ?? 0;
-  vel += ((t - s) * 42 - vel * 10) * dt;
+  vel += ((t - s) * 70 - vel * 15) * dt;                               // gyorsabban, lágyan ér be (kritikus csillapítás körül)
   if (Math.abs(t - s) < 0.6 && Math.abs(vel) < 8) { s = t; vel = 0; restAt = t; }
 }
 export function updateProject(dt) {
