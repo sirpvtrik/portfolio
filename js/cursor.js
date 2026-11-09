@@ -44,8 +44,8 @@ const curFS = /* glsl */`
     // üveg: a közepe kicsit nagyít, a széle felé lencseként erősebben tör (enyhe színes szegéllyel)
     float m = 0.84 - 0.22 * pow(clamp(rr, 0.0, 1.0), 3.0), k = 0.035 * rr * rr;
     vec3 bg = vec3(snap(uCur + dc0 * (m - k)).r, snap(uCur + dc0 * m).g, snap(uCur + dc0 * (m + k)).b);
-    // a perem felé fehéres, fagyott üveg (Figma: középen tiszta, a szélén ~félig fehér)
-    float w = pow(smoothstep(0.1, 1.0, rr), 1.6) * 0.5;
+    // fehéres, fagyott üveg csak a perem belső szélén, keskeny sávban (Patrik: majdnem csak a belső széléhez érjen)
+    float w = pow(smoothstep(0.7, 1.0, rr), 1.5) * 0.5;
     // lenyomva: a tiszta lyuk összeszűkül, a gyűrű fehérbe megy át
     float hole = mix(1.2, 0.12, uP);
     w = mix(w, 0.9, uP * smoothstep(hole * 0.6, hole, rr));
