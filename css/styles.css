@@ -40,7 +40,8 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 
 .bottom { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 16px; }
 /* a kiválasztott pill nevét a pill maga mutatja: a .caption csak képernyőolvasónak szól (sr-only) */
-.hint { grid-column: 3; justify-self: end; text-align: right; }
+.br { grid-column: 3; justify-self: end; display: flex; align-items: flex-end; gap: 14px; position: relative; }   /* jobb alul: súgó + Glass gomb */
+.hint { text-align: right; }
 
 .btn {
   pointer-events: auto;
@@ -58,7 +59,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 
 .panel {
   pointer-events: auto;
-  position: absolute; top: 48px; right: 0;
+  position: absolute; bottom: 48px; right: 0;                      /* a jobb alsó gomb fölé, felfelé nyílik */
   width: min(290px, calc(100vw - 48px));
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -67,7 +68,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 }
 .panel { max-height: calc(100vh - 140px); overflow-y: auto; }
 .sec-title { color: var(--dim); font-size: 11px; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px; background: rgba(255,255,255,0.06); border-radius: 9px; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 3px; background: rgba(255,255,255,0.06); border-radius: 9px; }
 .seg-btn { appearance: none; border: 0; border-radius: 7px; padding: 6px 8px; background: transparent; color: var(--dim); font: inherit; cursor: pointer; }
 .seg-btn[aria-pressed="true"] { background: rgba(255,255,255,0.14); color: var(--fg); }
 .seg-btn:focus-visible { outline: 1px solid var(--fg); outline-offset: 1px; }
@@ -117,8 +118,8 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 /* Névjegy-blob jobb felül (Figma: Frame 9; js/contact.js): csukva a fotó egy üvegkörben, kinyitva a lejátszóhoz hasonlóan
    folyékonyan nyílik balra (névpill) és lefelé (Behance, Instagram, e-mail). Az üveget a WebGL rajzolja, itt csak a tartalom van. */
 .ct { position: relative; flex: none; width: 58px; height: 58px; margin-top: -11px; pointer-events: none; }
-.top-right > .stack-label, #panelBtn { transition: opacity .25s ease; }
-.top-right.ct-open > .stack-label, .top-right.ct-open > #panelBtn { opacity: 0; pointer-events: none; }   /* a nyitott névjegy alatt ne látsszon át
+.top-right > .stack-label { transition: opacity .25s ease; }
+.top-right.ct-open > .stack-label { opacity: 0; }   /* a nyitott névjegy alatt ne látsszon át */
 .ct-in { position: absolute; right: 0; top: 0; width: 212.4px; height: 126px; pointer-events: none; text-transform: none; letter-spacing: 0; text-align: left; }
 .ct.open .ct-in { pointer-events: auto; }
 .ct-av { position: absolute; right: 3.8px; top: 3.8px; width: 50px; height: 50px; padding: 0; border: 0; border-radius: 50%; overflow: hidden; background: none; cursor: pointer; pointer-events: auto; }
@@ -139,6 +140,8 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 @media (max-width: 720px) {
   .bottom { grid-template-columns: 1fr; justify-items: center; }
   .hint { display: none; }
+  .bottom { position: relative; }
+  .br { position: absolute; right: 0; bottom: 0; }
   .pl { justify-self: start; order: 2; }
   .top-right .stack-label { display: none; }
 }
