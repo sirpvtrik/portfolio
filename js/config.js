@@ -16,19 +16,19 @@ export const PROJECTS = [
       full: ['assets/projects/zsebkonyv/hasznalat.webp'],
       // galéria: kép, vagy { src, video }: a videó akkor játszódik le (egyszer), amikor a kép a helyére ért, és az utolsó
       // kockáján áll meg (az a poszter maga). A 19-es videó visszafelé van kiírva (Patrik: visszafelé fusson, majd álljon meg).
-      // name: a fajta neve (egyelőre nem jelenik meg; a két oszlopos teszt kikerült)
+      // name: a fajta neve, a kép alatt jelenik meg (Patrik táblája szerint; a „Permanent Maker” az ő írásmódja)
       gallery: [
         { src: 'assets/projects/zsebkonyv/poszterek-05.webp', video: 'assets/projects/zsebkonyv/poszterek-05.mp4', name: 'Lavender' },   // a RAR 39-ese ugyanez a kép
         { src: 'assets/projects/zsebkonyv/poszterek-30.webp', name: 'Deathstar' },
-        'assets/projects/zsebkonyv/poszterek-08.webp',
-        'assets/projects/zsebkonyv/poszterek-12.webp',
-        'assets/projects/zsebkonyv/poszterek-15.webp',
-        'assets/projects/zsebkonyv/poszterek-16.webp',
-        'assets/projects/zsebkonyv/poszterek-17.webp',
-        { src: 'assets/projects/zsebkonyv/poszterek-19.webp', video: 'assets/projects/zsebkonyv/poszterek-19-rev.mp4' },
-        'assets/projects/zsebkonyv/poszterek-32.webp',
-        'assets/projects/zsebkonyv/poszterek-34.webp',
-        'assets/projects/zsebkonyv/poszterek-35.webp',
+        { src: 'assets/projects/zsebkonyv/poszterek-08.webp', name: 'Permanent Maker' },
+        { src: 'assets/projects/zsebkonyv/poszterek-12.webp', name: 'Alien Rock Candy' },
+        { src: 'assets/projects/zsebkonyv/poszterek-15.webp', name: 'Blue Dream' },
+        { src: 'assets/projects/zsebkonyv/poszterek-16.webp', name: 'Runtz' },
+        { src: 'assets/projects/zsebkonyv/poszterek-17.webp', name: 'AK-47' },
+        { src: 'assets/projects/zsebkonyv/poszterek-19.webp', video: 'assets/projects/zsebkonyv/poszterek-19-rev.mp4', name: 'Amnesia' },
+        { src: 'assets/projects/zsebkonyv/poszterek-32.webp', name: 'Cat Piss' },
+        { src: 'assets/projects/zsebkonyv/poszterek-34.webp', name: 'Guava' },
+        { src: 'assets/projects/zsebkonyv/poszterek-35.webp', name: 'Sour Diesel' },
       ],
     } },
   { id: 'P05', name: 'Digitális pokol', cat: 'Print', meta: '' },

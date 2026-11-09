@@ -10,6 +10,7 @@
 // Vissza: a tartalom elhalványul, a test visszacsukódik a pill helyére (a toronyban az a pill a helyén marad).
 import { PW, PH, S } from './config.js';
 import { onLayer, LAYER_BG, LAYER_GLASS, U, camera, renderer } from './scene.js';
+import { cursorHead } from './cursor.js';
 import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { stadium, glassSlab, faceZ } from './glassgeo.js';
 
@@ -62,13 +63,24 @@ export function drumLayout(o) {
   const add = (it, h) => { it.yc = y + h / 2; items.push(it); y += h; };
   if (cover) { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius }, cvH); y += G; }
   full.forEach(src => { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: srcOf(src), radius }, cvH); y += G; });
+  // a fajta neve a kép alatt, balra igazítva (Patrik: a név a projekt lényege, mindig látsszon; kicsi, 70%-os fehér, a kép
+  // fölé vitt kurzorra kivilágosodik); a képpel együtt gördül és hajlik
+  const named = gallery.some(g => g && g.name);
+  const ns = mob ? 12 : Math.max(11, 14 * f), nGap = mob ? 10 : Math.max(8, 12 * f), nH = ns * 1.5;
+  const rowH = ch + (named ? nGap + nH : 0);
   const rows = Math.ceil(gallery.length / cols);
   gallery.forEach((g, j) => {
     const r = Math.floor(j / cols), col = j % cols, inRow = Math.min(cols, gallery.length - r * cols);
-    items.push({ kind: 'img', w: cw, h: ch, x: (col - (inRow - 1) / 2) * (cw + gx), src: srcOf(g), video: g && g.video, radius,
-      yc: y + r * (ch + Gr) + ch / 2 });
+    const x = (col - (inRow - 1) / 2) * (cw + gx), yc = y + r * (rowH + Gr) + ch / 2;
+    const img = { kind: 'img', w: cw, h: ch, x, src: srcOf(g), video: g && g.video, radius, yc };
+    items.push(img);
+    if (g && g.name) {
+      measure.font = `400 ${ns}px ${FONT}`;
+      const text = g.name.toUpperCase(), w = Math.min(cw, measure.measureText(text).width * 1.12 + 8);
+      items.push({ kind: 'label', text, size: ns, w, h: nH, x: x - cw / 2 + w / 2, of: img, yc: yc + ch / 2 + nGap + nH / 2 });
+    }
   });
-  if (rows) y += rows * ch + (rows - 1) * Gr;
+  if (rows) y += rows * rowH + (rows - 1) * Gr;
   const lastBottom = y;
   // a végén a pillek halma: a padló a tartalom alatt, a lap végén a képernyő aljára kerül
   const floor = lastBottom + vh / 2 + vh * 0.42;
@@ -104,6 +116,11 @@ function drawTitle(g, it, q) {
   g.fillStyle = '#f2f2f2'; g.fillText(it.name, W / 2, y + tc);
   g.font = `400 ${cs}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
   g.fillStyle = 'rgba(242,242,242,0.7)'; g.fillText((it.cat || '').toUpperCase(), W / 2, y + tc + gap + cc);
+}
+function drawLabel(g, it, q) {
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.font = `400 ${it.size * q}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = (0.06 * it.size * q) + 'px';
+  g.fillStyle = '#f2f2f2'; g.fillText(it.text, 0, it.h * q / 2);
 }
 // p = 0: minden sor szavai a teljes szélességben, sorkizártan széthúzva; p = 1: középre zárt bekezdés (dW széles).
 // Az alsó sorok kicsit később állnak össze, így a bekezdés alulról felfelé „zárul”.
@@ -174,7 +191,7 @@ function texFromCanvas(cv) {
   return tex;
 }
 function makeItem(it, k) {
-  const q = Math.min(2, window.devicePixelRatio || 1) * (it.kind === 'title' ? 1.5 : 1);   // a széles leírás kisebb felbontással (kockánként újrarajzolódik)
+  const q = Math.min(2, window.devicePixelRatio || 1) * (it.kind === 'title' || it.kind === 'label' ? 1.5 : 1);   // a széles leírás kisebb felbontással (kockánként újrarajzolódik)
   const geo = new THREE.PlaneGeometry(it.w * k, it.h * k, 1, Math.max(24, Math.min(96, Math.round(it.h / 10))));
   const o = { it, geo, base: geo.attributes.position.array.slice(), holder: new THREE.Group(), lastU: NaN, mats: [], texs: [], played: false };
   group.add(o.holder);
@@ -215,7 +232,8 @@ function makeItem(it, k) {
     if (it.kind === 'img') imageDrawer(it, () => { tex.needsUpdate = true; })(g, q);
     else {
       o.p = it.spread ? 0 : 1;
-      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); (it.kind === 'title' ? drawTitle : drawDesc)(g, it, q, o.p); tex.needsUpdate = true; };
+      const draw = it.kind === 'title' ? drawTitle : (it.kind === 'label' ? drawLabel : drawDesc);
+      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); draw(g, it, q, o.p); tex.needsUpdate = true; };
       o.redraw();
     }
     add(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }), 0, 1);
@@ -332,6 +350,8 @@ export function updateDrum(dt, s, closing) {
   }
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
   const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
+  // a kurzor a képernyő közepétől (px; y felfelé): a képek a pálya sík részén a képernyő síkjában vannak
+  const hd = cursorHead(), hx = hd.x - DL.vw / 2, hy = DL.vh / 2 - hd.y, hov = hd.x > -9000 && !('ontouchstart' in window && navigator.maxTouchPoints > 0 && matchMedia('(hover: none)').matches);
   items.forEach(o => {
     const it = o.it, u = s - it.yc;
     if (it.spread) {                                 // a leírás szavai felfelé jövet, a közép alatt állnak össze
@@ -343,7 +363,14 @@ export function updateDrum(dt, s, closing) {
     if (vis) {
       placeOnPath(o, u, k);
       o.holder.position.set(it.x * k, 0, 0);
-      o.mats.forEach(m => { m.opacity = ca; });
+      let a = ca;
+      if (it.of) {                                   // a név: 70%-os fehér, a képe fölé vitt kurzorra kivilágosodik
+        const im = it.of, ui = s - im.yc;
+        const over = hov && Math.abs(hx - im.x) < im.w / 2 && Math.abs(hy - ui) < im.h / 2 && Math.abs(ui) < DL.A + im.h / 2;
+        o.hv = (o.hv || 0) + ((over ? 1 : 0) - (o.hv || 0)) * Math.min(1, dt * 9);
+        a = ca * (0.7 + 0.3 * o.hv);
+      }
+      o.mats.forEach(m => { m.opacity = a; });
     }
     if (o.video) {                                   // a közepéhez ért → egyszer lejátszódik; ha messze elment, vissza az elejére
       const v = o.video, here = Math.abs(u) < vh * 0.22;
