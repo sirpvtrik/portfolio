@@ -35,6 +35,10 @@ export const PROJECTS = [
   { id: 'P09', name: 'Apória',          cat: 'Video', meta: '' },
 ];
 export const N = PROJECTS.length;
+
+/* ---------- Kapcsolat (a jobb felső névjegy-blob, js/contact.js) ----------
+   Patriktól kell még: a Behance-profil címe, az Instagram címe és a kapcsolati e-mail. Ami üres, az nem kattintható. */
+export const CONTACT = { behance: '', instagram: '', email: '' };
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */

@@ -8,6 +8,7 @@ import { actx, updateAudio } from './audio.js';
 import { plUpdate, updateTime } from './player.js';
 import { updateProject } from './project.js';
 import { updateCursor } from './cursor.js';
+import { ctUpdate } from './contact.js';
 
 startLoop(dt => {
   updatePills(dt);           // hover, görgetés, pillek
@@ -16,5 +17,6 @@ startLoop(dt => {
   updateAudio(dt);           // zenei reakció: hullámok, logó, pulzálás
   if (actx) updateTime();    // idősáv
   plUpdate(dt);              // a lejátszó blobja
+  ctUpdate(dt);              // a névjegy-blob jobb felül
   updateProject(dt);         // projekt-aloldal: domború sorok, galéria
 });
