@@ -70,7 +70,10 @@ export function drumLayout(o) {
   const items = [];
   const pairD = OUT(0) - (dCen - dH / 2) + 10;                                    // a cím és a leírás együtt megy fel, amíg a leírás is kiér
   items.push({ kind: 'title', w: tW, h: tH, x: 0, name, cat, t, keys: [[0, 0], [STEP, tRest], [2 * STEP, tRest + pairD]] });
-  items.push({ kind: 'desc', w: dW + 24, h: dH, x: 0, lines, ds, dl, keys: [[0, -OUT(dH)], [STEP, dCen], [2 * STEP, dCen + pairD]] });
+  // a leírás szavai a képernyő szélességében széthúzva gördülnek fel alulról, és ahogy a helyükre érnek, összeállnak
+  // bekezdéssé (Patrik referenciája, Cinetic); a sík ezért a teljes széthúzott szélesség
+  const sW = mob ? vw - 40 : Math.max(dW + 24, vw - 160);
+  items.push({ kind: 'desc', w: sW, dW, h: dH, x: 0, lines, ds, dl, spread: [0, STEP], keys: [[0, -OUT(dH)], [STEP, dCen], [2 * STEP, dCen + pairD]] });
   if (cover) items.push({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius, keys: [[STEP, -OUT(cvH)], [2 * STEP, 0], [3 * STEP, OUT(cvH)]] });
   const n = gallery.length;
   gallery.forEach((g, j) => {
@@ -118,11 +121,26 @@ function drawTitle(g, it, q) {
   g.font = `400 ${cs}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
   g.fillStyle = 'rgba(242,242,242,0.7)'; g.fillText((it.cat || '').toUpperCase(), W / 2, y + tc + gap + cc);
 }
-function drawDesc(g, it, q) {
-  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+// p = 0: minden sor szavai a teljes szélességben, sorkizártan széthúzva; p = 1: középre zárt bekezdés (dW széles).
+// Az alsó sorok kicsit később állnak össze, így a bekezdés alulról felfelé „zárul”.
+function drawDesc(g, it, q, p = 1) {
+  const W = it.w * q, n = it.lines.length;
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
   g.font = `400 ${it.ds * q}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
-  g.fillStyle = '#f2f2f2';
-  it.lines.forEach((l, i) => g.fillText(l, it.w * q / 2, (i * it.dl + it.ds * 1.05) * q));
+  const sp = g.measureText(' ').width, pad = 2 * q;
+  it.lines.forEach((l, i) => {
+    const ws = l.split(' '), wd = ws.map(w => g.measureText(w).width);
+    const sum = wd.reduce((a, b) => a + b, 0), tot = sum + sp * (ws.length - 1);
+    const pl = ease(clamp(p * 1.35 - 0.35 * (n > 1 ? i / (n - 1) : 0), 0, 1));
+    const gap = ws.length > 1 ? (W - 2 * pad - sum) / (ws.length - 1) : 0;
+    g.fillStyle = `rgba(242,242,242,${0.75 + 0.25 * pl})`;
+    let xa = (W - tot) / 2, xs = ws.length > 1 ? pad : xa;
+    const y = (i * it.dl + it.ds * 1.05) * q;
+    ws.forEach((w, j) => {
+      g.fillText(w, lerp(xs, xa, pl), y);
+      xa += wd[j] + sp; xs += wd[j] + gap;
+    });
+  });
 }
 // kép a Figma szerint: 20 px sarok, 95%, belső ragyogás (inset 0 0 35.9px −6px, 45% fehér)
 function imageDrawer(it, onLoad) {
@@ -155,7 +173,7 @@ function texFromCanvas(cv) {
   return tex;
 }
 function makeItem(it, k) {
-  const q = Math.min(2, window.devicePixelRatio || 1) * (it.kind === 'img' ? 1 : 1.5);
+  const q = Math.min(2, window.devicePixelRatio || 1) * (it.kind === 'title' ? 1.5 : 1);   // a széles leírás kisebb felbontással (kockánként újrarajzolódik)
   const geo = it.axis === 'x' ? new THREE.PlaneGeometry(it.w * k, it.h * k, 48, 1) : new THREE.PlaneGeometry(it.w * k, it.h * k, 1, 48);
   const o = { it, geo, base: geo.attributes.position.array.slice(), holder: new THREE.Group(), bend: -1, mats: [], texs: [], played: false };
   group.add(o.holder);
@@ -190,7 +208,8 @@ function makeItem(it, k) {
     const g = cv.getContext('2d');
     if (it.kind === 'img') imageDrawer(it, () => { tex.needsUpdate = true; })(g, q);
     else {
-      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); (it.kind === 'title' ? drawTitle : drawDesc)(g, it, q); tex.needsUpdate = true; };
+      o.p = it.spread ? 0 : 1;
+      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); (it.kind === 'title' ? drawTitle : drawDesc)(g, it, q, o.p); tex.needsUpdate = true; };
       o.redraw();
     }
     add(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }), 0, 1);
@@ -215,10 +234,13 @@ export function buildDrum(grp, layout, k, opts) {
   const glass = onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS), back = onLayer(new THREE.Mesh(geo, bmat), LAYER_BG);
   glass.frustumCulled = back.frustumCulled = false; back.renderOrder = 3;
   holder.add(glass, back);
-  // a végső méret: a teljes képernyő (10 px-en belül), az előlap perspektívájával visszaszorozva
-  const fz = faceZ(depth01, th), cz = camera.position.z, pf = (cz - fz) / cz, inset = 10;
-  body = { holder, geo, mat, bmat, base: geo.attributes.position.array.slice(), dx: -1, dy: -1,
-    dxF: Math.max(0, (DL.vw / 2 - inset) * k * pf - PW / 2), dyF: Math.max(0, (DL.vh / 2 - inset) * k * pf - PH / 2) };
+  // a végső méret: a teljes képernyő (10 px-en belül), az előlap perspektívájával visszaszorozva. A sarok íve 50 px
+  // (Figma 261-133): ehhez a test kicsinyítve (sc1) nyúlik szét, így a sarokgombok (26 px-re a széltől) koncentrikusan
+  // ülnek az íven
+  const fz = faceZ(depth01, th), cz = camera.position.z, pf = (cz - fz) / cz, inset = 10, Rpx = 50;
+  const sc1 = Rpx * k * pf / (PH / 2);
+  body = { holder, geo, mat, bmat, base: geo.attributes.position.array.slice(), dx: -1, dy: -1, sc: 1, sc1,
+    dxF: Math.max(0, (DL.vw / 2 - inset) * k * pf / sc1 - PW / 2), dyF: Math.max(0, (DL.vh / 2 - inset) * k * pf / sc1 - PH / 2) };
   items = DL.items.map(it => makeItem(it, k));
   if (document.fonts && document.fonts.load) {
     const tt = DL.items.find(i => i.kind === 'title'), dd = DL.items.find(i => i.kind === 'desc');
@@ -229,9 +251,9 @@ export function buildDrum(grp, layout, k, opts) {
 }
 
 // a stadion négy negyedét toljuk szét (x ≥ 0 jobbra, y ≥ 0 felfelé): a lekerekített végek nem torzulnak, a sík lap nő
-function setStretch(dx, dy) {
-  if (Math.abs(dx - body.dx) < 1e-5 && Math.abs(dy - body.dy) < 1e-5) return;
-  body.dx = dx; body.dy = dy;
+function setStretch(dx, dy, sc) {
+  if (Math.abs(dx - body.dx) < 1e-5 && Math.abs(dy - body.dy) < 1e-5 && Math.abs(sc - body.sc) < 1e-5) return;
+  body.dx = dx; body.dy = dy; body.sc = sc;
   const p = body.geo.attributes.position.array, q = body.base;
   for (let i = 0; i < p.length; i += 3) {
     p[i] = q[i] + (q[i] >= 0 ? dx : -dx);
@@ -240,7 +262,7 @@ function setStretch(dx, dy) {
   body.geo.attributes.position.needsUpdate = true;
   const hy = PH / 2 + dy, u = body.mat.uniforms;
   u.uHalf.value.set(PW / 2 + dx, hy);
-  u.uLensW.value = Math.min(0.62, 70 * kk / hy);      // a lencse a nagy testen csak a szélén (~70 px) tör
+  u.uLensW.value = Math.min(0.62, 70 * kk / (hy * sc));   // a lencse a nagy testen csak a szélén (~70 px) tör
   const grow = clamp(dy / Math.max(body.dyF, 1e-3), 0, 1);
   u.uLens.value = lerp(1, 0.8, grow);
   // ahogy kinő a teljes képernyőre, a lap tükröződései és a hátlap fénye elhalványul (különben az egész kép fénylik);
@@ -296,17 +318,22 @@ export function updateDrum(dt, s, closing) {
     ca = clamp((morphT - 0.7) / 0.4, 0, 1);
   }
   const s0 = st || { x: 0, y: 0, z: 0, sc: 1 };
-  setStretch(body.dxF * mx, body.dyF * my);
+  const sxy = lerp(s0.sc, body.sc1, mp);                // síkban a végső méretre (50 px-es sarok), mélységben marad
+  setStretch(body.dxF * mx, body.dyF * my, sxy);
   // „Pill fénye” (Glass panel, S.pjLight): kikapcsolva a kinőtt testen nincs fény, csak a fénytörés (Patrik tesztje);
   // a toronybeli pill méretében még a megszokott, ahogy nő, elhalványul
   const grow = clamp(body.dy / Math.max(body.dyF, 1e-3), 0, 1);
   body.mat.uniforms.uSpecK.value = S.pjLight ? 1 : 1 - grow;
   body.bmat.uniforms.uBackK.value = lerp(1, S.pjLight ? 0.2 : 0, grow);
   body.holder.position.set(lerp(s0.x, 0, mp), lerp(s0.y, 0, mp), lerp(s0.z, 0, mp));
-  body.holder.scale.setScalar(lerp(s0.sc, 1, mp));
+  body.holder.scale.set(sxy, sxy, lerp(s0.sc, 1, mp));
   // a tartalom a henger palástján
   items.forEach(o => {
     const it = o.it, u = uAt(it.keys, s), side = it.axis === 'x', phi = u / (side ? DL.Rh : R);
+    if (it.spread) {                                 // a leírás szavai felgördülés közben állnak össze
+      const p = clamp((s - it.spread[0]) / (it.spread[1] - it.spread[0]), 0, 1);
+      if (Math.abs(p - o.p) > 0.002 || (p !== o.p && (p === 0 || p === 1))) { o.p = p; o.redraw(); }
+    }
     const vis = Math.abs(phi) < Math.PI / 2 && ca > 0.002;
     o.holder.visible = vis;
     if (vis && side) {                               // telefonon oldalról: függőleges tengelyű henger belső oldala
