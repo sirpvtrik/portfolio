@@ -9,7 +9,10 @@ import { damp } from './util.js';
 const N = 6;
 const pts = Array.from({ length: N }, () => ({ x: -9999, y: -9999, vx: 0, vy: 0 }));
 let tx = -9999, ty = -9999, inside = false, seen = false, isTouch = false, touching = false;
-let energy = 0, base = 0, lastX = 0, lastY = 0, speed = 0, vx = 0, vy = 0;
+let energy = 0, base = 0, lastX = 0, lastY = 0, speed = 0, vx = 0, vy = 0, magnet = false;
+// gombra érve a kurzor a gomb formáját veszi fel (js/backglass.js rajzolja): ilyenkor a gyűrű itt eltűnik
+export function setCursorMagnet(v) { magnet = v; }
+export const cursorHead = () => pts[0];             // a rugós fej (CSS px), innen indul a forma-váltás
 
 function move(e) {
   isTouch = e.pointerType === 'touch';
@@ -34,7 +37,7 @@ export function updateCursor(dt) {
   energy = damp(energy, target, target > energy ? 6 : 1.1, dt);
   // a kurzor kis fénye: egérrel mindig látszik (ha az ablakban van), érintésnél csak húzás közben
   const ready = !window.MPIntro || window.MPIntro.t2 != null;   // a betöltő alatt nincs kurzor
-  base = damp(base, ready && (isTouch ? touching : inside) ? 1 : 0, 4, dt);
+  base = damp(base, ready && !magnet && (isTouch ? touching : inside) ? 1 : 0, magnet ? 30 : 4, dt);
   // rugós nyom: az első pont a kurzort, a többi az előzőt követi, egyre lazábban
   const H = innerHeight, dpr = WU.uRes.value.y / H;
   for (let i = 0; i < N; i++) {

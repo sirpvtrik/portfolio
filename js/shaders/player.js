@@ -8,6 +8,7 @@ export const playerFS = /* glsl */`
   uniform vec4 uBox;
   uniform float uScale, uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uK, uAlpha;
   uniform float uClear;                            // 1: nincs szürke kitöltés, csak a tiszta üveg (a Vissza gomb alapból)
+  uniform float uGrad;                             // a Vissza gomb hoverje: világosabb, fentről lefelé szürkés átmenet
   float sdRB(vec2 p, vec4 r) {                     // pill alakú lekerekített téglalap
     vec2 h = r.zw * 0.5, c = r.xy + h;
     float rad = min(h.x, h.y);
@@ -51,7 +52,9 @@ export const playerFS = /* glsl */`
     col.r = bgAt(p + off * (1.0 - k), rad).r;
     col.g = bgAt(p + off, rad).g;
     col.b = bgAt(p + off * (1.0 + k), rad).b;
-    col = mix(col, vec3(0.15, 0.15, 0.165), 0.5 * (1.0 - uClear));   // sötét üveg, mint a designban
+    float gy = clamp((p.y - uBox.y) / max(uBox.w - uBox.y, 1.0), 0.0, 1.0);
+    vec3 tint = mix(vec3(0.15, 0.15, 0.165), mix(vec3(0.17, 0.17, 0.18), vec3(0.36, 0.36, 0.38), gy), uGrad);
+    col = mix(col, tint, (0.5 + 0.12 * uGrad) * (1.0 - uClear));   // sötét üveg, mint a designban
     float la = radians(uLightAng);
     vec2 L = vec2(-cos(la), -sin(la));
     float f = dot(n, L);

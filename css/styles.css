@@ -156,7 +156,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
   display: flex; align-items: center; gap: 10px; height: 57.6px; padding: 0 26px 0 18px; border: 0; border-radius: 999px; cursor: pointer;   /* ugyanakkora, mint a profil-kör (57,6 px) */
   background: none; color: #f2f2f2; font: 400 16px 'Nohemi', var(--display); letter-spacing: 0; text-transform: none; }
 /* az üvegét a WebGL rajzolja, mint a lejátszóét és a névjegyét (js/backglass.js); csukáskor elhalványul */
-.back { transition: opacity .25s ease; }
+.back { transition: opacity .25s ease; cursor: none; }   /* a kurzor itt a gomb formáját veszi fel (js/backglass.js) */
 .project-closing .back { opacity: 0; pointer-events: none; }
 .back:focus, .back:focus-visible { outline: none; }   /* a fehér fókuszkeret kikerült (Patrik); billentyűvel az üvege szürkül be (js/backglass.js) */
 .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
