@@ -169,8 +169,8 @@ function imageDrawer(it, onLoad) {
       const sc = Math.max(W / im.width, H / im.height), iw = im.width * sc, ih = im.height * sc;
       const sf = Math.min(W / im.width, H / im.height);
       g.save(); rrPath(g, 0, 0, W, H, r); g.clip(); g.globalAlpha = 0.95;
-      if (it.big && sf / sc < 0.8) {
-        // a teljes képernyős kép túl sokat veszítene a kitöltéssel (pl. fekvő kép telefonon): egészben látszik, a maradék
+      if (it.big && H > W && sf / sc < 0.8) {          // csak álló képernyőn; fekvőn (gépen) mindig kitölt
+        // a teljes képernyős kép álló képernyőn túl sokat veszítene a kitöltéssel (pl. fekvő kép telefonon): egészben látszik, a maradék
         // helyet a kép szélének átlagos színe tölti ki (a „Használat” képen a zöld háttér folytatódik)
         g.fillStyle = edgeColor(im); g.fillRect(0, 0, W, H);
         const fw = im.width * sf, fh = im.height * sf;
