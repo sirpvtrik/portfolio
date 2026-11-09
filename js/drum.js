@@ -50,10 +50,11 @@ export function drumLayout(o) {
   // borító (Figma: 1131 × 712, 20 px sarok)
   let cvW = mob ? vw - 72 : Math.min(1131 * f, vw - 120), cvH = cvW * 712 / 1131;
   if (cvH > vh * 0.7) { cvH = vh * 0.7; cvW = cvH * 1131 / 712; }
-  // galéria: 3 hely egymás mellett (Figma: 443 × 627, 20 px köz), telefonon 2
-  const cols = mob ? 2 : 3, gx = mob ? 12 : 20 * f;
-  let cw = mob ? (vw - 72 - gx) / 2 : 443 * f, ch = cw * 627 / 443;
-  if (ch > vh * 0.66) { ch = vh * 0.66; cw = ch * 443 / 627; }
+  // galéria: 3 hely egymás mellett (Figma: 443 × 627, 20 px köz). Telefonon egyszerre egy, nagyobb kép, és oldalról jön
+  // (Patrik): egy függőleges tengelyű henger belső oldalán jobbról gördül be, balra megy ki, a széleken szétnyílva
+  const cols = mob ? 1 : 3, gx = mob ? 0 : 20 * f;
+  let cw = mob ? vw - 72 : 443 * f, ch = cw * 627 / 443;
+  if (ch > vh * (mob ? 0.62 : 0.66)) { ch = vh * (mob ? 0.62 : 0.66); cw = ch * 443 / 627; }
   const radius = (mob ? 14 : 20 * f);
   const R = vh * 0.55, STEP = Math.max(340, vh * 0.48);                         // egy lépés ennyi görgetés (rövidebb: finomabb)
   // A henger BELSŐ oldala látszik (Patrik referenciája): a tartalom a képernyő tetejéhez / aljához közeledve felénk jön,
@@ -62,6 +63,10 @@ export function drumLayout(o) {
   const camZ = (vh / 2) / Math.tan(THREE.MathUtils.degToRad(16));                // a kamera távolsága px-ben (fov 32°)
   const yScr = u => { const p = u / R; return R * Math.sin(p) * camZ / Math.max(1, camZ - R * (1 - Math.cos(p))); };
   const OUT = h => { let u = 0; while (u < R * Math.PI / 2 + h && yScr(u - h / 2) < vh / 2 + 12) u += 4; return u; };
+  // telefonon a galéria vízszintesen: ugyanez a függőleges tengelyű hengerre (Rh), a képernyő szélességével
+  const Rh = vw * 0.9;
+  const xScr = u => { const p = u / Rh; return Rh * Math.sin(p) * camZ / Math.max(1, camZ - Rh * (1 - Math.cos(p))); };
+  const OUTX = w => { let u = 0; while (u < Rh * Math.PI / 2 + w && xScr(u - w / 2) < vw / 2 + 12) u += 4; return u; };
   const items = [];
   const pairD = OUT(0) - (dCen - dH / 2) + 10;                                    // a cím és a leírás együtt megy fel, amíg a leírás is kiér
   items.push({ kind: 'title', w: tW, h: tH, x: 0, name, cat, t, keys: [[0, 0], [STEP, tRest], [2 * STEP, tRest + pairD]] });
@@ -70,16 +75,18 @@ export function drumLayout(o) {
   const n = gallery.length;
   gallery.forEach((g, j) => {
     const e = j + 2, x = j + 2 + cols, col = j % cols;                             // e: ebben a lépésben jön fel, x: ebben megy el
+    const side = mob;                                                              // telefonon oldalról: jobbról be, balra ki
+    const uIn = side ? OUTX(cw) : -OUT(ch), uOut = side ? -OUTX(cw) : OUT(ch);
     items.push({ kind: 'img', w: cw, h: ch, x: (col - (cols - 1) / 2) * (cw + gx), src: srcOf(g), video: g && g.video, radius,
-      arrive: (e + 1) * STEP, leave: x * STEP,
-      keys: [[e * STEP, -OUT(ch)], [(e + 1) * STEP, 0], [x * STEP, 0], [(x + 1) * STEP, OUT(ch)]] });
+      axis: side ? 'x' : 'y', arrive: (e + 1) * STEP, leave: x * STEP,
+      keys: [[e * STEP, uIn], [(e + 1) * STEP, 0], [x * STEP, 0], [(x + 1) * STEP, uOut]] });
   });
   const last = n ? n + cols + 2 : 3;
   const sMax = last * STEP + STEP * 0.5;                                            // a végén kis hely a lehulló pilleknek
   const rests = []; for (let i = 0; i <= last; i++) rests.push(i * STEP);
   rests.push(sMax);
   const pillW = Math.min(PW / k, (mob ? vw : 900) / 3.3);
-  return { vw, vh, k, mob, f, R, STEP, items, rests, sMax,
+  return { vw, vh, k, mob, f, R, Rh, STEP, items, rests, sMax,
     heap: { floor: sMax + vh - (mob ? 36 : 64), width: vw, k, vh, vw, pillW } };
 }
 
@@ -149,7 +156,7 @@ function texFromCanvas(cv) {
 }
 function makeItem(it, k) {
   const q = Math.min(2, window.devicePixelRatio || 1) * (it.kind === 'img' ? 1 : 1.5);
-  const geo = new THREE.PlaneGeometry(it.w * k, it.h * k, 1, 48);
+  const geo = it.axis === 'x' ? new THREE.PlaneGeometry(it.w * k, it.h * k, 48, 1) : new THREE.PlaneGeometry(it.w * k, it.h * k, 1, 48);
   const o = { it, geo, base: geo.attributes.position.array.slice(), holder: new THREE.Group(), bend: -1, mats: [], texs: [], played: false };
   group.add(o.holder);
   const add = (mat, z, order) => {
@@ -251,6 +258,17 @@ function bendY(o, Rw, b) {
   }
   o.geo.attributes.position.needsUpdate = true;
 }
+// ugyanez függőleges tengelyre (telefonon az oldalról jövő képek): a sík vízszintesen hajlik a hengerre, a szélei felénk
+function bendX(o, Rw, b) {
+  if (Math.abs(b - o.bend) < 0.004) return;
+  o.bend = b;
+  const p = o.geo.attributes.position.array, q = o.base, r = Rw / Math.max(b, 1e-3);
+  for (let i = 0; i < p.length; i += 3) {
+    const t = q[i] / r;
+    p[i] = r * Math.sin(t); p[i + 2] = r * (1 - Math.cos(t));
+  }
+  o.geo.attributes.position.needsUpdate = true;
+}
 // a menetrend: kulcspontok (görgetés, u) között lépésenként lágyan
 function uAt(keys, s) {
   if (s <= keys[0][0]) return keys[0][1];
@@ -288,10 +306,15 @@ export function updateDrum(dt, s, closing) {
   body.holder.scale.setScalar(lerp(s0.sc, 1, mp));
   // a tartalom a henger palástján
   items.forEach(o => {
-    const it = o.it, u = uAt(it.keys, s), phi = u / R;
+    const it = o.it, u = uAt(it.keys, s), side = it.axis === 'x', phi = u / (side ? DL.Rh : R);
     const vis = Math.abs(phi) < Math.PI / 2 && ca > 0.002;
     o.holder.visible = vis;
-    if (vis) {
+    if (vis && side) {                               // telefonon oldalról: függőleges tengelyű henger belső oldala
+      bendX(o, DL.Rh * k, 0.12 + 0.88 * THREE.MathUtils.smoothstep(Math.abs(phi), 0.1, 1.2));
+      o.holder.position.set(Math.sin(phi) * DL.Rh * k, 0, (1 - Math.cos(phi)) * DL.Rh * k);
+      o.holder.rotation.set(0, -phi, 0);
+      o.mats.forEach(m => { m.opacity = ca; });
+    } else if (vis) {
       bendY(o, R * k, 0.12 + 0.88 * THREE.MathUtils.smoothstep(Math.abs(phi), 0.1, 1.2));
       // a henger belső felületén: fent / lent felénk jön (nagyobb, szétnyílik), és a henger tengelye felé néz
       o.holder.position.set(it.x * k, Math.sin(phi) * R * k, (1 - Math.cos(phi)) * R * k);
