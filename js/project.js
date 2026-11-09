@@ -25,7 +25,7 @@ const backBtn = document.getElementById('projectBack');
 
 export let isOpen = false;
 let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = '', depthPending = false;
-const geoKey = () => S.depth + '/' + S.thick + '/' + S.pjMode;   // Depth, Vastagság, oldal-forma: ha bármelyik változik, újraépül
+const geoKey = () => S.depth + '/' + S.thick + '/' + S.pjMode + '/' + S.pjCols;   // Depth, Vastagság, oldal-forma, galéria-teszt: ha bármelyik változik, újraépül
 let D = DETAIL_TEST, cur = -1;                   // a nyitott projekt tartalma (a projekt saját detail-je a DETAIL_TEST fölött) és sorszáma
 let pp = null, morphT = 99, pillStart = null;    // a megnyúlt pill (teszt) és a kiinduló helyzete (a toronybeli pill)
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
@@ -56,7 +56,7 @@ function computeLayout() {
   if (S.pjMode === 2) {                              // henger (js/drum.js)
     const p = PROJECTS[cur] || { name: '', cat: '' };
     const DL = drumLayout({ vw, vh, k: visH / vh, name: p.name, cat: p.cat, intro: D.intro,
-      cover: p.image || srcOf(D.gallery[0]) || null, full: D.full || [], gallery: p.image ? D.gallery : D.gallery.slice(1) });
+      cover: p.image || srcOf(D.gallery[0]) || null, full: D.full || [], cols2: S.pjCols, gallery: p.image ? D.gallery : D.gallery.slice(1) });
     return { mode: 'drum', vw, vh, mob, u: 1, gw: vw, list: [], sMax: DL.sMax, drum: DL, heap: DL.heap };
   }
   const gw = mob ? vw - 32 : Math.min(900, vw - 48), u = mob ? gw / 560 : gw / 900, g = 20 * u;

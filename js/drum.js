@@ -62,8 +62,38 @@ export function drumLayout(o) {
   const add = (it, h) => { it.yc = y + h / 2; items.push(it); y += h; };
   if (cover) { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius }, cvH); y += G; }
   full.forEach(src => { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: srcOf(src), radius }, cvH); y += G; });
-  const rows = Math.ceil(gallery.length / cols);
-  gallery.forEach((g, j) => {
+  let gal = null;
+  if (o.cols2 && !mob && gallery.length) {
+    // teszt (Patrik, Figma: Desktop – 17): két oszlop, ellentétes irányban. Amikor a középre ér, a lap megáll, és a
+    // görgetés egy „hurkot” forgat: a jobb oszlop felfelé, a bal lefelé fut; ami fent kimegy jobbra, az balra jön le, ami
+    // lent kimegy balra, az jobbra jön fel (a képek folyamatosan helyet cserélnek). Egy teljes csere után a lap megy tovább.
+    let iw = 440 * f, ih = 628 * f;
+    if (ih > vh * 0.66) { ih = vh * 0.66; iw = ih * 440 / 628; }
+    const X = Math.min(458 * f, vw / 2 - 30 - iw / 2), lim = A + Rc * Math.PI / 2, d = ih + Math.max(80, vh * 0.3);
+    const nR = Math.ceil(gallery.length / 2), nL = gallery.length - nR;                   // jobbra: középen és alatta, balra: középen és fölötte
+    const Hc = Math.max(Math.max(nR, nL) * d + d, 2 * (lim + ih / 2) + d);               // a hurok fele (a csere a képen kívül történik)
+    // az előző elem kimegy a képből, mielőtt a bal oszlop fölső képei beúsznak
+    const prev = items[items.length - 1];
+    const s0 = Math.max(y + ih / 2, prev ? prev.yc + lim + prev.h / 2 + vh * 0.05 : 0);
+    gal = { s0, spin: Hc, Hc, X, iw, ih, fadeD: vh * 0.35 };
+    let rk = 0, lk = 0;
+    gallery.forEach((g, j) => {
+      const right = j % 2 === 1;                                                          // a pár: balra az első (Lavender), jobbra a második
+      const k = right ? rk++ : lk++;
+      const lam0 = right ? Hc / 2 - k * d : 1.5 * Hc - k * d;
+      const img = { kind: 'img', w: iw, h: ih, x: 0, src: srcOf(g), video: g && g.video, radius: 10 * f, lam0, yc: s0 };
+      items.push(img);
+      if (g && g.name) {
+        const size = Math.max(14, 20 * f);
+        measure.font = `400 ${size}px ${FONT}`;
+        const text = g.name.toUpperCase(), w = measure.measureText(text).width + 8;
+        items.push({ kind: 'label', text, size, w, h: 30 * f, x: 0, of: img, yc: s0 });
+      }
+    });
+    y = s0 + Hc + ih / 2;
+  }
+  const rows = gal ? 0 : Math.ceil(gallery.length / cols);
+  if (!gal) gallery.forEach((g, j) => {
     const r = Math.floor(j / cols), col = j % cols, inRow = Math.min(cols, gallery.length - r * cols);
     items.push({ kind: 'img', w: cw, h: ch, x: (col - (inRow - 1) / 2) * (cw + gx), src: srcOf(g), video: g && g.video, radius,
       yc: y + r * (ch + Gr) + ch / 2 });
@@ -74,7 +104,7 @@ export function drumLayout(o) {
   const floor = lastBottom + vh / 2 + vh * 0.42;
   const sMax = Math.max(0, floor - vh + (mob ? 36 : 64));
   const pillW = Math.min(PW / k, (mob ? vw : 900) / 3.3);
-  return { vw, vh, k, mob, f, A, Rc, items, sMax, heap: { floor, width: vw, k, vh, vw, pillW } };
+  return { vw, vh, k, mob, f, A, Rc, items, sMax, gal, heap: { floor, width: vw, k, vh, vw, pillW } };
 }
 
 /* ---------- Rajzolók ---------- */
@@ -104,6 +134,11 @@ function drawTitle(g, it, q) {
   g.fillStyle = '#f2f2f2'; g.fillText(it.name, W / 2, y + tc);
   g.font = `400 ${cs}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
   g.fillStyle = 'rgba(242,242,242,0.7)'; g.fillText((it.cat || '').toUpperCase(), W / 2, y + tc + gap + cc);
+}
+function drawLabel(g, it, q) {
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `400 ${it.size * q}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
+  g.fillStyle = '#f2f2f2'; g.fillText(it.text, it.w * q / 2, it.h * q / 2 + it.size * q * 0.06);
 }
 // p = 0: minden sor szavai a teljes szélességben, sorkizártan széthúzva; p = 1: középre zárt bekezdés (dW széles).
 // Az alsó sorok kicsit később állnak össze, így a bekezdés alulról felfelé „zárul”.
@@ -215,7 +250,8 @@ function makeItem(it, k) {
     if (it.kind === 'img') imageDrawer(it, () => { tex.needsUpdate = true; })(g, q);
     else {
       o.p = it.spread ? 0 : 1;
-      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); (it.kind === 'title' ? drawTitle : drawDesc)(g, it, q, o.p); tex.needsUpdate = true; };
+      const draw = it.kind === 'title' ? drawTitle : (it.kind === 'label' ? drawLabel : drawDesc);
+      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); draw(g, it, q, o.p); tex.needsUpdate = true; };
       o.redraw();
     }
     add(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }), 0, 1);
@@ -332,18 +368,42 @@ export function updateDrum(dt, s, closing) {
   }
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
   const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
+  const GL = DL.gal;
+  let gOff = 0, gProg = 0, gFade = 1;
+  if (GL) {                                          // a két oszlopos galéria: előtte / utána a lap visz, közben a hurok forog
+    if (s < GL.s0) gOff = s - GL.s0; else if (s > GL.s0 + GL.spin) { gOff = s - GL.s0 - GL.spin; gProg = GL.spin; } else gProg = s - GL.s0;
+    gFade = THREE.MathUtils.smoothstep(gOff, -GL.fadeD, 0);
+  }
+  // a hurok: jobb oldal (lam < Hc) felfelé, bal oldal lefelé; visszaad: [u, oldal: +1 jobb / −1 bal]
+  const loopU = lam0 => {
+    const L = 2 * GL.Hc, lam = ((lam0 + gProg) % L + L) % L;
+    return lam < GL.Hc ? [lam - GL.Hc / 2 + gOff, 1] : [1.5 * GL.Hc - lam + gOff, -1];
+  };
   items.forEach(o => {
-    const it = o.it, u = s - it.yc;
+    const it = o.it;
+    let u = s - it.yc, xx = it.x, fade = 1;
+    if (it.lam0 !== undefined) {
+      const [uu, side] = loopU(it.lam0);
+      u = uu; xx = side * GL.X; it.side = side;
+      if (side < 0 && uu - gOff > GL.ih / 2) fade = gFade;    // a bal oszlop fölötte várakozó képei érkezéskor úsznak be
+      it.uNow = u;
+    } else if (it.of) {                              // a kép felirata: balra a kép jobb felső sarka mellett, jobbra a bal alsó mellett
+      const im = it.of, f = DL.f, sd = im.side || -1;
+      u = (im.uNow ?? 0) + sd * -1 * (im.h / 2 - it.h / 2);
+      xx = sd < 0 ? -GL.X + im.w / 2 + 25 * f + it.w / 2 : GL.X - im.w / 2 - 19 * f - it.w / 2;
+      fade = im.fadeNow ?? 1;
+    }
+    it.fadeNow = fade;
     if (it.spread) {                                 // a leírás szavai felfelé jövet, a közép alatt állnak össze
       const p = u >= -vh * 0.06 ? 1 : 1 - THREE.MathUtils.smoothstep(-u, vh * 0.06, vh * 0.4);
       if (Math.abs(p - o.p) > 0.002 || (p !== o.p && (p === 0 || p === 1))) { o.p = p; o.redraw(); }
     }
-    const vis = Math.abs(u) - it.h / 2 < lim && ca > 0.002;
+    const vis = Math.abs(u) - it.h / 2 < lim && ca * fade > 0.002;
     o.holder.visible = vis;
     if (vis) {
       placeOnPath(o, u, k);
-      o.holder.position.set(it.x * k, 0, 0);
-      o.mats.forEach(m => { m.opacity = ca; });
+      o.holder.position.set(xx * k, 0, 0);
+      o.mats.forEach(m => { m.opacity = ca * fade; });
     }
     if (o.video) {                                   // a közepéhez ért → egyszer lejátszódik; ha messze elment, vissza az elejére
       const v = o.video, here = Math.abs(u) < vh * 0.22;

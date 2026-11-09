@@ -16,18 +16,19 @@ export const PROJECTS = [
       full: ['assets/projects/zsebkonyv/hasznalat.webp'],
       // galéria: kép, vagy { src, video }: a videó akkor játszódik le (egyszer), amikor a kép a helyére ért, és az utolsó
       // kockáján áll meg (az a poszter maga). A 19-es videó visszafelé van kiírva (Patrik: visszafelé fusson, majd álljon meg).
+      // name: a fajta neve (az ellentétes oszlopos tesztben a kép mellett látszik; a többi nevét Patriktól kell még megkérdezni)
       gallery: [
-        { src: 'assets/projects/zsebkonyv/poszterek-05.webp', video: 'assets/projects/zsebkonyv/poszterek-05.mp4' },
-        'assets/projects/zsebkonyv/poszterek-07.webp',
+        { src: 'assets/projects/zsebkonyv/poszterek-05.webp', video: 'assets/projects/zsebkonyv/poszterek-05.mp4', name: 'Lavender' },   // a RAR 39-ese ugyanez a kép
+        { src: 'assets/projects/zsebkonyv/poszterek-30.webp', name: 'Deathstar' },
         'assets/projects/zsebkonyv/poszterek-08.webp',
-        'assets/projects/zsebkonyv/poszterek-09.webp',
         'assets/projects/zsebkonyv/poszterek-12.webp',
-        'assets/projects/zsebkonyv/poszterek-14.webp',
         'assets/projects/zsebkonyv/poszterek-15.webp',
         'assets/projects/zsebkonyv/poszterek-16.webp',
         'assets/projects/zsebkonyv/poszterek-17.webp',
         { src: 'assets/projects/zsebkonyv/poszterek-19.webp', video: 'assets/projects/zsebkonyv/poszterek-19-rev.mp4' },
-        'assets/projects/zsebkonyv/poszterek-28.webp',
+        'assets/projects/zsebkonyv/poszterek-32.webp',
+        'assets/projects/zsebkonyv/poszterek-34.webp',
+        'assets/projects/zsebkonyv/poszterek-35.webp',
       ],
     } },
   { id: 'P05', name: 'Digitális pokol', cat: 'Print', meta: '' },
@@ -44,9 +45,11 @@ export const CONTACT = { behance: '', instagram: '', email: '' };
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 2, pjTextStill: false, pjLight: false };   // Patrik beállításai (Másolás)
+export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 2, pjTextStill: false, pjLight: false, pjCols: true };   // Patrik beállításai (Másolás)
 // pjMode: a projekt-aloldal formája (0 = üvegkártyák, 1 = függőleges pill-test csigavonallal, 2 = henger: a vízszintes pill
 // a teljes képernyőre nyúlik, a tartalom vízszintes tengelyű hengeren gördül fel; js/drum.js)
+// pjCols: teszt a henger-oldalon (Patrik, Figma: Desktop – 17): a galéria két, ellentétes irányba gördülő oszlopban, a képek
+// helyet cserélnek (a jobb oldali felmegy, és balra jön le); kikapcsolva a soronként 3 képes rács
 // pjLight: a henger-oldal teljes képernyős pill-testén legyen-e fény (tükröződés, csíkfény); alapból nincs (Patrik tesztje)
 // pjTextStill: teszt a pill-oldalon: a cím és a szöveg nem forog, a test közepén áll (a képek körülötte forognak); alapból ki
 // az aktuális beállítások (a Glass panel írja, mindenki más olvassa)
@@ -71,17 +74,17 @@ export const DETAIL_TEST = {
   label: 'Introduction ipsum',
   intro: 'Ez az alufóliából készült víz témájú portfólióm bemutató szövege. / This is the showcase text for my water-themed portfolio made from aluminum foil.',
   text: 'Ez az alufóliából készült víz témájú portfólióm bemutató szövege. / This is the showcase text for my water-themed portfolio made from aluminum foil.',
-  gallery: [   // Zsebkönyv illusztrációk (Patrik posztersorozata)
+  gallery: [   // Zsebkönyv illusztrációk (Patrik posztersorozata, a RAR-jában lévő 12 kép; a 39 = a 05)
     'assets/projects/zsebkonyv/poszterek-05.webp',
-    'assets/projects/zsebkonyv/poszterek-07.webp',
     'assets/projects/zsebkonyv/poszterek-08.webp',
-    'assets/projects/zsebkonyv/poszterek-09.webp',
     'assets/projects/zsebkonyv/poszterek-12.webp',
-    'assets/projects/zsebkonyv/poszterek-14.webp',
     'assets/projects/zsebkonyv/poszterek-15.webp',
     'assets/projects/zsebkonyv/poszterek-16.webp',
     'assets/projects/zsebkonyv/poszterek-17.webp',
     'assets/projects/zsebkonyv/poszterek-19.webp',
-    'assets/projects/zsebkonyv/poszterek-28.webp',
+    'assets/projects/zsebkonyv/poszterek-30.webp',
+    'assets/projects/zsebkonyv/poszterek-32.webp',
+    'assets/projects/zsebkonyv/poszterek-34.webp',
+    'assets/projects/zsebkonyv/poszterek-35.webp',
   ],
 };
