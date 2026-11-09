@@ -16,7 +16,7 @@ export const PROJECTS = [
       full: ['assets/projects/zsebkonyv/hasznalat.webp'],
       // galéria: kép, vagy { src, video }: a videó akkor játszódik le (egyszer), amikor a kép a helyére ért, és az utolsó
       // kockáján áll meg (az a poszter maga). A 19-es videó visszafelé van kiírva (Patrik: visszafelé fusson, majd álljon meg).
-      // name: a fajta neve (az ellentétes oszlopos tesztben a kép mellett látszik; a többi nevét Patriktól kell még megkérdezni)
+      // name: a fajta neve (egyelőre nem jelenik meg; a két oszlopos teszt kikerült)
       gallery: [
         { src: 'assets/projects/zsebkonyv/poszterek-05.webp', video: 'assets/projects/zsebkonyv/poszterek-05.mp4', name: 'Lavender' },   // a RAR 39-ese ugyanez a kép
         { src: 'assets/projects/zsebkonyv/poszterek-30.webp', name: 'Deathstar' },
@@ -45,11 +45,9 @@ export const CONTACT = { behance: '', instagram: '', email: '' };
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 2, pjTextStill: false, pjLight: false, pjCols: true };   // Patrik beállításai (Másolás)
+export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 2, pjTextStill: false, pjLight: false };   // Patrik beállításai (Másolás)
 // pjMode: a projekt-aloldal formája (0 = üvegkártyák, 1 = függőleges pill-test csigavonallal, 2 = henger: a vízszintes pill
 // a teljes képernyőre nyúlik, a tartalom vízszintes tengelyű hengeren gördül fel; js/drum.js)
-// pjCols: teszt a henger-oldalon (Patrik, Figma: Desktop – 17): a galéria két, ellentétes irányba gördülő oszlopban, a képek
-// helyet cserélnek (a jobb oldali felmegy, és balra jön le); kikapcsolva a soronként 3 képes rács
 // pjLight: a henger-oldal teljes képernyős pill-testén legyen-e fény (tükröződés, csíkfény); alapból nincs (Patrik tesztje)
 // pjTextStill: teszt a pill-oldalon: a cím és a szöveg nem forog, a test közepén áll (a képek körülötte forognak); alapból ki
 // az aktuális beállítások (a Glass panel írja, mindenki más olvassa)

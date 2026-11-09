@@ -62,32 +62,8 @@ export function drumLayout(o) {
   const add = (it, h) => { it.yc = y + h / 2; items.push(it); y += h; };
   if (cover) { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius }, cvH); y += G; }
   full.forEach(src => { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: srcOf(src), radius }, cvH); y += G; });
-  let gal = null;
-  if (o.cols2 && !mob && gallery.length) {
-    // teszt (Patrik, Figma: Desktop – 17): a képek ugyanúgy gördülnek, mint eddig, soronként kettő (balra és jobbra); középen,
-    // a két kép között egy-egy kis hengeren forognak a fajtanevek: a bal kép neve fentről lefelé, a jobbé lentről felfelé
-    // fordul át, ahogy a sor a közepén áthalad
-    let iw = 440 * f, ih = 628 * f;
-    if (ih > vh * 0.66) { ih = vh * 0.66; iw = ih * 440 / 628; }
-    const X = Math.min(458 * f, vw / 2 - 30 - iw / 2), d = ih + Gr;
-    gal = { X, iw, ih, d, nx: 166 * f, nr: (ih / 2 - 15 * f) / Math.sin(Math.PI / 3) };
-    const rowsN = Math.ceil(gallery.length / 2);
-    gallery.forEach((g, j) => {
-      const r = Math.floor(j / 2), side = j % 2 ? 1 : -1, yc = y + r * d + ih / 2;
-      items.push({ kind: 'img', w: iw, h: ih, x: side * X, src: srcOf(g), video: g && g.video, radius: 10 * f, yc });
-      const num = (srcOf(g).match(/(\d+)\.\w+$/) || [])[1];
-      const name = (g && g.name) || (num ? 'Poszter ' + num : '');              // a hiányzó fajtanevek helyén egyelőre a poszter száma
-      if (name) {
-        const size = Math.max(14, 20 * f);
-        measure.font = `400 ${size}px ${FONT}`;
-        const text = name.toUpperCase(), w = measure.measureText(text).width + 8;
-        items.push({ kind: 'label', text, size, w, h: 30 * f, x: side * gal.nx, drum: side, yc });
-      }
-    });
-    y += rowsN * d - Gr;
-  }
-  const rows = gal ? 0 : Math.ceil(gallery.length / cols);
-  if (!gal) gallery.forEach((g, j) => {
+  const rows = Math.ceil(gallery.length / cols);
+  gallery.forEach((g, j) => {
     const r = Math.floor(j / cols), col = j % cols, inRow = Math.min(cols, gallery.length - r * cols);
     items.push({ kind: 'img', w: cw, h: ch, x: (col - (inRow - 1) / 2) * (cw + gx), src: srcOf(g), video: g && g.video, radius,
       yc: y + r * (ch + Gr) + ch / 2 });
@@ -98,7 +74,7 @@ export function drumLayout(o) {
   const floor = lastBottom + vh / 2 + vh * 0.42;
   const sMax = Math.max(0, floor - vh + (mob ? 36 : 64));
   const pillW = Math.min(PW / k, (mob ? vw : 900) / 3.3);
-  return { vw, vh, k, mob, f, A, Rc, items, sMax, gal, heap: { floor, width: vw, k, vh, vw, pillW } };
+  return { vw, vh, k, mob, f, A, Rc, items, sMax, heap: { floor, width: vw, k, vh, vw, pillW } };
 }
 
 /* ---------- Rajzolók ---------- */
@@ -128,11 +104,6 @@ function drawTitle(g, it, q) {
   g.fillStyle = '#f2f2f2'; g.fillText(it.name, W / 2, y + tc);
   g.font = `400 ${cs}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
   g.fillStyle = 'rgba(242,242,242,0.7)'; g.fillText((it.cat || '').toUpperCase(), W / 2, y + tc + gap + cc);
-}
-function drawLabel(g, it, q) {
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `400 ${it.size * q}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
-  g.fillStyle = '#f2f2f2'; g.fillText(it.text, it.w * q / 2, it.h * q / 2 + it.size * q * 0.06);
 }
 // p = 0: minden sor szavai a teljes szélességben, sorkizártan széthúzva; p = 1: középre zárt bekezdés (dW széles).
 // Az alsó sorok kicsit később állnak össze, így a bekezdés alulról felfelé „zárul”.
@@ -244,8 +215,7 @@ function makeItem(it, k) {
     if (it.kind === 'img') imageDrawer(it, () => { tex.needsUpdate = true; })(g, q);
     else {
       o.p = it.spread ? 0 : 1;
-      const draw = it.kind === 'title' ? drawTitle : (it.kind === 'label' ? drawLabel : drawDesc);
-      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); draw(g, it, q, o.p); tex.needsUpdate = true; };
+      o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); (it.kind === 'title' ? drawTitle : drawDesc)(g, it, q, o.p); tex.needsUpdate = true; };
       o.redraw();
     }
     add(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }), 0, 1);
@@ -362,25 +332,8 @@ export function updateDrum(dt, s, closing) {
   }
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
   const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
-  const GL = DL.gal;
   items.forEach(o => {
-    const it = o.it;
-    const u = s - it.yc;
-    if (it.drum) {                                   // név a középső kis hengeren (a pálya helyett a képernyő közepén áll)
-      // a sor közepén áthaladva: bal név +60° → −60° (fentről le), jobb név −60° → +60° (lentről fel)
-      const th = it.drum * (-Math.PI / 3 + (u / GL.d) * (2 * Math.PI / 3));
-      const vis = Math.abs(th) < Math.PI / 2 - 0.02 && ca > 0.002;
-      o.holder.visible = vis;
-      if (vis) {
-        const r = GL.nr;
-        // a dőlés és a mélység a valódi henger ~60%-a: a Figma-állásban (fent / lent, ±60°) is jól olvasható maradjon
-        o.holder.position.set(it.x * k, r * Math.sin(th) * k, (r * Math.cos(th) - r) * 0.6 * k);
-        o.holder.rotation.set(-th * 0.6, 0, 0);
-        const a = ca * (1 - THREE.MathUtils.smoothstep(Math.abs(th), 1.2, 1.55));
-        o.mats.forEach(m => { m.opacity = a; });
-      }
-      return;
-    }
+    const it = o.it, u = s - it.yc;
     if (it.spread) {                                 // a leírás szavai felfelé jövet, a közép alatt állnak össze
       const p = u >= -vh * 0.06 ? 1 : 1 - THREE.MathUtils.smoothstep(-u, vh * 0.06, vh * 0.4);
       if (Math.abs(p - o.p) > 0.002 || (p !== o.p && (p === 0 || p === 1))) { o.p = p; o.redraw(); }
