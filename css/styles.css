@@ -159,9 +159,9 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .back:hover { background: rgba(255, 255, 255, 0.08); }
 .back:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
 .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
-@media (max-width: 720px) {   /* telefonon kisebb, különben a logóhoz ér */
-  .back { height: 48px; padding: 0 20px 0 14px; gap: 6px; font-size: 14px; }
-  .back svg { width: 20px; height: 20px; }
+@media (max-width: 720px) {   /* keskeny képernyőn csak a nyíl, kör alakú gomb (Patrik), különben a logóhoz ér */
+  .back { width: 52px; height: 52px; padding: 0; justify-content: center; }
+  .back span { display: none; }
 }
 
 /* nyitott projektnél a kezdőlap címkéi eltűnnek */
