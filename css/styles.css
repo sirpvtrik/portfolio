@@ -157,7 +157,8 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
   background: rgba(255, 255, 255, 0.03); color: #f2f2f2; font: 400 16px 'Nohemi', var(--display); letter-spacing: 0; text-transform: none;
   box-shadow: inset 0 0 10.9px -6px rgba(255, 255, 255, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: background .2s ease; }
 .back:hover { background: rgba(255, 255, 255, 0.08); }
-.back:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+.back:focus, .back:focus-visible { outline: none; }   /* a fehér fókuszkeret kikerült (Patrik); billentyűvel a háttér világosodik */
+.back:focus-visible { background: rgba(255, 255, 255, 0.1); }
 .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 720px) {   /* keskeny képernyőn csak a nyíl, kör alakú gomb (Patrik), különben a logóhoz ér */
   .back { width: 52px; height: 52px; padding: 0; justify-content: center; }
