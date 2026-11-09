@@ -30,6 +30,8 @@ export const glassFS = /* glsl */`
   uniform float uRim;
   uniform float uLens;    // lencse a lap szélén (liquid glass): 1 = pill, 0 = kártya
   uniform float uLensW;   // a lencse-sáv szélessége a fél magassághoz képest (pill: 0,62; a nagy projekt-testen keskenyebb)
+  uniform float uFace;    // a sík lap tükröződései (softbox, csíkfény, csillanás): 1 = pill; a teljes képernyős projekt-testen
+                          // szinte 0, mert ott a lap egésze egyszerre fényesedett ki (Patrik: „nagyon zavaróan fénylik”)
   uniform vec2 uCurP;     // az egérfény helye (pixel, alulról) és ereje: a perem közelében elkapja a fényt
   uniform float uCurL;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
   varying vec3 vN;
@@ -145,16 +147,16 @@ export const glassFS = /* glsl */`
       float li = 0.45 + 0.55 * uLightInt;
       float face = 1.0 - w;
       float sb = smoothstep(0.15, 0.97, dot(R, Ld));
-      col += vec3(sb * sb) * (0.42 * face + 0.85 * w * F + 0.1) * li * boost;
+      col += vec3(sb * sb) * ((0.42 * face + 0.1) * uFace + 0.85 * w * F) * li * boost;
       vec3 Ls = normalize(vec3(cos(la) * 0.55, 0.8, 0.35));
       float xs = dot(R, Ls);
       vec3 strip = vec3(exp(-pow((xs - 0.9) / 0.05, 2.0)));             // fehér csíkfény (szivárvány nélkül)
       vec2 eq = abs(vLocal) - (uHalf - uRad);
       float din = max(-(length(max(eq, 0.0)) + min(max(eq.x, eq.y), 0.0) - uRad), 0.0) / uHalf.y;
       float edgeZone = max(w, exp(-din / 0.18) * face);                  // a perem és a lap széle
-      col += strip * (0.25 + 1.1 * edgeZone) * li * rimK;
+      col += strip * (0.25 * uFace + 1.1 * edgeZone * (0.5 + 0.5 * uFace)) * li * rimK;   // a nagy testen a szélén is visszafogottabb
       col += vec3(exp(-pow(din / 0.025, 2.0)) * 0.18 * face) * li;       // tiszta, vékony szél
-      col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 140.0) * 1.4 * li * rimK;   // csillanás
+      col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 140.0) * 1.4 * li * rimK * mix(uFace, 1.0, w);   // csillanás
     } else {
       col += vec3(envAt(R, Ld)) * F * uLightInt * boost * rimK;
       col += smoothstep(0.86, 1.0, dot(R, Ld)) * 0.26 * uLightInt;        // sheen
@@ -188,6 +190,7 @@ export const glassFS = /* glsl */`
 export const glassBackFS = /* glsl */`
   precision highp float;
   uniform float uLightAng, uLightInt, uRim;
+  uniform float uBackK;   // a belső hátlap fénye (1 = pill; a teljes képernyős projekt-testen halvány, különben az egész kép ködös)
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
@@ -208,5 +211,5 @@ export const glassBackFS = /* glsl */`
     vec3 strip = vec3(exp(-pow((xs - 0.9) / 0.06, 2.0)));      // fehér
     vec3 col = vec3(sb * sb) * (0.07 + 0.6 * w * g) + strip * (0.18 + 0.9 * w);
     col += vec3(smoothstep(0.55, 0.98, g)) * 0.32 * w;        // a túloldali perem vékony fényes vonala
-    gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim), 1.0);
+    gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim) * uBackK, 1.0);
   }`;

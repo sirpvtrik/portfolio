@@ -37,6 +37,7 @@ export const U = {
   uGlowOn: { value: 1 },  // a Glass panel „Perem-glow” kapcsolója
   uCurP: { value: new THREE.Vector2(-9999, -9999) }, uCurL: { value: 0 },   // az egérfény (js/cursor.js): a perem elkapja
   uLensW: { value: 0.62 },   // a lencse-sáv szélessége (a pilleken; a projekt-test sajátot kap)
+  uFace: { value: 1 }, uBackK: { value: 1 },   // a sík lap tükröződése / a belső hátlap fénye (a henger-test sajátot kap)
 };
 
 // a render target kirajzolása a képernyőre (így a háttér csak egyszer számolódik)

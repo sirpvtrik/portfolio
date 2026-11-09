@@ -193,8 +193,8 @@ export function buildDrum(grp, layout, k, opts) {
   const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, {
     uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
     uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 }, uLens: { value: 1 },
-    uLensW: { value: 0.62 } }) });
-  const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: U,
+    uLensW: { value: 0.62 }, uFace: { value: 1 } }) });
+  const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: Object.assign({}, U, { uBackK: { value: 1 } }),
     side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const holder = new THREE.Group(); group.add(holder);
   const glass = onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS), back = onLayer(new THREE.Mesh(geo, bmat), LAYER_BG);
@@ -226,7 +226,12 @@ function setStretch(dx, dy) {
   const hy = PH / 2 + dy, u = body.mat.uniforms;
   u.uHalf.value.set(PW / 2 + dx, hy);
   u.uLensW.value = Math.min(0.62, 70 * kk / hy);      // a lencse a nagy testen csak a szélén (~70 px) tör
-  u.uLens.value = lerp(1, 0.8, clamp(dy / Math.max(body.dyF, 1e-3), 0, 1));
+  const grow = clamp(dy / Math.max(body.dyF, 1e-3), 0, 1);
+  u.uLens.value = lerp(1, 0.8, grow);
+  // ahogy kinő a teljes képernyőre, a lap tükröződései és a hátlap fénye elhalványul (különben az egész kép fénylik);
+  // a szélén a csíkfény és a vékony fényes él megmarad
+  u.uFace.value = lerp(1, 0.06, grow);
+  body.bmat.uniforms.uBackK.value = lerp(1, 0.2, grow);
 }
 // a sík a henger felületére hajlik (vízszintes tengely): b = 0 egyenes, 1 = a henger sugarán
 function bendY(o, Rw, b) {
