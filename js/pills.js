@@ -271,13 +271,15 @@ function selectPill(i) {
   });
   if (onSelectFn) onSelectFn(i);
 }
-export function restorePills() {
+// keep: ennek a pillnek a helyére csukódott vissza a projekt-oldal (henger), ezért az a helyén marad, csak a többi esik be
+export function restorePills(keep = -1) {
   mode = 'returning'; modeT = 0; stack.visible = true;
   stack.position.set(0, TOWER_Y, 0); stack.scale.setScalar(1);       // a halom (js/heap.js) után vissza a torony helyére
   pills.forEach((pl, j) => {
-    pl.dy = visH * 0.75 + j * 0.5; pl.dvy = 0;                 // a képen kívülről, fentről esnek vissza
-    pl.drz = (Math.random() - 0.5) * 0.8; pl.dvrz = 0;
-    pl.ds = 1; pl.dz = 0; pl.delay = j * 0.06;
+    const stay = j === keep;
+    pl.dy = stay ? 0 : visH * 0.75 + j * 0.5; pl.dvy = 0;      // a képen kívülről, fentről esnek vissza
+    pl.drz = stay ? 0 : (Math.random() - 0.5) * 0.8; pl.dvrz = 0;
+    pl.ds = 1; pl.dz = 0; pl.delay = stay ? 0 : j * 0.06;
     pl.holder.visible = true;
   });
 }

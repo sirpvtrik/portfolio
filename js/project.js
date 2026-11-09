@@ -6,6 +6,8 @@
 // Teszt (S.pjMode = 1, Glass panel „Projekt”): a kiválasztott pill elfordul, megnő és lefelé megnyúlik, ez lesz a projekt
 // teste (fent a cím, a borító és a szöveg); alatta a galéria képei spirálban futnak körbe a test körül, és görgetésre
 // forognak: mindig az a kép van elöl, amelyik a képernyő közepén jár, a többi oldalra, majd a pill mögé kerül (az üveg megtöri).
+// Henger (S.pjMode = 2, js/drum.js): a vízszintes pill a teljes képernyőre nyúlik, a tartalom vízszintes tengelyű hengeren
+// gördül fel lépésenként; itt csak a görgetés (és a lépéshatárra ugrás) meg a nyitás / zárás van.
 import { S, reduced, DETAIL_TEST, PROJECTS, PW, PH } from './config.js';
 import { scene, renderer, camera, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH, setCameraLift } from './scene.js';
 import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
@@ -14,6 +16,7 @@ import { onSelect, restorePills, paletteOf, pills } from './pills.js';
 import { setWavesCentered, setWaveColor } from './waves.js';
 import { damp } from './util.js';
 import { setupHeap, resetHeap, updateHeap, heapPointer, preloadHeap } from './heap.js';
+import { drumLayout, buildDrum, updateDrum, disposeDrum, drumRests, drumStart, drumSkipIntro, drumClose } from './drum.js';
 
 const root = document.getElementById('project');
 const input = document.getElementById('pjInput');
@@ -26,10 +29,12 @@ const geoKey = () => S.depth + '/' + S.thick + '/' + S.pjMode;   // Depth, Vasta
 let D = DETAIL_TEST, cur = -1;                   // a nyitott projekt tartalma (a projekt saját detail-je a DETAIL_TEST fölött) és sorszáma
 let pp = null, morphT = 99, pillStart = null;    // a megnyúlt pill (teszt) és a kiinduló helyzete (a toronybeli pill)
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
+let lastInput = 0, restAt = 0;                   // henger: az utolsó görgető mozdulat ideje és az utolsó nyugvópont
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const srcOf = g => (g && typeof g === 'object') ? g.src : g;   // galéria-elem: kép útvonala, vagy { src, video }
 
 /* ---------- Elrendezés (képernyő-pixelben; a 3D-be visH / képernyőmagasság szorzóval kerül) ---------- */
 const measure = document.createElement('canvas').getContext('2d');
@@ -47,6 +52,12 @@ const textLayout = (w, u) => { measure.font = `400 ${24 * u}px ${FONT}`; return 
 
 function computeLayout() {
   const vw = innerWidth, vh = innerHeight, mob = vw <= 720;
+  if (S.pjMode === 2) {                              // henger (js/drum.js)
+    const p = PROJECTS[cur] || { name: '', cat: '' };
+    const DL = drumLayout({ vw, vh, k: visH / vh, name: p.name, cat: p.cat, intro: D.intro,
+      cover: p.image || srcOf(D.gallery[0]) || null, gallery: p.image ? D.gallery : D.gallery.slice(1) });
+    return { mode: 'drum', vw, vh, mob, u: 1, gw: vw, list: [], sMax: DL.sMax, drum: DL, heap: DL.heap };
+  }
   const gw = mob ? vw - 32 : Math.min(900, vw - 48), u = mob ? gw / 560 : gw / 900, g = 20 * u;
   const list = [];                                   // kind, x/y = bal felső sarok (x a rács bal szélétől, y a lap tetejétől)
   let y = mob ? 110 : 150;
@@ -219,6 +230,7 @@ function build() {
   const k = visH / L.vh, depth01 = S.depth / 100, d = D;
   group = new THREE.Group(); scene.add(group);
   if (L.pill) { buildPill(k, depth01); loadFonts(d); return; }
+  if (L.drum) { buildDrum(group, L.drum, k, { pillStart }); loadFonts(d); return; }
   cards = L.list.map(c => {
     const draw = c.kind === 'intro' ? drawIntro : c.kind === 'text' ? drawText : null;
     const card = makeCard(c.w, c.h, k, depth01, draw, c.order, !!draw);   // a szöveges kártyák tartalma az üveg elé kerül
@@ -226,7 +238,7 @@ function build() {
   });
   galHolder = new THREE.Group(); group.add(galHolder);
   const pics = d.gallery.length ? d.gallery : [null, null, null, null];
-  gal = pics.map((src, i) => { const c = makeCard(L.cw, L.ch, k, depth01, galleryDrawer(src), 4 + Math.min(i, 3)); galHolder.add(c.holder); return c; });
+  gal = pics.map((src, i) => { const c = makeCard(L.cw, L.ch, k, depth01, galleryDrawer(srcOf(src)), 4 + Math.min(i, 3)); galHolder.add(c.holder); return c; });
   loadFonts(d);
 }
 function loadFonts(d) {
@@ -266,7 +278,7 @@ function buildPill(k, depth01) {
   const title = textPlane(P.title.w, P.title.h, k, drawPillTitle, 6, THREE.DoubleSide);
   const text = textPlane(P.text.w, P.text.h, k, drawPillText, 8, THREE.DoubleSide);
   title.still = text.still = true;                       // „Szöveg áll” teszt: ezek nem forognak
-  const cover = (PROJECTS[cur] && PROJECTS[cur].image) || D.gallery[0] || null;
+  const cover = (PROJECTS[cur] && PROJECTS[cur].image) || srcOf(D.gallery[0]) || null;
   const img = textPlane(P.img.w, P.img.h, k, galleryDrawer(cover), 7, THREE.DoubleSide);
   img.place = P.img; title.place = P.title; text.place = P.text;
   cards = [title, img, text];
@@ -274,7 +286,7 @@ function buildPill(k, depth01) {
   cards.forEach(c => cyl.add(c.holder));
   const pics = D.gallery.length ? D.gallery : [null, null, null, null];
   // a galéria képei kétoldalasak: a test túloldalán is látszanak (az üvegen át, halványabban)
-  gal = pics.map((src, i) => { const c = textPlane(L.cw, L.ch, k, galleryDrawer(src), 9 + Math.min(i, 3), THREE.DoubleSide); cyl.add(c.holder); return c; });
+  gal = pics.map((src, i) => { const c = textPlane(L.cw, L.ch, k, galleryDrawer(srcOf(src)), 9 + Math.min(i, 3), THREE.DoubleSide); cyl.add(c.holder); return c; });
 }
 function setStretch(d) {
   if (Math.abs(d - pp.d) < 1e-5) return;
@@ -378,6 +390,7 @@ function dispose() {
   scene.remove(group);
   [...cards, ...gal].forEach(c => { c.geo.dispose(); c.mat.dispose(); if (c.tex) c.tex.dispose(); if (c.pgeo) { c.pgeo.dispose(); c.pmat.dispose(); } });
   if (pp) { pp.geo.dispose(); pp.mat.dispose(); pp.bmat.dispose(); pp = null; }
+  disposeDrum();
   group = null; cards = []; gal = [];
 }
 
@@ -387,8 +400,9 @@ function open(i) {
   isOpen = true; closing = false; s = 0; vel = 0; openT = 0;
   cur = i; D = PROJECTS[i].detail ? Object.assign({}, DETAIL_TEST, PROJECTS[i].detail) : DETAIL_TEST;
   // teszt-forma: a kiválasztott pill helyéről nő ki a projekt teste (a toronybeli pill eltűnik, a restorePills visszahozza)
-  pillStart = null; morphT = reduced ? 99 : 0;
-  if (S.pjMode === 1 && pills[i]) {
+  pillStart = null; morphT = reduced ? 99 : 0; restAt = 0; lastInput = 0;
+  if (S.pjMode === 2) { drumStart(); if (reduced) drumSkipIntro(); }   // henger: a pill a helyéről nyúlik szét
+  if ((S.pjMode === 1 || S.pjMode === 2) && pills[i]) {
     const h = pills[i].holder, w = new THREE.Vector3();
     h.updateWorldMatrix(true, false); h.getWorldPosition(w);
     pillStart = { x: w.x, y: w.y, z: w.z, sc: h.scale.x };
@@ -404,6 +418,8 @@ function open(i) {
 function close() {
   if (!isOpen || closing) return;
   closing = true;
+  const isDrum = !!(L && L.drum);
+  if (isDrum) drumClose();                           // henger: a test visszacsukódik a pill helyére (js/drum.js)
   setTimeout(() => {
     isOpen = false; closing = false;
     dispose(); resetHeap();
@@ -411,8 +427,8 @@ function close() {
     document.body.classList.remove('project-open');
     setWavesCentered(true);
     setWaveColor(null);
-    restorePills();
-  }, reduced ? 0 : 450);
+    restorePills(isDrum ? cur : -1);                 // hengernél a pill a helyén marad, csak a többi esik vissza
+  }, reduced ? 0 : (isDrum ? 780 : 450));
 }
 onSelect(open);
 // Depth csúszka: a kártyák (a galériáé is) újraépülnek az új peremmel, a megjelenés és a görgetés megmarad
@@ -423,8 +439,8 @@ export function requestCardRebuild() {
     depthPending = false;
     if (!group || closing || builtDepth === geoKey()) return;
     const a = cards.concat(gal).map(c => c.a);
-    morphT = 99;
-    if (S.pjMode === 1 && cur >= 0 && pills[cur]) pills[cur].holder.visible = false;   // kártyákról pillre váltva se maradjon ott
+    morphT = 99; drumSkipIntro();
+    if (S.pjMode >= 1 && cur >= 0 && pills[cur]) pills[cur].holder.visible = false;   // kártyákról pillre váltva se maradjon ott
     build();
     cards.concat(gal).forEach((c, i) => { c.a = a[i] ?? 1; c.av = 0; });
   });
@@ -436,6 +452,7 @@ input.addEventListener('wheel', e => {
   e.preventDefault();
   const k = e.deltaMode === 1 ? 32 : (e.deltaMode === 2 ? innerHeight : 1);
   vel = clamp(vel + e.deltaY * k * 5, -7000, 7000);
+  lastInput = performance.now();
 }, { passive: false });
 input.addEventListener('pointerdown', e => {
   try { input.setPointerCapture(e.pointerId); } catch (_) {}
@@ -447,6 +464,7 @@ input.addEventListener('pointermove', e => {
   const dy = e.clientY - dragY; dragY = e.clientY;
   const now = performance.now(), dts = Math.max(8, now - dragT) / 1000; dragT = now;
   s -= dy; vel = clamp(vel * 0.5 + (-dy / dts) * 0.5, -7000, 7000);
+  lastInput = now;
 });
 const endDrag = () => { if (dragging && performance.now() - dragT > 90) vel = 0; dragging = false; };
 input.addEventListener('pointerup', e => { heapPointer('up', e); endDrag(); });
@@ -457,7 +475,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { close(); return; }
   if (e.target && /INPUT|BUTTON/.test(e.target.tagName) && e.target !== backBtn) return;
   const step = { ArrowDown: 700, PageDown: 1600, ' ': 1600, ArrowUp: -700, PageUp: -1600 }[e.key];
-  if (step) { vel = clamp(vel + step, -7000, 7000); e.preventDefault(); }
+  if (step) { vel = clamp(vel + step, -7000, 7000); lastInput = performance.now(); e.preventDefault(); }
 });
 
 /* ---------- Kockánkénti frissítés ---------- */
@@ -476,18 +494,32 @@ function appear(c, dt) {
   c.av += ((target - c.a) * (closing ? 160 : 90) - c.av * (closing ? 22 : 12.5)) * dt;
   c.a += c.av * dt;
 }
+// henger: ha megállt a görgetés, a következő lépéshatárra ugrik a mozgás irányában (kis mozdulatnál vissza), így minden
+// görgető mozdulat egy lépést hoz (a képek „megvárják egymást”)
+function snapDrum(dt) {
+  if (performance.now() - lastInput < 140 || Math.abs(vel) > 350) return;
+  const rests = drumRests(), STEP = L.drum.STEP, d = s - restAt;
+  let t = restAt;
+  if (!rests.includes(restAt)) t = rests.reduce((a, b) => Math.abs(b - s) < Math.abs(a - s) ? b : a, rests[0]);
+  else if (d > 0.12 * STEP) t = rests.find(r => r >= s - 0.25 * STEP) ?? rests[rests.length - 1];
+  else if (d < -0.12 * STEP) t = [...rests].reverse().find(r => r <= s + 0.25 * STEP) ?? 0;
+  vel += ((t - s) * 42 - vel * 10) * dt;
+  if (Math.abs(t - s) < 0.6 && Math.abs(vel) < 8) { s = t; vel = 0; restAt = t; }
+}
 export function updateProject(dt) {
   const liftT = isOpen && !closing ? 0 : 1.4;                       // a kamera egyenesen néz a kártyákra
   if (Math.abs(lift - liftT) > 1e-4) { lift = damp(lift, liftT, 4, dt); setCameraLift(lift); }
   if (!group) return;
   if (visH !== builtVisH || innerWidth !== L.vw || innerHeight !== L.vh) {   // átméretezés: újraépítés, megjelenés nélkül
-    morphT = 99; build(); cards.concat(gal).forEach(c => { c.a = 1; c.av = 0; });
+    morphT = 99; drumSkipIntro(); build(); cards.concat(gal).forEach(c => { c.a = 1; c.av = 0; });
   }
   openT += dt;
   // fizika
+  if (L.drum && !dragging && !closing) snapDrum(dt);
   if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
   if (s < 0) { s = 0; vel = Math.max(0, vel); }
   if (s > L.sMax) { s = L.sMax; vel = Math.min(0, vel); }
+  if (L.drum) { updateHeap(dt, s, isOpen && !closing); updateDrum(dt, s, closing); return; }
   if (L.pill) { updateHeap(dt, s, isOpen && !closing); updatePillPage(dt); return; }
   updateHeap(dt, s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin), isOpen && !closing);
   // fázisok: lap görög → (galéria középen) a lap áll, a henger forog → a lap görög tovább

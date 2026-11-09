@@ -12,6 +12,21 @@ export const PROJECTS = [
       label: 'Zsebkönyv · Illusztráció',
       intro: '24 kannabiszfajta, 24 fantázianév, 24 illusztráció – egy zsebkönyvben, ami egyszerre informatív(!) és szórakoztató.',
       text: 'Egyetemi feladat volt: 24 illusztráció, mind más stílusban, Adobe Illustratorban. A keretet én adtam hozzá: minden kép egy kannabiszfajta fantázianevéből indul ki.',
+      // galéria: kép, vagy { src, video }: a videó akkor játszódik le (egyszer), amikor a kép a helyére ért, és az utolsó
+      // kockáján áll meg (az a poszter maga). A 19-es videó visszafelé van kiírva (Patrik: visszafelé fusson, majd álljon meg).
+      gallery: [
+        { src: 'assets/projects/zsebkonyv/poszterek-05.webp', video: 'assets/projects/zsebkonyv/poszterek-05.mp4' },
+        'assets/projects/zsebkonyv/poszterek-07.webp',
+        'assets/projects/zsebkonyv/poszterek-08.webp',
+        'assets/projects/zsebkonyv/poszterek-09.webp',
+        'assets/projects/zsebkonyv/poszterek-12.webp',
+        'assets/projects/zsebkonyv/poszterek-14.webp',
+        'assets/projects/zsebkonyv/poszterek-15.webp',
+        'assets/projects/zsebkonyv/poszterek-16.webp',
+        'assets/projects/zsebkonyv/poszterek-17.webp',
+        { src: 'assets/projects/zsebkonyv/poszterek-19.webp', video: 'assets/projects/zsebkonyv/poszterek-19-rev.mp4' },
+        'assets/projects/zsebkonyv/poszterek-28.webp',
+      ],
     } },
   { id: 'P05', name: 'Digitális pokol', cat: 'Print', meta: '' },
   { id: 'P06', name: 'Painpoint',       cat: 'App',   meta: '' },
@@ -23,8 +38,9 @@ export const N = PROJECTS.length;
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 1, pjTextStill: false };   // Patrik beállításai (Másolás)
-// pjMode: a projekt-aloldal formája (0 = üvegkártyák, 1 = teszt: a pill megnyúlik, a galéria spirálban fut körbe rajta)
+export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 2, pjTextStill: false };   // Patrik beállításai (Másolás)
+// pjMode: a projekt-aloldal formája (0 = üvegkártyák, 1 = függőleges pill-test csigavonallal, 2 = henger: a vízszintes pill
+// a teljes képernyőre nyúlik, a tartalom vízszintes tengelyű hengeren gördül fel; js/drum.js)
 // pjTextStill: teszt a pill-oldalon: a cím és a szöveg nem forog, a test közepén áll (a képek körülötte forognak); alapból ki
 // az aktuális beállítások (a Glass panel írja, mindenki más olvassa)
 export const S = Object.assign({}, DEFAULTS);

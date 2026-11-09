@@ -84,8 +84,11 @@ export const glassFS = /* glsl */`
       float lsd = length(max(lq, 0.0)) + min(max(lq.x, lq.y), 0.0) - uRad;   // < 0 a körvonalon belül
       float lb = 1.0 - clamp(-lsd / (uHalf.y * uLensW), 0.0, 1.0);
       lens = lb * lb * lb * (1.0 - w) * uLens;
-      vec2 cq = vec2(clamp(vLocal.x, -(uHalf.x - uRad), uHalf.x - uRad), 0.0);
-      vec2 n2 = normalize(vLocal - cq + vec2(1e-5));
+      // a lencse iránya a legközelebbi szél felé (lekerekített téglalapra általánosan; a pillen, ahol uHalf.y = uRad,
+      // pontosan a régi: a sarokív középpontjától kifelé, az egyenes szakaszon fel / le). A henger-oldal széthúzott testén
+      // így a függőleges oldalakon is vízszintesen tör.
+      vec2 n2 = (lq.x > 0.0 && lq.y > 0.0) ? normalize(lq) * sign(vLocal + vec2(1e-6))
+              : (lq.x > lq.y ? vec2(sign(vLocal.x + 1e-6), 0.0) : vec2(0.0, sign(vLocal.y + 1e-6)));
       Nr = normalize(N + (vTx * n2.x + vTy * n2.y) * lens * 1.6);
     }
     float wr = max(w, lens);
