@@ -1,6 +1,6 @@
 // A Vissza gomb üvege (Patrik: olyan legyen, mint a többi gomb): ugyanaz az SDF liquid glass shader rajzolja, mint a
 // lejátszót és a névjegy-blobot (playerFS), egyetlen pill alakzattal a gomb helyén, a profil-kör magasságában.
-// Hoverre a kurzor (a napfogyatkozás-gyűrű) rugósan a gomb formáját veszi fel: a sötét korongos kis gyűrűből a gomb köré
+// Hoverre a kurzor rugósan a gomb formáját veszi fel: a kis gyűrűből a gomb köré
 // simuló vékony fénykörvonal lesz, ami kicsit a kurzor felé húzódik; elhagyva visszaugrik kurzorrá (Patrik).
 import { scene, onLayer, LAYER_PL, rt, U, bufSize } from './scene.js';
 import { setCursorMagnet, cursorHead } from './cursor.js';
@@ -91,7 +91,7 @@ export function backUpdate(dt) {
     const x0 = L(px - rc, bx), y0 = L(py - rc, by), w = Math.max(2, L(2 * rc, bw)), h = Math.max(2, L(2 * rc, bh));
     ru.uRect.value.set(x0 * sc, bufSize.y - (y0 + h) * sc, w * sc, h * sc);
     ru.uScale.value = sc;
-    ru.uDisk.value = Math.max(0, 1 - k * 1.6);                      // a sötét korong eltűnik, ahogy kinyúlik
+    ru.uDisk.value = 0;                                             // a kurzor már üreges üveg: nincs sötét korong
     ru.uA.value = a * (magnet ? 1 : Math.min(1, m / 0.06));
   }
 }

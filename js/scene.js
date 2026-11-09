@@ -14,8 +14,15 @@ renderer.setClearColor(0x000000, 1);
    1 = háttér + címkék (render targetbe, ezt töri meg az üveg)
    2 = a pillek üvege, 3 = a render target kirajzolása (blit), 4 = a lejátszó üvege,
    5 = szöveg az üveg előlapján (az üveg után rajzolódik: a Frost nem mossa el, a perem nem töri meg, oldalról nem látszik)
-   (a projekt-aloldal kártyái ugyanúgy az 1-es, 2-es és 5-ös rétegen vannak, mint a pillek) */
-export const LAYER_BG = 1, LAYER_GLASS = 2, LAYER_BLIT = 3, LAYER_PL = 4, LAYER_TEXT = 5;
+   (a projekt-aloldal kártyái ugyanúgy az 1-es, 2-es és 5-ös rétegen vannak, mint a pillek)
+   6 = a kurzor: mindig legfelül (Patrik: ne kerüljön a képek, pillek mögé); a kész kép kis darabját nagyítja (curSnap) */
+export const LAYER_BG = 1, LAYER_GLASS = 2, LAYER_BLIT = 3, LAYER_PL = 4, LAYER_TEXT = 5, LAYER_CUR = 6;
+// a kurzor üvegének: a kész kép egy négyzetét (a kurzor körül) minden kockában ide másoljuk, a kurzor ebből nagyít
+export const curSnap = { size: 384, pos: new THREE.Vector2(), on: false, tex: null };
+if (THREE.FramebufferTexture) {
+  curSnap.tex = new THREE.FramebufferTexture(curSnap.size, curSnap.size, THREE.RGBAFormat);
+  curSnap.tex.minFilter = curSnap.tex.magFilter = THREE.LinearFilter;
+}
 export const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 export const scene = new THREE.Scene();
 export const onLayer = (obj, l) => { obj.layers.set(l); return obj; };
@@ -98,6 +105,12 @@ function render() {
   // 4) a lejátszó liquid glass blobja
   camera.layers.set(LAYER_PL);
   renderer.render(scene, camera);
+  // 5) a kurzor legfelül: előbb a kész kép darabja a kurzor körül (ezt nagyítja az üvege)
+  if (curSnap.on && curSnap.tex) {
+    renderer.copyFramebufferToTexture(curSnap.pos, curSnap.tex);
+    camera.layers.set(LAYER_CUR);
+    renderer.render(scene, camera);
+  }
   renderer.autoClear = true;
 }
 // update(dt): minden kockában a rajzolás előtt fut (animáció, zene, lejátszó)

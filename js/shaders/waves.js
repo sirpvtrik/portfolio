@@ -115,36 +115,7 @@ export const waveFS = /* glsl */`
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
-    // egérfény (Patrik referenciája): a kurzor egy kis „napfogyatkozás-gyűrű” – sötét belső korong, hajszálvékony fényes
-    // gyűrű, ami fent és lent a legerősebb, kívül halvány fényudvar. Mozgás közben cseppként nyúlik (nyom nélkül).
-    if (uCurB > 0.001) {
-      float H = uRes.y;
-      // a gyűrű
-      float R = H * 0.02;                                              // a gyűrű sugara
-      vec2 dc0 = px - uCur[0];
-      // folyékony csepp: a mozgás irányában megnyúlik (a hátsó oldalán jobban), oldalt kicsit vékonyodik
-      float sp = length(uCurV);
-      vec2 mv = sp > 1.0 ? uCurV / sp : vec2(0.0, 1.0), pv = vec2(-mv.y, mv.x);
-      float st = clamp(sp / (H * 2.2), 0.0, 0.7);
-      float al = dot(dc0, mv), pe = dot(dc0, pv);
-      al /= 1.0 + st * (al < 0.0 ? 1.5 : 0.45);
-      pe *= 1.0 + st * 0.3;
-      vec2 dc = mv * al + pv * pe;
-      float d = length(dc);
-      vec2 dir = dc / max(d, 1e-3);
-      float pole = abs(dir.y);                                         // fent és lent erősebb
-      float lw = max(1.1, H * 0.0011);                                 // hajszálvékony
-      float ring = exp(-pow((d - R) / lw, 2.0)) * (0.3 + 0.7 * pow(pole, 4.0))
-                 + exp(-pow((d - R) / (lw * 3.0), 2.0)) * 0.35 * pow(pole, 8.0);   // fent és lent kivilágosodó sarló
-      float inner = exp(-max(R - d, 0.0) / (R * 0.14)) * step(d, R) * 0.12;          // belül halvány derengés a perem mentén
-      float halo = exp(-max(d - R, 0.0) / (R * 0.55)) * step(R, d) * 0.16 * (0.45 + 0.55 * pole);
-      float cur = (ring * 0.9 + inner + halo) * uCurB;
-      // sötét belső korong (mint egy napfogyatkozásnál): a mögötte lévő fényt eltakarja
-      float disk = smoothstep(R, R - 2.0 * lw, d) * uCurB;
-      v *= 1.0 - 0.85 * disk;
-      vec3 cool = vec3(0.93, 0.96, 1.0);                               // enyhén hideg fehér, mint a referencián
-      v = 1.0 - (1.0 - v) * exp(-cur * 1.4 * cool);
-    }
+    // a kurzort már nem itt rajzoljuk: saját, legfelső rétegen van (js/cursor.js), hogy ne kerüljön semmi mögé
     v += (hash(px + fract(uTime) * 61.0) - 0.5) / 255.0;              // dithering: nincs sávosodás a sötét átmenetekben
     gl_FragColor = vec4(max(v, 0.0), 1.0);
   }`;

@@ -1,9 +1,13 @@
-// Egérfény: a kurzor egy kis fénypont, mozgás közben mögötte folyékony fény nyúlik és erősödik,
-// megállva elsötétül (csak a kis fénypont marad). A hullám-shaderbe kerül, a pillek mögé: az üveg megtöri.
+// A kurzor (Patrik, Figma: „kurzor”, node 240-275): üreges üveggyűrű, mindig legfelül (saját réteg, LAYER_CUR: nem
+// kerül a képek, pillek mögé). A belseje a mögötte lévő kész képet kicsit nagyítva mutatja (a széle felé lencseként tör,
+// enyhe színes szegéllyel), a perem felé fehéres, fagyott üveg-átmenettel, hajszálvékony fehér peremmel és halvány
+// fényudvarral. Mozgás közben cseppként nyúlik a mozgás irányában, megállva rugósan visszaugrik kerekre. Kattintásra
+// (lenyomva) a lyuk összeszűkül és fehérbe megy át, a perem behúzódik; elengedve rugósan visszanyílik.
 // A nyom 6 pontja rugóval követi egymást (az első a kurzort, a többi az előzőt): ettől folyékony, nyúlós.
 // Érintőképernyőn: húzás / görgetés közben az ujjat követi, elengedve elhalványul (a kis fénypont is).
 import { WU } from './waves.js';
-import { U } from './scene.js';
+import { U, scene, onLayer, LAYER_CUR, curSnap, bufSize } from './scene.js';
+import { fullscreenVS } from './shaders/fullscreen.js';
 import { damp } from './util.js';
 
 const N = 6;
@@ -13,6 +17,60 @@ let energy = 0, base = 0, lastX = 0, lastY = 0, speed = 0, vx = 0, vy = 0, magne
 // gombra érve a kurzor a gomb formáját veszi fel (js/backglass.js rajzolja): ilyenkor a gyűrű itt eltűnik
 export function setCursorMagnet(v) { magnet = v; }
 export const cursorHead = () => pts[0];             // a rugós fej (CSS px), innen indul a forma-váltás
+
+/* ---------- a kurzor rajza (legfelső réteg) ---------- */
+const curFS = /* glsl */`
+  precision highp float;
+  uniform sampler2D uTex;
+  uniform vec4 uSnap;                              // a kimásolt négyzet: bal alsó sarok és méret (pufferpixel)
+  uniform vec2 uCur, uCurV;                        // a fej helye (pixel, alulról) és sebessége
+  uniform float uR, uB, uP;                        // sugár, láthatóság, lenyomás (0 → 1)
+  vec3 snap(vec2 p) { return texture2D(uTex, clamp((p - uSnap.xy) / uSnap.zw, 0.001, 0.999)).rgb; }
+  void main() {
+    vec2 px = gl_FragCoord.xy, dc0 = px - uCur;
+    // folyékony csepp: a mozgás irányában megnyúlik (a hátsó oldalán jobban), oldalt kicsit vékonyodik
+    float sp = length(uCurV), H = uR / 0.02;
+    vec2 mv = sp > 1.0 ? uCurV / sp : vec2(0.0, 1.0), pv = vec2(-mv.y, mv.x);
+    float st = clamp(sp / (H * 2.2), 0.0, 0.7);
+    float al = dot(dc0, mv), pe = dot(dc0, pv);
+    al /= 1.0 + st * (al < 0.0 ? 1.5 : 0.45);
+    pe *= 1.0 + st * 0.3;
+    vec2 dc = mv * al + pv * pe;
+    float d = length(dc);
+    float R = uR * (1.0 - 0.16 * uP);              // lenyomva a perem behúzódik
+    if (d > R * 2.2) discard;
+    float lw = max(1.0, uR * 0.055);               // hajszálvékony perem
+    float rr = d / R;
+    // üveg: a közepe kicsit nagyít, a széle felé lencseként erősebben tör (enyhe színes szegéllyel)
+    float m = 0.84 - 0.22 * pow(clamp(rr, 0.0, 1.0), 3.0), k = 0.035 * rr * rr;
+    vec3 bg = vec3(snap(uCur + dc0 * (m - k)).r, snap(uCur + dc0 * m).g, snap(uCur + dc0 * (m + k)).b);
+    // a perem felé fehéres, fagyott üveg (Figma: középen tiszta, a szélén ~félig fehér)
+    float w = pow(smoothstep(0.1, 1.0, rr), 1.6) * 0.5;
+    // lenyomva: a tiszta lyuk összeszűkül, a gyűrű fehérbe megy át
+    float hole = mix(1.2, 0.12, uP);
+    w = mix(w, 0.9, uP * smoothstep(hole * 0.6, hole, rr));
+    vec3 cin = mix(bg, vec3(1.0), w);
+    float inside = smoothstep(R + 0.6, R - 0.6, d);
+    float ring = exp(-pow((d - R) / lw, 2.0));
+    float halo = exp(-max(d - R, 0.0) / (R * 0.45)) * step(R, d) * 0.22;
+    vec3 c = mix(vec3(1.0), cin, inside);
+    float a = max(inside, halo);
+    c = mix(c, vec3(1.0), clamp(ring, 0.0, 1.0));
+    a = max(a, clamp(ring, 0.0, 1.0));
+    gl_FragColor = vec4(c, a * uB);
+  }`;
+const CU = { uTex: { value: curSnap.tex }, uSnap: { value: new THREE.Vector4() }, uCur: { value: new THREE.Vector2(-9999, -9999) },
+  uCurV: { value: new THREE.Vector2() }, uR: { value: 10 }, uB: { value: 0 }, uP: { value: 0 } };
+const curMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+  uniforms: CU, transparent: true, depthTest: false, depthWrite: false, vertexShader: fullscreenVS, fragmentShader: curFS,
+}));
+curMesh.frustumCulled = false;
+scene.add(onLayer(curMesh, LAYER_CUR));
+let pressed = false, pr = 0, prv = 0;
+window.addEventListener('pointerdown', () => { pressed = true; }, { passive: true });
+window.addEventListener('pointerup', () => { pressed = false; }, { passive: true });
+window.addEventListener('pointercancel', () => { pressed = false; }, { passive: true });
+window.addEventListener('blur', () => { pressed = false; });
 
 function move(e) {
   isTouch = e.pointerType === 'touch';
@@ -55,4 +113,14 @@ export function updateCursor(dt) {
   U.uCurP.value.copy(WU.uCur.value[0]);              // az üveg pereme is elkapja (glass.js)
   U.uCurL.value = base * 0.35 + energy * 0.8;
   WU.uCurB.value = base;
+  // a legfelső rétegen rajzolt kurzor
+  prv += (((pressed ? 1 : 0) - pr) * 420 - prv * 26) * dt; pr += prv * dt;       // rugós lenyomás, pici túllendüléssel
+  const hx = pts[0].x * dpr, hy = (H - pts[0].y) * dpr, S = curSnap.size;
+  CU.uCur.value.set(hx, hy); CU.uCurV.value.set(vx, vy);
+  CU.uR.value = H * 0.02 * dpr; CU.uB.value = base; CU.uP.value = Math.max(0, Math.min(1.1, pr));
+  const W = bufSize.x, Hb = bufSize.y;
+  const x0 = Math.max(0, Math.min(W - S, Math.round(hx - S / 2))), y0 = Math.max(0, Math.min(Hb - S, Math.round(hy - S / 2)));
+  curSnap.pos.set(x0, y0); CU.uSnap.value.set(x0, y0, S, S);
+  curSnap.on = !!curSnap.tex && base > 0.003 && W >= S && Hb >= S;
+  curMesh.visible = curSnap.on;
 }
