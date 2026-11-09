@@ -37,7 +37,7 @@ function wrap(g, text, maxW) {
 
 /* ---------- Elrendezés és menetrend (px; u: a henger palástján felfelé mért távolság a szemközti vonaltól) ---------- */
 export function drumLayout(o) {
-  const { vw, vh, k, name, cat, intro, cover, gallery } = o;
+  const { vw, vh, k, name, cat, intro, cover, gallery } = o, full = o.full || [];
   const mob = vw <= 720, f = mob ? 1 : Math.min(vw / 1440, vh / 1024);           // a Figma-keret (1440 × 1024) arányában
   // cím (Figma: Nohemi Medium 40 / −2%, alatta 15 px-re Regular 20, 70%-os fehér) és leírás (Regular 16 / 24, középre)
   const t = { size: mob ? 30 : Math.max(26, 40 * f), csize: mob ? 16 : Math.max(14, 20 * f), gap: mob ? 12 : Math.max(10, 15 * f) };
@@ -75,16 +75,24 @@ export function drumLayout(o) {
   const sW = mob ? vw - 40 : Math.max(dW + 24, vw - 160);
   items.push({ kind: 'desc', w: sW, dW, h: dH, x: 0, lines, ds, dl, spread: [0, STEP], keys: [[0, -OUT(dH)], [STEP, dCen], [2 * STEP, dCen + pairD]] });
   if (cover) items.push({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius, keys: [[STEP, -OUT(cvH)], [2 * STEP, 0], [3 * STEP, OUT(cvH)]] });
+  // teljes képernyős képek a borító után (Patrik): az üvegtest teljes belsejét kitöltik (a test mérete, 50 px-es sarok),
+  // egyenként gördülnek fel és tovább; a galéria ennyivel később kezdődik
+  const F = full.length, fw = vw - 20, fh = vh - 20;
+  full.forEach((src, j) => {
+    const e = j + 2;
+    items.push({ kind: 'img', w: fw, h: fh, x: 0, src: srcOf(src), radius: 50, big: true,
+      keys: [[e * STEP, -OUT(fh)], [(e + 1) * STEP, 0], [(e + 2) * STEP, OUT(fh)]] });
+  });
   const n = gallery.length;
   gallery.forEach((g, j) => {
-    const e = j + 2, x = j + 2 + cols, col = j % cols;                             // e: ebben a lépésben jön fel, x: ebben megy el
+    const e = j + 2 + F, x = j + 2 + F + cols, col = j % cols;                     // e: ebben a lépésben jön fel, x: ebben megy el
     const side = mob;                                                              // telefonon oldalról: jobbról be, balra ki
     const uIn = side ? OUTX(cw) : -OUT(ch), uOut = side ? -OUTX(cw) : OUT(ch);
     items.push({ kind: 'img', w: cw, h: ch, x: (col - (cols - 1) / 2) * (cw + gx), src: srcOf(g), video: g && g.video, radius,
       axis: side ? 'x' : 'y', arrive: (e + 1) * STEP, leave: x * STEP,
       keys: [[e * STEP, uIn], [(e + 1) * STEP, 0], [x * STEP, 0], [(x + 1) * STEP, uOut]] });
   });
-  const last = n ? n + cols + 2 : 3;
+  const last = n ? n + cols + 2 + F : 3 + F;
   const sMax = last * STEP + STEP * 0.5;                                            // a végén kis hely a lehulló pilleknek
   const rests = []; for (let i = 0; i <= last; i++) rests.push(i * STEP);
   rests.push(sMax);
@@ -143,15 +151,34 @@ function drawDesc(g, it, q, p = 1) {
   });
 }
 // kép a Figma szerint: 20 px sarok, 95%, belső ragyogás (inset 0 0 35.9px −6px, 45% fehér)
+// a kép peremének átlagos színe (a szélső képpontsorokból, kicsinyítve mérve)
+function edgeColor(im) {
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const x = c.getContext('2d'); x.drawImage(im, 0, 0, 32, 32);
+  const d = x.getImageData(0, 0, 32, 32).data; let r = 0, gg = 0, b = 0, n = 0;
+  for (let i = 0; i < 32; i++) for (const j of [0, 1, 30, 31]) {
+    for (const [px, py] of [[i, j], [j, i]]) { const o = (py * 32 + px) * 4; r += d[o]; gg += d[o + 1]; b += d[o + 2]; n++; }
+  }
+  return `rgb(${Math.round(r / n)},${Math.round(gg / n)},${Math.round(b / n)})`;
+}
 function imageDrawer(it, onLoad) {
   return (g, q) => {
     const W = it.w * q, H = it.h * q, r = it.radius * q;
     const im = new Image();
     im.onload = () => {
       const sc = Math.max(W / im.width, H / im.height), iw = im.width * sc, ih = im.height * sc;
+      const sf = Math.min(W / im.width, H / im.height);
       g.save(); rrPath(g, 0, 0, W, H, r); g.clip(); g.globalAlpha = 0.95;
-      g.drawImage(im, (W - iw) / 2, (H - ih) / 2, iw, ih); g.restore();
-      insetGlow(g, 0, 0, W, H, r, 35.9 * (it.radius / 20) * q, -6 * (it.radius / 20) * q, 'rgba(255,255,255,0.45)');
+      if (it.big && sf / sc < 0.8) {
+        // a teljes képernyős kép túl sokat veszítene a kitöltéssel (pl. fekvő kép telefonon): egészben látszik, a maradék
+        // helyet a kép szélének átlagos színe tölti ki (a „Használat” képen a zöld háttér folytatódik)
+        g.fillStyle = edgeColor(im); g.fillRect(0, 0, W, H);
+        const fw = im.width * sf, fh = im.height * sf;
+        g.drawImage(im, (W - fw) / 2, (H - fh) / 2, fw, fh);
+      } else g.drawImage(im, (W - iw) / 2, (H - ih) / 2, iw, ih);
+      g.restore();
+      const gk = Math.min(it.radius, 20) / 20;      // a nagy (teljes képernyős) képen is a kép-ragyogás mérete
+      insetGlow(g, 0, 0, W, H, r, 35.9 * gk * q, -6 * gk * q, 'rgba(255,255,255,0.45)');
       onLoad();
     };
     im.src = it.src;
@@ -363,7 +390,7 @@ export function updateDrum(dt, s, closing) {
       const p = clamp((s - it.spread[0]) / (it.spread[1] - it.spread[0]), 0, 1);
       if (Math.abs(p - o.p) > 0.002 || (p !== o.p && (p === 0 || p === 1))) { o.p = p; o.redraw(); }
     }
-    const vis = Math.abs(phi) < Math.PI / 2 && ca > 0.002;
+    const vis = Math.abs(phi) - (it.big ? it.h / 2 / R : 0) < Math.PI / 2 && ca > 0.002;   // a nagy kép a széle felől is látszhat
     o.holder.visible = vis;
     if (vis && side) {                               // telefonon oldalról: függőleges tengelyű henger belső oldala
       bendX(o, DL.Rh * k, 0.12 + 0.88 * THREE.MathUtils.smoothstep(Math.abs(phi), 0.1, 1.2));

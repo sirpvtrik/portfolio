@@ -12,6 +12,8 @@ export const PROJECTS = [
       label: 'Zsebkönyv · Illusztráció',
       intro: '24 kannabiszfajta, 24 fantázianév, 24 illusztráció – egy zsebkönyvben, ami egyszerre informatív(!) és szórakoztató.',
       text: 'Egyetemi feladat volt: 24 illusztráció, mind más stílusban, Adobe Illustratorban. A keretet én adtam hozzá: minden kép egy kannabiszfajta fantázianevéből indul ki.',
+      // teljes képernyős képek (henger): a borító után, egyenként, az üvegtest széléig kitöltve (Patrik: a „Használat” oldal)
+      full: ['assets/projects/zsebkonyv/hasznalat.webp'],
       // galéria: kép, vagy { src, video }: a videó akkor játszódik le (egyszer), amikor a kép a helyére ért, és az utolsó
       // kockáján áll meg (az a poszter maga). A 19-es videó visszafelé van kiírva (Patrik: visszafelé fusson, majd álljon meg).
       gallery: [

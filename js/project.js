@@ -56,7 +56,7 @@ function computeLayout() {
   if (S.pjMode === 2) {                              // henger (js/drum.js)
     const p = PROJECTS[cur] || { name: '', cat: '' };
     const DL = drumLayout({ vw, vh, k: visH / vh, name: p.name, cat: p.cat, intro: D.intro,
-      cover: p.image || srcOf(D.gallery[0]) || null, gallery: p.image ? D.gallery : D.gallery.slice(1) });
+      cover: p.image || srcOf(D.gallery[0]) || null, full: D.full || [], gallery: p.image ? D.gallery : D.gallery.slice(1) });
     return { mode: 'drum', vw, vh, mob, u: 1, gw: vw, list: [], sMax: DL.sMax, drum: DL, heap: DL.heap };
   }
   const gw = mob ? vw - 32 : Math.min(900, vw - 48), u = mob ? gw / 560 : gw / 900, g = 20 * u;
