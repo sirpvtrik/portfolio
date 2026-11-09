@@ -19,6 +19,8 @@ function applySettings() {
   U.uRim.value = S.rim / 100;
   U.uGlowOn.value = S.glow ? 1 : 0;
   document.getElementById('c-glow').checked = S.glow;
+  U.uReal.value = S.realGlass ? 1 : 0;
+  document.getElementById('c-real').checked = S.realGlass;
   document.getElementById('c-pjtext').checked = S.pjTextStill;
   document.getElementById('c-pjlight').checked = S.pjLight;
   requestGeoRebuild();
@@ -36,6 +38,7 @@ function applySettings() {
 CTL.forEach(k => document.getElementById('c-' + k).addEventListener('input', e => { S[k] = +e.target.value; applySettings(); }));
 document.getElementById('c-bpm').addEventListener('change', e => { S.bpmSync = e.target.checked; });
 document.getElementById('c-glow').addEventListener('change', e => { S.glow = e.target.checked; applySettings(); });
+document.getElementById('c-real').addEventListener('change', e => { S.realGlass = e.target.checked; applySettings(); });
 document.getElementById('c-pjtext').addEventListener('change', e => { S.pjTextStill = e.target.checked; });
 document.getElementById('c-pjlight').addEventListener('change', e => { S.pjLight = e.target.checked; });   // kockánként olvassa   // kockánként olvassa, nem kell újraépíteni
 [0, 1].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));

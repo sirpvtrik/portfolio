@@ -202,7 +202,7 @@ function galleryDrawer(src) {
 function makeCard(wpx, hpx, k, depth01, draw, order, onTop) {
   const w = wpx * k, h = hpx * k, b = bevelOf(depth01);
   const geo = glassSlab((a, c) => roundedRect(a, c, Math.max(0.02, 15 * L.u * k - b)), w, h, depth01, 10, S.thick / 100);
-  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) }, uHalf: { value: new THREE.Vector2(w / 2, h / 2) }, uRad: { value: 0.05 }, uGlow: { value: 0 }, uLens: { value: 0 } }) });
+  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, extensions: { derivatives: true }, uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) }, uHalf: { value: new THREE.Vector2(w / 2, h / 2) }, uRad: { value: 0.05 }, uGlow: { value: 0 }, uLens: { value: 0 } }) });
   const holder = new THREE.Group(), spin = new THREE.Group();
   holder.add(spin);
   spin.add(onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS));
@@ -261,11 +261,11 @@ function buildPill(k, depth01) {
   // vastag üvegtömb: a spirál (Rz) belefér, a perem lekerekített
   const half = P.Rz * k + 0.3, bz = Math.min(0.6, half * 0.4), bev = Math.min(0.5, Ww * 0.05);
   const geo = glassSlab(stadium, L0, Ww, depth01, 96, th, { depth: Math.max(0.05, 2 * (half - bz)), bevel: bev, bevelZ: bz });
-  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, {
+  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, extensions: { derivatives: true }, uniforms: Object.assign({}, U, {
     uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
     uHalf: { value: new THREE.Vector2(L0 / 2, Ww / 2) }, uRad: { value: Ww / 2 }, uGlow: { value: 1 }, uLens: { value: 0.8 },
     uLensW: { value: Math.min(0.62, 110 / P.Wp * 2) } }) });   // a lencse csak a szélén (~110 px), a tartalom tiszta marad
-  const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: U,
+  const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, extensions: { derivatives: true }, uniforms: U,
     side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const holder = new THREE.Group(), body = new THREE.Group();
   holder.add(body); group.add(holder);

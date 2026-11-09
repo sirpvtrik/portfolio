@@ -17,6 +17,40 @@ export const glassVS = /* glsl */`
     gl_Position = projectionMatrix * mv;
   }`;
 
+
+// ÉLETHŰ ÜVEG (teszt, Patrik: fekete háttér előtt „műanyag hatásuk van”). Az ok: a lapon széles, lágy, szürke fényfolt ült
+// (fényes műanyag ilyen), a peremen pedig nem volt éles csillanás. A valódi üveg fekete előtt szinte láthatatlan, csak a
+// fényforrások ÉLES szélű tükörképe látszik rajta: szemből alig (Fresnel: ~4%), súroló szögben erősen, a vastag peremen
+// pedig a mögötte álló lámpák fénye jön át (sötét látóterű világítás, ahogy az üveget fotózzák). Ez a stúdió:
+const realEnv = /* glsl */`
+  // egy téglalap alakú lámpa a c irányban (hs: fél méret, f: a szél lágysága), 0..1
+  float boxL(vec3 d, vec3 c, vec2 hs, float f) {
+    float dz = dot(d, c);
+    vec3 rx = normalize(cross(vec3(0.0, 1.0, 0.0), c));
+    vec3 ry = cross(c, rx);
+    vec2 p = vec2(dot(d, rx), dot(d, ry)) / max(dz, 1e-3);
+    vec2 q = abs(p) - hs;
+    float sd = max(q.x, q.y);
+    return step(0.05, dz) * smoothstep(f, -f, sd) * (1.0 - 0.22 * dot(p / hs, p / hs));
+  }
+  // a stúdió elöl (ezt tükrözi az üveg): nagy softbox a Light irányából, magas csíkfény a túloldalon, vékony felső csík
+  float envFront(vec3 d, float la, float f) {
+    vec3 K  = normalize(vec3(-cos(la), -sin(la), 0.7));
+    vec3 Sd = normalize(vec3(cos(la) * 0.95, 0.12, 0.42));
+    vec3 Tp = normalize(vec3(cos(la) * 0.55, 0.8, 0.35));
+    float e = boxL(d, K, vec2(0.30, 0.20), 0.012 + f) * 16.0;
+    e += boxL(d, Sd, vec2(0.055, 0.85), 0.008 + f) * 7.0;
+    e += boxL(d, Tp, vec2(0.6, 0.04), 0.008 + f) * 6.0;
+    return e + 0.025 + 0.035 * max(d.y, 0.0);                    // a stúdió sosem teljesen fekete
+  }
+  // a tárgy mögött, kétoldalt álló lámpák (ezek fénye jön át a vastag peremen, és ez csillan a sziluetten)
+  float envBack(vec3 d, float f) {
+    float e = boxL(d, normalize(vec3(-0.82, 0.1, -0.55)), vec2(0.26, 0.9), 0.02 + f) * 5.0;
+    e += boxL(d, normalize(vec3(0.82, 0.1, -0.55)), vec2(0.26, 0.9), 0.02 + f) * 5.0;
+    e += boxL(d, normalize(vec3(0.0, 0.85, -0.5)), vec2(0.9, 0.12), 0.02 + f) * 3.0;
+    return e;
+  }`;
+
 export const glassFS = /* glsl */`
   precision highp float;
   uniform sampler2D uBg;
@@ -36,6 +70,7 @@ export const glassFS = /* glsl */`
                           // szinte 0, mert ott a lap egésze egyszerre fényesedett ki (Patrik: „nagyon zavaróan fénylik”)
   uniform vec2 uCurP;     // az egérfény helye (pixel, alulról) és ereje: a perem közelében elkapja a fényt
   uniform float uCurL;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
+  uniform float uReal;    // élethű üveg (teszt): 1 = a pilleken a fekete stúdió éles fényforrásai, Fresnel szerint` + realEnv + /* glsl */`
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
@@ -136,12 +171,33 @@ export const glassFS = /* glsl */`
     // a domborúság a lap méretéhez arányos (a pillen, 0,708 fél magasságnál pontosan a régi): a nagy projekt-testen így
     // nem sűrűsödik kemény, kis fényfoltba, hanem széles, lágy átmenet marad
     vec2 dl = vLocal * (0.708 / max(uHalf.y, 0.001));
-    vec3 Nc = normalize(Nr + (vTx * dl.x + vTy * dl.y) * 0.16 * uLens * (1.0 - w));
+    // élethű üvegnél erősebb domborúság (mint egy üvegkavics): a softbox így éles szélű „ablakként” ül a lap egy részén,
+    // nem tölti ki szürkén az egészet
+    float dome = mix(0.16, 0.42, uReal);
+    vec3 Nc = normalize(Nr + (vTx * dl.x + vTy * dl.y) * dome * uLens * (1.0 - w));
     vec3 R = reflect(-V, Nc);
     float F = 0.05 + 0.95 * pow(g, 3.0);
     float boost = 1.0 + uPulse * 0.5 + uHover * 0.4;
     float rimK = mix(1.0, uRim, w);                                     // a peremen a Perem csúszka szerint
-    if (uLens > 0.001) {
+    if (uLens > 0.001 && uReal > 0.5) {
+      // ÉLETHŰ ÜVEG (teszt): nincs lágy szürke folt a lapon; minden fény a stúdió tükörképe, Fresnel szerint
+      float li = 0.45 + 0.55 * uLightInt;
+      float Fr = 0.04 + 0.96 * pow(g, 5.0);                              // szemből 4%, súroló szögben tükör
+      float fR = clamp(length(fwidth(R)) * 1.2, 0.0, 0.4);               // ahol a tükörkép összesűrűsödik, ott lágyabb szél (élsimítás)
+      float refl = (envFront(R, la, fR) + envBack(R, fR)) * Fr * mix(uFace, 1.0, w);
+      // a vastag peremen / oldalfalon átjövő fény: a megtört sugár a tárgy mögötti lámpákra néz
+      // (a lap szélén a lencse-sáv is így világít: ott az üveg íve a szélek felé fordítja a sugarat). A Dispersion csúszka
+      // enyhe színes szegélyt ad az átjövő fény szélének, mint egy prizma.
+      float tw = max(w, lens) * 0.85 * (1.0 - Fr);
+      float kd = uDisp * 0.022;
+      vec3 trans = vec3(
+        envBack(normalize(refract(-V, Nr, 1.0 / (1.5 - kd)) - Nr * 0.35), 0.03 + fR),
+        envBack(normalize(refract(-V, Nr, 1.0 / 1.5) - Nr * 0.35), 0.03 + fR),
+        envBack(normalize(refract(-V, Nr, 1.0 / (1.5 + kd)) - Nr * 0.35), 0.03 + fR)) * tw;
+      float hair = pow(g, 6.0) * 0.1 * (1.0 - w);                        // a lap legszélén hajszálnyi derengés (a forma kivehető marad)
+      vec3 light = (vec3(refl + hair) + trans) * li * boost;
+      col += 1.0 - exp(-light);                                          // a nagyon erős fény lágyan telítődik (nem ég ki élesen)
+    } else if (uLens > 0.001) {
       // STÚDIÓ-ÜVEG (Patrik referenciája: üvegkorongok fekete háttéren) – a pilleken:
       //  1) nagy, lágy softbox a fény felől: a domború lapon fokozatos fényfolt (egyik oldalon fehér, a másik felé
       //     sötétbe fut), forgás közben végigsiklik; a lap többi része sötét és átlátszó marad
@@ -165,7 +221,7 @@ export const glassFS = /* glsl */`
       col += smoothstep(0.86, 1.0, dot(R, Ld)) * 0.26 * uLightInt;        // sheen
       col += pow(max(dot(Nc, normalize(Ld + V)), 0.0), 110.0) * 1.8 * uLightInt * rimK;  // csillanás
     }
-    col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost * uRim;  // vékony világos kontúr
+    col += smoothstep(0.86, 0.985, g) * 0.28 * uLightInt * boost * uRim * (1.0 - uReal * step(0.001, uLens));  // vékony világos kontúr
 
     // belső ragyogás, pontosan a Figma belső árnyéka szerint (inset 0 0 35.9px −6px, 45% fehér, a pill 164 px magas):
     // a körvonal legszélén ~17% fehér, ~10 px-en a felére, ~30 px-re eltűnik. A normális eloszlás farka logisztikus közelítéssel.
@@ -195,6 +251,7 @@ export const glassBackFS = /* glsl */`
   precision highp float;
   uniform float uLightAng, uLightInt, uRim;
   uniform float uBackK;   // a belső hátlap fénye (1 = pill; a teljes képernyős projekt-testen halvány, különben az egész kép ködös)
+  uniform float uReal;    // élethű üveg (teszt): a belső felületek a stúdiót tükrözik, a kritikus szög fölött teljesen` + realEnv + /* glsl */`
   varying vec3 vN;
   varying vec3 vV;
   varying float vEdge;
@@ -215,5 +272,20 @@ export const glassBackFS = /* glsl */`
     vec3 strip = vec3(exp(-pow((xs - 0.9) / 0.06, 2.0)));      // fehér
     vec3 col = vec3(sb * sb) * (0.07 + 0.6 * w * g) + strip * (0.18 + 0.9 * w);
     col += vec3(smoothstep(0.55, 0.98, g)) * 0.32 * w;        // a túloldali perem vékony fényes vonala
+    if (uReal > 0.5) {
+      // belső tükröződés: a párhuzamos hátlapon gyenge (a fény kimegy rajta), a peremen / oldalfalon a kritikus szög
+      // (~42°) fölött teljes: ettől látszik a túloldali perem az üvegen át, második, halványabb tükörképként
+      float c = abs(dot(N, V));
+      float ci = mix(sqrt(1.0 - (1.0 - c * c) / 2.25), c, w);          // a lapon a beeső sugár már megtört
+      float Fi = 0.04 + 0.96 * smoothstep(0.80, 0.70, ci);
+      // a hátlap belülről homorú tükör (kifelé domború üveg): a softbox második, kisebb, fordított tükörképe másutt ül,
+      // mint az előlapé (ez a kettős tükröződés az üveg egyik ismertetőjele)
+      vec2 dl = vLocal / 0.708;
+      vec3 Rb = reflect(-V, normalize(N - (vTx * dl.x + vTy * dl.y) * 0.42 * (1.0 - w)));
+      float fR = clamp(length(fwidth(Rb)) * 1.2, 0.0, 0.4);
+      float e = (envFront(Rb, la, fR) + envBack(Rb, fR)) * Fi * 0.85;
+      gl_FragColor = vec4((1.0 - exp(-vec3(e) * li)) * uBackK, 1.0);
+      return;
+    }
     gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim) * uBackK, 1.0);
   }`;

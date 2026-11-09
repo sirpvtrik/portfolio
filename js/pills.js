@@ -113,7 +113,7 @@ function makeImage(p, i) {
 /* ---------- Pillek ---------- */
 // a belső, hátsó felület anyaga (közös): additív, nem takarja el a mögötte lévő hullámokat, csak fényt ad
 const backMat = new THREE.ShaderMaterial({
-  vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: U,
+  vertexShader: glassVS, fragmentShader: glassBackFS, extensions: { derivatives: true }, uniforms: U,
   side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
 });
 export const stack = new THREE.Group();   // a halom (js/heap.js) is ezt mozgatja, amíg a projekt nyitva van
@@ -130,7 +130,7 @@ PROJECTS.forEach((p, i) => {
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   const labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.FrontSide });
   const glassMat = new THREE.ShaderMaterial({
-    vertexShader: glassVS, fragmentShader: glassFS,
+    vertexShader: glassVS, fragmentShader: glassFS, extensions: { derivatives: true },
     uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 },
       uTint: { value: new THREE.Vector3().fromArray(p.color || [1, 1, 1]) },
       uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 }, uLens: { value: 1 } }),   // Figma: belső fehér ragyogás

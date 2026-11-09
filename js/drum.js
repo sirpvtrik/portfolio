@@ -249,11 +249,11 @@ export function buildDrum(grp, layout, k, opts) {
   // az üvegtest: a toronybeli pill geometriája, amit a négy negyedénél fogva húzunk szét (setStretch)
   const depth01 = S.depth / 100, th = S.thick / 100;
   const geo = glassSlab(stadium, PW, PH, depth01, 72, th);
-  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, uniforms: Object.assign({}, U, {
+  const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, extensions: { derivatives: true }, uniforms: Object.assign({}, U, {
     uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
     uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 }, uLens: { value: 1 },
     uLensW: { value: 0.62 }, uFace: { value: 1 }, uSpecK: { value: 1 } }) });
-  const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, uniforms: Object.assign({}, U, { uBackK: { value: 1 } }),
+  const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, extensions: { derivatives: true }, uniforms: Object.assign({}, U, { uBackK: { value: 1 } }),
     side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const holder = new THREE.Group(); group.add(holder);
   const glass = onLayer(new THREE.Mesh(geo, mat), LAYER_GLASS), back = onLayer(new THREE.Mesh(geo, bmat), LAYER_BG);
