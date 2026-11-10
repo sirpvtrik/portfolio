@@ -338,8 +338,11 @@ export function updateDrum(dt, s, closing) {
   // „Pill fénye” (Glass panel, S.pjLight): kikapcsolva a kinőtt testen nincs fény, csak a fénytörés (Patrik tesztje);
   // a toronybeli pill méretében még a megszokott, ahogy nő, elhalványul
   const grow = clamp(body.dy / Math.max(body.dyF, 1e-3), 0, 1);
-  body.mat.uniforms.uSpecK.value = S.pjLight ? 1 : 1 - grow;
-  body.bmat.uniforms.uBackK.value = lerp(1, S.pjLight ? 0.2 : 0, grow);
+  // gyorsan halványul (köbösen): félig kinőve már alig van fény a testen, különben a pillre hangolt tükröződések a nagy
+  // lapon széthúzva, furcsán látszottak nyitás közben (Patrik képernyőképe az élethű üveg tesztnél)
+  const fadeL = Math.pow(1 - grow, 3);
+  body.mat.uniforms.uSpecK.value = S.pjLight ? 1 : fadeL;
+  body.bmat.uniforms.uBackK.value = S.pjLight ? lerp(1, 0.2, grow) : fadeL;
   body.holder.position.set(lerp(s0.x, 0, mp), lerp(s0.y, 0, mp), lerp(s0.z, 0, mp));
   body.holder.scale.set(sxy, sxy, lerp(s0.sc, 1, mp));
   // a test körvonala a képernyőn (az előlap síkjában): ehhez vágjuk a tartalmat

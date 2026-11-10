@@ -34,11 +34,12 @@ const realEnv = /* glsl */`
     return step(0.05, dz) * smoothstep(f, -f, sd) * (1.0 - 0.22 * dot(p / hs, p / hs));
   }
   // a stúdió elöl (ezt tükrözi az üveg): nagy softbox a Light irányából, magas csíkfény a túloldalon, vékony felső csík
-  float envFront(vec3 d, float la, float f) {
+  // kb: a softbox súlya (a sík lapon 0: Patrik kérte, hogy a lapról a fehér „fényablakok” kerüljenek le; a peremen 1)
+  float envFront(vec3 d, float la, float f, float kb) {
     vec3 K  = normalize(vec3(-cos(la), -sin(la), 0.7));
     vec3 Sd = normalize(vec3(cos(la) * 0.95, 0.12, 0.42));
     vec3 Tp = normalize(vec3(cos(la) * 0.55, 0.8, 0.35));
-    float e = boxL(d, K, vec2(0.30, 0.20), 0.012 + f) * 16.0;
+    float e = boxL(d, K, vec2(0.30, 0.20), 0.012 + f) * 16.0 * kb;
     e += boxL(d, Sd, vec2(0.055, 0.85), 0.008 + f) * 7.0;
     e += boxL(d, Tp, vec2(0.6, 0.04), 0.008 + f) * 6.0;
     return e + 0.025 + 0.035 * max(d.y, 0.0);                    // a stúdió sosem teljesen fekete
@@ -184,11 +185,11 @@ export const glassFS = /* glsl */`
       float li = 0.45 + 0.55 * uLightInt;
       float Fr = 0.04 + 0.96 * pow(g, 5.0);                              // szemből 4%, súroló szögben tükör
       float fR = clamp(length(fwidth(R)) * 1.2, 0.0, 0.4);               // ahol a tükörkép összesűrűsödik, ott lágyabb szél (élsimítás)
-      float refl = (envFront(R, la, fR) + envBack(R, fR)) * Fr * mix(uFace, 1.0, w);
+      float refl = (envFront(R, la, fR, w) + envBack(R, fR)) * Fr * mix(uFace, 1.0, w);
       // a vastag peremen / oldalfalon átjövő fény: a megtört sugár a tárgy mögötti lámpákra néz
       // (a lap szélén a lencse-sáv is így világít: ott az üveg íve a szélek felé fordítja a sugarat). A Dispersion csúszka
       // enyhe színes szegélyt ad az átjövő fény szélének, mint egy prizma.
-      float tw = max(w, lens) * 0.85 * (1.0 - Fr);
+      float tw = max(w, lens * uFace) * 0.85 * (1.0 - Fr);             // a nagy projekt-testen a lap széle nem világít
       float kd = uDisp * 0.022;
       vec3 trans = vec3(
         envBack(normalize(refract(-V, Nr, 1.0 / (1.5 - kd)) - Nr * 0.35), 0.03 + fR),
@@ -283,7 +284,7 @@ export const glassBackFS = /* glsl */`
       vec2 dl = vLocal / 0.708;
       vec3 Rb = reflect(-V, normalize(N - (vTx * dl.x + vTy * dl.y) * 0.42 * (1.0 - w)));
       float fR = clamp(length(fwidth(Rb)) * 1.2, 0.0, 0.4);
-      float e = (envFront(Rb, la, fR) + envBack(Rb, fR)) * Fi * 0.85;
+      float e = (envFront(Rb, la, fR, w) + envBack(Rb, fR)) * Fi * 0.85;
       gl_FragColor = vec4((1.0 - exp(-vec3(e) * li)) * uBackK, 1.0);
       return;
     }
