@@ -370,8 +370,17 @@ export function updateDrum(dt, s, closing) {
     if (vis) {
       placeOnPath(o, u, k);
       // a galéria-sor alulról szélesebb közzel jön, középre érve beáll (a név a képével együtt mozdul)
+      // (Patrik: gyorsabban zárjanak össze, és legyen sima: a zárás már a közép alatt ~0,2 képernyőnyire befejeződik,
+      // ötödfokú lágyítással, és időben is simítva, hogy a görgetés egyenetlensége ne látsszon rajta)
       const im0 = it.of || it;
-      const sp = im0.sx ? im0.x * im0.sx * THREE.MathUtils.smoothstep(im0.yc - s, vh * 0.04, vh * 0.55) : 0;
+      let sp = 0;
+      if (im0.sx) {
+        const tt = THREE.MathUtils.smootherstep(im0.yc - s, vh * 0.2, vh * 0.58);
+        im0.spT = tt;
+        if (im0.spV === undefined) im0.spV = tt;
+        if (!it.of) im0.spV += (tt - im0.spV) * Math.min(1, dt * 10);
+        sp = im0.x * im0.sx * im0.spV;
+      }
       o.holder.position.set((it.x + sp) * k, 0, 0);
       let a = ca;
       if (it.of) {                                   // a név: 70%-os fehér, a képe fölé vitt kurzorra kivilágosodik
