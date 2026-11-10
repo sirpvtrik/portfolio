@@ -111,7 +111,7 @@ export function drumLayout(o) {
   });
   const fb = mob ? 1 : Math.min(vw / 1440, vh / 1024);
   const outro = { sExit, ycText, th: oth, btnYc: ycText + oth / 2 + (21 + 30) * fb, btnW: 210 * fb, btnH: 60 * fb, btnFs: 20 * fb };
-  const floor = sMax + vh - (mob ? 36 : 64);                                    // a lap végén a padló a képernyő alján
+  const floor = sMax + vh - 6;                                                  // a lap végén a padló a képernyő legalján (Patrik: ne lebegjenek)
   const pillW = Math.min(PW / k, (mob ? vw : 900) / 3.3);
   return { vw, vh, k, mob, f, A, Rc, items, sMax, outro, heap: { floor, width: vw, k, vh, vw, pillW } };
 }
