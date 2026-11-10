@@ -68,11 +68,14 @@ export function drumLayout(o) {
   const named = gallery.some(g => g && g.name);
   const ns = mob ? 12 : Math.max(11, 14 * f), nGap = mob ? 10 : Math.max(8, 12 * f), nH = ns * 1.5;
   const rowH = ch + (named ? nGap + nH : 0);
+  // a sor képei alulról kicsit szélesebb közzel jönnek fel, és középre érve beállnak egymás mellé (Patrik); a többlet
+  // köz legfeljebb 64 px (Figma-méretben), de csak annyi, hogy a szélső kép ne lógjon ki a testből
+  const spreadK = Math.max(0, Math.min(64 * f, vw / 2 - 24 - (cols * cw + (cols - 1) * gx) / 2)) / (cw + gx);
   const rows = Math.ceil(gallery.length / cols);
   gallery.forEach((g, j) => {
     const r = Math.floor(j / cols), col = j % cols, inRow = Math.min(cols, gallery.length - r * cols);
     const x = (col - (inRow - 1) / 2) * (cw + gx), yc = y + r * (rowH + Gr) + ch / 2;
-    const img = { kind: 'img', w: cw, h: ch, x, src: srcOf(g), video: g && g.video, radius, yc };
+    const img = { kind: 'img', w: cw, h: ch, x, sx: spreadK, src: srcOf(g), video: g && g.video, radius, yc };
     items.push(img);
     if (g && g.name) {
       measure.font = `400 ${ns}px ${FONT}`;
@@ -366,11 +369,14 @@ export function updateDrum(dt, s, closing) {
     o.holder.visible = vis;
     if (vis) {
       placeOnPath(o, u, k);
-      o.holder.position.set(it.x * k, 0, 0);
+      // a galéria-sor alulról szélesebb közzel jön, középre érve beáll (a név a képével együtt mozdul)
+      const im0 = it.of || it;
+      const sp = im0.sx ? im0.x * im0.sx * THREE.MathUtils.smoothstep(im0.yc - s, vh * 0.04, vh * 0.55) : 0;
+      o.holder.position.set((it.x + sp) * k, 0, 0);
       let a = ca;
       if (it.of) {                                   // a név: 70%-os fehér, a képe fölé vitt kurzorra kivilágosodik
         const im = it.of, ui = s - im.yc;
-        const over = hov && Math.abs(hx - im.x) < im.w / 2 && Math.abs(hy - ui) < im.h / 2 && Math.abs(ui) < DL.A + im.h / 2;
+        const over = hov && Math.abs(hx - im.x - sp) < im.w / 2 && Math.abs(hy - ui) < im.h / 2 && Math.abs(ui) < DL.A + im.h / 2;
         o.hv = (o.hv || 0) + ((over ? 1 : 0) - (o.hv || 0)) * Math.min(1, dt * 9);
         a = ca * (0.7 + 0.3 * o.hv);
       }
