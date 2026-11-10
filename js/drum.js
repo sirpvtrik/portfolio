@@ -287,7 +287,7 @@ export function buildDrum(grp, layout, k, opts) {
   const mat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassFS, extensions: { derivatives: true }, uniforms: Object.assign({}, U, {
     uHover: { value: 0 }, uTintK: { value: 0 }, uTint: { value: new THREE.Vector3(1, 1, 1) },
     uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 }, uLens: { value: 1 },
-    uLensW: { value: 0.62 }, uFace: { value: 1 }, uSpecK: { value: 1 } }) });
+    uLensW: { value: 0.62 }, uFace: { value: 1 }, uSpecK: { value: 1 }, uEdge: { value: 0 }, uEdgeW: { value: 0.1 } }) });
   const bmat = new THREE.ShaderMaterial({ vertexShader: glassVS, fragmentShader: glassBackFS, extensions: { derivatives: true }, uniforms: Object.assign({}, U, { uBackK: { value: 1 } }),
     side: THREE.BackSide, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
   const holder = new THREE.Group(); group.add(holder);
@@ -328,6 +328,9 @@ function setStretch(dx, dy, sc) {
   // ahogy kinő a teljes képernyőre, a lap tükröződései és a hátlap fénye elhalványul (különben az egész kép fénylik);
   // a szélén a csíkfény és a vékony fényes él megmarad
   u.uFace.value = lerp(1, 0.06, grow);
+  // a kinőtt test széle: fényes él + derengés (ahogy nő, úgy jelenik meg); a szélessége ~26 px, a lap saját egységében
+  u.uEdge.value = grow * grow;
+  u.uEdgeW.value = 26 * kk * body.pf / Math.max(sc, 1e-4);
 }
 // a pálya (px, u: a képernyő közepétől felfelé mért távolság a pálya mentén): középen sík, a széleken Rc sugarú ívben
 // felénk hajlik (z); a negyedív után nem megy tovább (ott már a képen kívül van)

@@ -71,6 +71,8 @@ export const glassFS = /* glsl */`
                           // szinte 0, mert ott a lap egésze egyszerre fényesedett ki (Patrik: „nagyon zavaróan fénylik”)
   uniform vec2 uCurP;     // az egérfény helye (pixel, alulról) és ereje: a perem közelében elkapja a fényt
   uniform float uCurL;     // a perem tükröződéseinek erőssége (Glass panel „Perem” csúszka; a sík lapot nem érinti)
+  uniform float uEdge;    // a kinyílt projekt-test (henger) széle: fényes él + befelé elfogyó derengés (0 = nincs; a pilleken 0)
+  uniform float uEdgeW;   // a derengés szélessége a lap saját egységében (~26 px)
   uniform float uReal;    // élethű üveg (teszt): 1 = a pilleken a fekete stúdió éles fényforrásai, Fresnel szerint` + realEnv + /* glsl */`
   varying vec3 vN;
   varying vec3 vV;
@@ -242,6 +244,20 @@ export const glassFS = /* glsl */`
     }
 
     col = mix(colRefr, col, uSpecK);
+    // a kinyílt projekt-test széle (Patrik: jobban lehessen látni, érezni, hogy „belelépünk a hengerbe”): hajszálvékony
+    // fényes él a körvonalon + befelé lágyan elfogyó derengés; a fény felőli oldalon erősebb, a túloldalon halvány
+    // (így üvegperemnek hat, nem egyenletes keretnek). A test többi fényétől (uSpecK) független.
+    if (uEdge > 0.001) {
+      vec2 eq = abs(vLocal) - (uHalf - uRad);
+      float ein = max(-(length(max(eq, 0.0)) + min(max(eq.x, eq.y), 0.0) - uRad), 0.0);   // távolság a körvonaltól befelé
+      vec2 en = (eq.x > 0.0 && eq.y > 0.0) ? normalize(eq) * sign(vLocal + vec2(1e-6))
+              : (eq.x > eq.y ? vec2(sign(vLocal.x + 1e-6), 0.0) : vec2(0.0, sign(vLocal.y + 1e-6)));
+      float lf = 0.68 + 0.32 * dot(en, normalize(vec2(-cos(la), -sin(la))));
+      float px1 = uEdgeW / 26.0;
+      float line = exp(-pow(ein / (1.5 * px1), 2.0));
+      float soft = exp(-ein / uEdgeW) * 0.45 + exp(-ein / (uEdgeW * 0.28)) * 0.55;
+      col += vec3(0.93, 0.96, 1.0) * uEdge * lf * mix(line * 0.55 + soft * 0.17, 0.42, w);
+    }
     gl_FragColor = vec4(col, 1.0);
   }`;
 
