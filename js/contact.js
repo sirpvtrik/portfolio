@@ -47,6 +47,7 @@ function setOpen(v) {
   if (!v) ct.classList.remove('show');                                  // csukáskor a tartalom azonnal eltűnik
   av.setAttribute('aria-expanded', String(v));
 }
+export function openContact() { setOpen(true); av.focus({ preventScroll: true }); }   // a GET IN TOUCH gomb nyitja, amíg nincs e-mail-cím
 ct.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') setOpen(true); });
 ct.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') { clearTimeout(closeT); closeT = setTimeout(() => setOpen(false), 380); } });
 ct.addEventListener('focusin', () => setOpen(true));

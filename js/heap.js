@@ -35,7 +35,7 @@ export function setupHeap(c) {
 }
 export function resetHeap() {
   if (engine) { window.Matter.Engine.clear(engine); window.Matter.Composite.clear(engine.world, false); }
-  engine = null; bodies = []; spawned = false; drag = null; hovered = -1; acc = 0; a = 0; cfg = null;
+  engine = null; bodies = []; spawned = false; drag = null; hovered = -1; acc = 0; a = 0; cfg = null; fallT = 0; settled = false;
 }
 
 function build() {
@@ -108,15 +108,24 @@ export function heapPointer(kind, e) {
   return false;
 }
 export const heapDragging = () => !!drag;
+// a pillek leestek-e már (a GET IN TOUCH gomb ezután jelenik meg): a lehullás kezdete óta eltelt idő alapján
+let fallT = 0, settled = false;
+export const heapSettled = () => spawned && settled;
 
 /* ---------- Kockánként (a project.js hívja): v = a lap görgetése pixelben, on = a projekt nyitva van ---------- */
-export function updateHeap(dt, v, on) {
+// canSpawn: lehullhatnak-e már (a henger-oldalon csak akkor, amikor a nagy szöveg összeállt)
+export function updateHeap(dt, v, on, canSpawn = true) {
   pageV = v;
   if (!cfg || mode !== 'away') return;
   const M = window.Matter;
   if (!M) { preloadHeap(); return; }
   // akkor hullanak le, amikor a halom helye (a padló) a képbe ér
-  if (!spawned && cfg.floor - v < cfg.vh + 40) build();
+  if (!spawned && canSpawn && cfg.floor - v < cfg.vh + 40) { build(); fallT = 0; settled = false; }
+  if (spawned) {
+    fallT += dt;
+    // megnyugodtak-e: mind lelassult (vagy letelt 4,5 mp); ha egyszer igen, úgy marad (később húzgatva sem tűnik el a gomb)
+    if (!settled && fallT > 1.2) settled = fallT > 4.5 || bodies.every(b => b.speed < 0.5 && Math.abs(b.angularVelocity) < 0.015);
+  }
   if (!engine) { stack.visible = false; return; }
 
   if (drag) {                                       // a húzott pont az ujjat / egeret követi (görgetés közben is)

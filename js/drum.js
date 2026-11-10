@@ -86,11 +86,34 @@ export function drumLayout(o) {
   });
   if (rows) y += rows * rowH + (rows - 1) * Gr;
   const lastBottom = y;
-  // a végén a pillek halma: a padló a tartalom alatt, a lap végén a képernyő aljára kerül
-  const floor = lastBottom + vh / 2 + vh * 0.42;
-  const sMax = Math.max(0, floor - vh + (mob ? 36 : 64));
+  // KIVEZETÉS (Patrik, Figma: Desktop – 18): a galéria után továbbgörgetve „elhagyjuk a pillt”: az üvegtest felfelé
+  // kigördül a képből (sExit-től a görgetéssel együtt megy), alatta a nagy szöveg jön fel szavanként széthúzva, és
+  // görgetésre összeáll (mint a leírás); a lap végén a padló a képernyő aljára kerül, a többi projekt pillje a szöveg
+  // előtt hullik le (az üvegük megtöri a szöveget), és utánuk jelenik meg a GET IN TOUCH gomb (DOM, project.js).
+  const sExit = lastBottom - vh * 0.1;
+  const oLines = ['HAVE A GREAT IDEA?', 'LET’S DESIGN IT!'];
+  measure.font = `700 100px ${FONT}`;
+  const maxW100 = Math.max(...oLines.map(l => measure.measureText(l).width));
+  const ofs = Math.min(128 * vw / 1440, vh * 0.17, (vw * (mob ? 0.9 : 0.92)) / maxW100 * 100);   // Figma: Nohemi Bold 128 / 1,15
+  const olh = ofs * 1.15, oth = oLines.length * olh;
+  const sMax = Math.max(0, sExit + vh + oth / 2);
+  const ycText = sMax - vh * 0.14;                                             // a lap végén a szöveg a közép fölött áll
+  measure.font = `700 ${ofs}px ${FONT}`;
+  const osp = measure.measureText(' ').width;
+  oLines.forEach((line, li) => {
+    const ws = line.split(' '), wd = ws.map(w => measure.measureText(w).width);
+    let x = -(wd.reduce((a, b) => a + b, 0) + osp * (ws.length - 1)) / 2;
+    ws.forEach((w, j) => {
+      items.push({ kind: 'word', flat: true, text: w, size: ofs, w: wd[j] + ofs * 0.3, h: olh * 1.1, x: x + wd[j] / 2, line: li,
+        yc: ycText + (li - (oLines.length - 1) / 2) * olh });
+      x += wd[j] + osp;
+    });
+  });
+  const fb = mob ? 1 : Math.min(vw / 1440, vh / 1024);
+  const outro = { sExit, ycText, th: oth, btnYc: ycText + oth / 2 + (21 + 30) * fb, btnW: 210 * fb, btnH: 60 * fb, btnFs: 20 * fb };
+  const floor = sMax + vh - (mob ? 36 : 64);                                    // a lap végén a padló a képernyő alján
   const pillW = Math.min(PW / k, (mob ? vw : 900) / 3.3);
-  return { vw, vh, k, mob, f, A, Rc, items, sMax, heap: { floor, width: vw, k, vh, vw, pillW } };
+  return { vw, vh, k, mob, f, A, Rc, items, sMax, outro, heap: { floor, width: vw, k, vh, vw, pillW } };
 }
 
 /* ---------- Rajzolók ---------- */
@@ -120,6 +143,12 @@ function drawTitle(g, it, q) {
   g.fillStyle = '#f2f2f2'; g.fillText(it.name, W / 2, y + tc);
   g.font = `400 ${cs}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
   g.fillStyle = 'rgba(242,242,242,0.7)'; g.fillText((it.cat || '').toUpperCase(), W / 2, y + tc + gap + cc);
+}
+function drawWord(g, it, q) {
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.font = `700 ${it.size * q}px ${FONT}`; if ('letterSpacing' in g) g.letterSpacing = '0px';
+  const cap = g.measureText('H').actualBoundingBoxAscent || it.size * q * 0.7;
+  g.fillStyle = '#ffffff'; g.fillText(it.text, it.w * q / 2, it.h * q / 2 + cap / 2);
 }
 function drawLabel(g, it, q) {
   g.textAlign = it.center ? 'center' : 'left'; g.textBaseline = 'middle';
@@ -185,9 +214,12 @@ function clipped(mat) {
 let group = null, DL = null, kk = 1, st = null, body = null, items = [];
 let morphT = 99, closeT = -1, ca = 0;
 
-export function drumStart() { morphT = 0; closeT = -1; ca = 0; }       // nyitás: a pill kinyúlik
+export function drumStart() { morphT = 0; closeT = -1; ca = 0; outroT = 0; }       // nyitás: a pill kinyúlik
 export function drumSkipIntro() { morphT = 99; }                         // újraépítéskor (átméretezés, csúszka) nincs újra kinyúlás
-export function drumClose() { closeT = 0; }                              // Vissza: összecsukódás
+export function drumClose() { closeT = 0; }
+// a kivezetés nagy szövege összeállt-e már (és eltelt-e utána egy lélegzetnyi idő): a pillek csak ezután hullanak le
+let outroT = 0;
+export const drumOutroReady = () => outroT > 0.35;                              // Vissza: összecsukódás
 
 function texFromCanvas(cv) {
   const tex = new THREE.CanvasTexture(cv);
@@ -196,11 +228,11 @@ function texFromCanvas(cv) {
 }
 function makeItem(it, k) {
   const q = Math.min(2, window.devicePixelRatio || 1) * (it.kind === 'title' || it.kind === 'label' ? 1.5 : 1);   // a széles leírás kisebb felbontással (kockánként újrarajzolódik)
-  const geo = new THREE.PlaneGeometry(it.w * k, it.h * k, 1, Math.max(24, Math.min(96, Math.round(it.h / 10))));
+  const geo = new THREE.PlaneGeometry(it.w * k, it.h * k, 1, it.flat ? 1 : Math.max(24, Math.min(96, Math.round(it.h / 10))));
   const o = { it, geo, base: geo.attributes.position.array.slice(), holder: new THREE.Group(), lastU: NaN, mats: [], texs: [], played: false };
   group.add(o.holder);
   const add = (mat, z, order) => {
-    clipped(mat);
+    if (!it.flat) clipped(mat);                      // a kivezetés szavai a testen kívül vannak: azokat nem vágjuk
     const m = onLayer(new THREE.Mesh(geo, mat), LAYER_BG); m.position.z = z; m.renderOrder = order; m.frustumCulled = false;
     o.holder.add(m); o.mats.push(mat);
   };
@@ -236,7 +268,7 @@ function makeItem(it, k) {
     if (it.kind === 'img') imageDrawer(it, () => { tex.needsUpdate = true; })(g, q);
     else {
       o.p = it.spread ? 0 : 1;
-      const draw = it.kind === 'title' ? drawTitle : (it.kind === 'label' ? drawLabel : drawDesc);
+      const draw = it.kind === 'title' ? drawTitle : (it.kind === 'label' ? drawLabel : (it.kind === 'word' ? drawWord : drawDesc));
       o.redraw = () => { g.clearRect(0, 0, cv.width, cv.height); draw(g, it, q, o.p); tex.needsUpdate = true; };
       o.redraw();
     }
@@ -273,7 +305,7 @@ export function buildDrum(grp, layout, k, opts) {
   if (document.fonts && document.fonts.load) {
     const tt = DL.items.find(i => i.kind === 'title'), dd = DL.items.find(i => i.kind === 'desc');
     Promise.all([document.fonts.load(`500 40px ${FONT}`, tt ? tt.name : ''), document.fonts.load(`400 20px ${FONT}`, ((tt && tt.cat) || '').toUpperCase()),
-      document.fonts.load(`400 16px ${FONT}`, dd ? dd.lines.join(' ') : '')])
+      document.fonts.load(`400 16px ${FONT}`, dd ? dd.lines.join(' ') : ''), document.fonts.load(`700 60px ${FONT}`, 'HAVE A GREAT IDEA? LET’S DESIGN IT!')])
       .then(() => items.forEach(o => o.redraw && o.redraw())).catch(() => {});
   }
 }
@@ -346,7 +378,10 @@ export function updateDrum(dt, s, closing) {
   const fadeL = Math.pow(1 - grow, 3);
   body.mat.uniforms.uSpecK.value = S.pjLight ? 1 : fadeL;
   body.bmat.uniforms.uBackK.value = S.pjLight ? lerp(1, 0.2, grow) : fadeL;
-  body.holder.position.set(lerp(s0.x, 0, mp), lerp(s0.y, 0, mp), lerp(s0.z, 0, mp));
+  // kivezetés: a test a görgetéssel együtt felfelé kigördül a képből (a tartalom vágása követi)
+  const ex = Math.max(0, s - DL.outro.sExit);
+  body.holder.visible = ex < DL.vh + 60;
+  body.holder.position.set(lerp(s0.x, 0, mp), lerp(s0.y, 0, mp) + ex * k * body.pf * mp, lerp(s0.z, 0, mp));
   body.holder.scale.set(sxy, sxy, lerp(s0.sc, 1, mp));
   // a test körvonala a képernyőn (az előlap síkjában): ehhez vágjuk a tartalmat
   {
@@ -359,8 +394,23 @@ export function updateDrum(dt, s, closing) {
   const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
   // a kurzor a képernyő közepétől (px; y felfelé): a képek a pálya sík részén a képernyő síkjában vannak
   const hd = cursorHead(), hx = hd.x - DL.vw / 2, hy = DL.vh / 2 - hd.y, hov = hd.x > -9000 && !('ontouchstart' in window && navigator.maxTouchPoints > 0 && matchMedia('(hover: none)').matches);
+  let spread = 0, words = 0;
+  items.forEach(o => { if (o.it.flat) { words++; spread = Math.max(spread, o.spV === undefined ? 1 : o.spV); } });
+  outroT = words && spread < 0.02 && !closing ? outroT + dt : 0;
   items.forEach(o => {
     const it = o.it, u = s - it.yc;
+    if (it.flat) {                                   // a kivezetés szavai: síkban, a testen kívül; széthúzva jönnek, görgetésre összeállnak
+      const vis = Math.abs(u) < vh * 0.5 + it.h && ca > 0.002;
+      o.holder.visible = vis;
+      if (!vis) { o.spV = undefined; return; }
+      const ut = s - DL.outro.ycText - it.line * vh * 0.05;                      // a második sor kicsit később
+      const tt = 1 - THREE.MathUtils.smootherstep(ut, -vh * 0.5, -vh * 0.02);
+      if (o.spV === undefined) o.spV = tt;
+      o.spV += (tt - o.spV) * Math.min(1, dt * 10);
+      o.holder.position.set(it.x * (1 + o.spV * 1.3) * k, u * k, 0);
+      o.mats.forEach(m => { m.opacity = ca; });
+      return;
+    }
     if (it.spread) {                                 // a leírás szavai felfelé jövet, a közép alatt állnak össze
       const p = u >= -vh * 0.06 ? 1 : 1 - THREE.MathUtils.smoothstep(-u, vh * 0.06, vh * 0.4);
       if (Math.abs(p - o.p) > 0.002 || (p !== o.p && (p === 0 || p === 1))) { o.p = p; o.redraw(); }

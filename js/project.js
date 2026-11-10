@@ -8,15 +8,16 @@
 // forognak: mindig az a kép van elöl, amelyik a képernyő közepén jár, a többi oldalra, majd a pill mögé kerül (az üveg megtöri).
 // Henger (S.pjMode = 2, js/drum.js): a vízszintes pill a teljes képernyőre nyúlik, a tartalom vízszintes tengelyű hengeren
 // gördül fel lépésenként; itt csak a görgetés (és a lépéshatárra ugrás) meg a nyitás / zárás van.
-import { S, reduced, DETAIL_TEST, PROJECTS, PW, PH } from './config.js';
+import { S, reduced, DETAIL_TEST, PROJECTS, PW, PH, CONTACT } from './config.js';
 import { scene, renderer, camera, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH, setCameraLift } from './scene.js';
 import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { roundedRect, stadium, glassSlab, remapUV, bevelOf, faceZ } from './glassgeo.js';
 import { onSelect, restorePills, paletteOf, pills } from './pills.js';
 import { setWavesCentered, setWaveColor } from './waves.js';
 import { damp } from './util.js';
-import { setupHeap, resetHeap, updateHeap, heapPointer, preloadHeap } from './heap.js';
-import { drumLayout, buildDrum, updateDrum, disposeDrum, drumStart, drumSkipIntro, drumClose } from './drum.js';
+import { setupHeap, resetHeap, updateHeap, heapPointer, preloadHeap, heapSettled } from './heap.js';
+import { openContact } from './contact.js';
+import { drumLayout, buildDrum, updateDrum, disposeDrum, drumStart, drumSkipIntro, drumClose, drumOutroReady } from './drum.js';
 
 const root = document.getElementById('project');
 const input = document.getElementById('pjInput');
@@ -511,6 +512,17 @@ function smoothDrum(dt) {
   s += (tgt - s) * (1 - Math.exp(-dt * 7));
   if (Math.abs(tgt - s) < 0.05) s = tgt;
 }
+// GET IN TOUCH (henger, a lap legvégén, a nagy szöveg alatt): a helye a görgetéssel megy; akkor jelenik meg (és villan
+// fel), amikor a pillek már leestek. Kattintásra e-mail (ha a CONTACT-ban van cím), különben a névjegy nyílik ki.
+const touchBtn = document.getElementById('pjTouch');
+if (CONTACT.email) touchBtn.href = 'mailto:' + CONTACT.email;
+touchBtn.addEventListener('click', e => { if (!CONTACT.email) { e.preventDefault(); openContact(); } });
+function placeTouch() {
+  const o = L.drum.outro, y = L.vh / 2 - (s - o.btnYc);                    // a gomb közepe a képernyő tetejétől
+  touchBtn.style.setProperty('--tw', o.btnW + 'px'); touchBtn.style.setProperty('--th', o.btnH + 'px'); touchBtn.style.setProperty('--tf', o.btnFs + 'px');
+  touchBtn.style.transform = `translate(${L.vw / 2 - o.btnW / 2}px, ${y - o.btnH / 2}px)`;
+  touchBtn.classList.toggle('on', isOpen && !closing && heapSettled() && y > 0 && y < L.vh);
+}
 export function updateProject(dt) {
   const liftT = isOpen && !closing ? 0 : 1.4;                       // a kamera egyenesen néz a kártyákra
   if (Math.abs(lift - liftT) > 1e-4) { lift = damp(lift, liftT, 4, dt); setCameraLift(lift); }
@@ -524,7 +536,9 @@ export function updateProject(dt) {
   else if (!dragging) { s += vel * dt; vel *= Math.exp(-dt * 3.2); }
   if (s < 0) { s = 0; vel = Math.max(0, vel); }
   if (s > L.sMax) { s = L.sMax; vel = Math.min(0, vel); }
-  if (L.drum) { updateHeap(dt, s, isOpen && !closing); updateDrum(dt, s, closing); return; }
+  // henger: előbb a tartalom (a nagy szöveg összeáll), a pillek csak utána hullanak le, és ha megnyugodtak, jön a gomb
+  if (L.drum) { updateDrum(dt, s, closing); updateHeap(dt, s, isOpen && !closing, drumOutroReady()); placeTouch(); return; }
+  touchBtn.classList.remove('on');
   if (L.pill) { updateHeap(dt, s, isOpen && !closing); updatePillPage(dt); return; }
   updateHeap(dt, s < L.sG ? s : (s < L.sG + L.spin ? L.sG : s - L.spin), isOpen && !closing);
   // fázisok: lap görög → (galéria középen) a lap áll, a henger forog → a lap görög tovább
