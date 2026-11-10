@@ -115,9 +115,25 @@ function render() {
   renderer.autoClear = true;
 }
 // update(dt): minden kockában a rajzolás előtt fut (animáció, zene, lejátszó)
+// Önszabályozó felbontás (Patrik: ne legyen „gépgyilkos”): ha a gép tartósan nem bírja (az átlag 42 képkocka/mp alatt),
+// a rajzolási felbontást lépésenként lejjebb vesszük (2 → 1,75 → … → 1), felfelé nem megy vissza. A betöltő alatt és
+// utána pár másodpercig nem mér (shader-fordítás), és a kiugró szüneteket (háttérbe tett lap) kihagyja.
+let fpsT = 0, fpsSum = 0, fpsN = 0, fpsHold = 240;
+function adaptResolution() {
+  const now = performance.now(), d = now - fpsT; fpsT = now;
+  if (window.MPIntro && window.MPIntro.t2 == null) return;      // a betöltő alatt nem mérünk
+  if (fpsHold > 0) { fpsHold--; return; }
+  if (d > 250 || d <= 0) return;
+  fpsSum += d; fpsN++;
+  if (fpsN < 50) return;
+  const avg = fpsSum / fpsN; fpsSum = 0; fpsN = 0;
+  const pr = renderer.getPixelRatio();
+  if (avg > 24 && pr > 1) { renderer.setPixelRatio(Math.max(1, pr - 0.25)); resize(); fpsHold = 45; }
+}
 export function startLoop(update) {
   function frame() {
     const dt = Math.min(clock.getDelta(), 0.05);
+    adaptResolution();
     update(dt);
     render();
     requestAnimationFrame(frame);

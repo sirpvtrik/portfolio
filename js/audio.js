@@ -292,6 +292,7 @@ export function updateAudio(dt) {
   WU.uAmp.value = musicAmt;
   WU.uReact.value = R;
   WU.uBeat.value = Math.max(pulse, syncPulse * 0.3) * 0.7;
+  WU.uMid.value = mid * musicAmt; WU.uHigh.value = high * musicAmt;   // a Folyékony szalag hullámai / fodrai
   WU.uGain.value = (S.wlight / 50) * (1.0 + musicAmt * (0.2 + pulse * 0.4 * R)) * wavesIn();   // belépéskor beúszik
   reach = damp(reach, Math.min(1.2, musicAmt * (0.2 + pulse * 0.9 * R)), 4, dt);   // zenére beljebb úsznak
   scrollPush = damp(scrollPush, Math.min(1, Math.abs(scrollVel) / 7), 4, dt);   // görgetésre beljebb úsznak

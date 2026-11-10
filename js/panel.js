@@ -27,7 +27,7 @@ function applySettings() {
   requestCardRebuild();                       // a projekt-kártyák (a galéria is) ugyanazt a peremet kapják
   document.getElementById('c-bpm').checked = S.bpmSync;
   WU.uStyle.value = S.wstyle;
-  [0, 1].forEach(v => document.getElementById('ws-' + v).setAttribute('aria-pressed', String(S.wstyle === v)));
+  [0, 1, 2].forEach(v => document.getElementById('ws-' + v).setAttribute('aria-pressed', String(S.wstyle === v)));
   [0, 1, 2].forEach(v => document.getElementById('pm-' + v).setAttribute('aria-pressed', String(S.pjMode === v)));
   CTL.forEach(k => {
     const el = document.getElementById('c-' + k);
@@ -41,7 +41,7 @@ document.getElementById('c-glow').addEventListener('change', e => { S.glow = e.t
 document.getElementById('c-real').addEventListener('change', e => { S.realGlass = e.target.checked; applySettings(); });
 document.getElementById('c-pjtext').addEventListener('change', e => { S.pjTextStill = e.target.checked; });
 document.getElementById('c-pjlight').addEventListener('change', e => { S.pjLight = e.target.checked; });   // kockánként olvassa   // kockánként olvassa, nem kell újraépíteni
-[0, 1].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));
+[0, 1, 2].forEach(v => document.getElementById('ws-' + v).addEventListener('click', () => { S.wstyle = v; applySettings(); }));
 [0, 1, 2].forEach(v => document.getElementById('pm-' + v).addEventListener('click', () => { S.pjMode = v; applySettings(); }));   // nyitott projektnél azonnal átépül
 document.getElementById('reset').addEventListener('click', () => { Object.assign(S, DEFAULTS); applySettings(); });
 // Másolás: az aktuális beállítások JSON-ként a vágólapra (ebből lesz az új DEFAULTS)

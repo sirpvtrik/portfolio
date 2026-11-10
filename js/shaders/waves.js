@@ -1,4 +1,15 @@
-// Hullámok a két szélen: teljes képernyős 2D shader (Fényszalag / Üveg stílus)
+// Hullámok a két szélen: 2D shader (Fényszalag / Üveg / Folyékony stílus).
+// Oldalanként egy-egy négyszögre rajzolunk, ami csak addig ér be a képbe, ameddig a hullám elérhet (uReachN): a képernyő
+// többi részén a shader le sem fut (a régi, teljes képernyős változat minden képpontra mindkét oldalt kiszámolta).
+
+// position = (u: 0 a szélen → 1 befelé, y: −1..1, oldal: −1 bal / +1 jobb)
+export const waveVS = /* glsl */`
+  uniform float uReachN;      // a négyszög szélessége NDC-ben (2 = a teljes képernyő)
+  varying float vSide;
+  void main() {
+    vSide = position.z;
+    gl_Position = vec4(position.z * (1.0 - position.x * uReachN), position.y, 0.0, 1.0);
+  }`;
 
 export const waveFS = /* glsl */`
   precision highp float;
@@ -9,6 +20,8 @@ export const waveFS = /* glsl */`
   uniform vec3 uPalA[3], uPalB[3];   // régi és új paletta (szalagonként egy árnyalat); a front (0 → 1.2) fentről lefelé viszi át
   uniform vec2 uRes;
   uniform float uBands[6];
+  uniform float uMid, uHigh;   // a közép- és a magas hangok szintje (0 → 1): ettől fodrozódik a folyékony szalag
+  varying float vSide;
   // a spektrum 6 sávból, harang-görbékkel összemosva → teljesen sima, nincs lépcső a vonalon
   float specAt(float m) {
     float s = 0.0, n = 0.0;
@@ -105,9 +118,79 @@ export const waveFS = /* glsl */`
     }
     return sum * env * (1.0 - smoothstep(0.7, 1.3, xe - sh * env));   // fokozatos elhalványulás, nincs éles határ
   }
+
+  // ---------- FOLYÉKONY (uStyle = 2; Patrik referenciája: csavarodó üvegszalag fekete háttéren) ----------
+  // Oldalanként két szalag (elöl egy vastagabb, mögötte egy vékonyabb). Egy szalag a két széle (a, b) között fekszik; a
+  // szélessége a csavarodással változik (ahol élére fordul, elvékonyodik). Sötét, átlátszó test, a két szélén hajszálvékony,
+  // a hossza mentén fel-felerősödő fényes él, a testen ferdén végigvándorló, egyik oldalán éles szélű tükröződés.
+  // Zene: a basszus kilengeti és megduzzasztja, a közép hangok végigfutó hullámokat, a magasak apró fodrokat és
+  // csillanást adnak (zene nélkül sima, nyugodt üveg). Olcsó: képpontonként ~20 szögfüggvény, Newton-lépés nélkül.
+  vec4 strand(float xe, float yy, float env, float Hs, float k, float sp, float beat, vec3 pal0, vec3 pal1) {
+    float t = uTime + k * 4.3 + vSide * 1.9;
+    float mid = uMid * uReact, high = uHigh * uReact;
+    // középvonal: lassú, nagy ívek (a basszus kilengeti) + a hangsávok helyi kidomborodása + végigfutó hullámok
+    float sway = sin(yy * (3.1 - k * 0.9) + t * 0.33 + k * 2.0) * 0.042 + sin(yy * 1.7 - t * 0.21 + k) * 0.02;
+    float run = sin(yy * 10.5 - t * 1.9 + k * 1.3) * 0.0055 * (0.3 + mid * 5.0 + sp * 3.0);
+    float c = 0.088 + k * 0.03 + uPush * 0.11 + sway * (1.0 + beat * 1.1) + sp * 0.03 + run;
+    float over = max(c - 0.19, 0.0);
+    c += shiftH() - over * over / (over + 0.06);                       // lágy korlát: a hatósugáron (a négyszögön) belül marad
+    // csavarodás: a szalag lapja lassan körbefordul
+    float tw = yy * (2.4 + k * 0.7) + t * 0.19 + sin(yy * 1.15 - t * 0.13 + k * 3.0) * 1.3;
+    float ct = cos(tw);
+    float w = (0.009 + (0.05 - k * 0.028) * (0.08 + 0.92 * ct * ct)) * (1.0 + beat * 0.45 + sp * 0.5);
+    // fodrok a két szélen (külön fázissal): a magas hangokra
+    float rp = 0.0012 * (0.12 + high * 9.0 + mid * 2.5 + sp * 3.0);
+    float a = env * (c - w + sin(yy * 31.0 - t * 3.3 + k) * rp);
+    float b = env * (c + w + sin(yy * 27.0 + t * 2.9 + k * 2.0) * rp);
+    float sl = dFdy(a + b) * 0.5 * Hs;                                 // a szalag dőlése (a képernyő-deriváltból)
+    float inv = Hs / sqrt(1.0 + sl * sl);
+    float da = (xe - a) * inv, db = (b - xe) * inv;                    // távolság a két széltől, pixelben (belül pozitív)
+    float inside = smoothstep(-0.8, 0.8, da) * smoothstep(-0.8, 0.8, db);
+    float wpx = max((b - a) * inv, 1.0);
+    float u = clamp((da - db) / wpx, -1.0, 1.0);                       // −1 az egyik szél, +1 a másik
+    float nz = sqrt(1.0 - u * u);
+    // a test: a tükröződés a keresztmetszet szögével és a csavarodással vándorol (ferde fénycsíkok)
+    float psi = asin(u) + sin(tw * 0.5 + k) * 1.1;
+    float sheet = smoothstep(-0.05, 0.0, psi - 0.15) * (1.0 - smoothstep(0.15, 1.0, psi)) * 0.42   // egyik szélén éles, a másikon lágyan elfogy
+                + exp(-pow((psi + 0.75) / 0.32, 2.0)) * 0.09;
+    float rim = pow(1.0 - nz, 3.0);
+    float fold = pow(1.0 - ct * ct, 5.0) * 0.5 * nz;                    // ahol élére fordul, fényes ékké szűkül
+    float body = (0.012 + sheet * (0.35 + 0.65 * nz) + rim * 0.1 + fold) * inside;
+    // hajszálvékony fényes élek, a hossz mentén fel-felerősödve (a magas hangokra csillannak)
+    float lw = max(1.1, Hs * 0.0013);
+    float ma = 0.18 + 0.82 * pow(0.5 + 0.5 * sin(yy * 2.3 - t * 0.5 + k * 1.7), 2.0);
+    float mb = 0.18 + 0.82 * pow(0.5 + 0.5 * sin(yy * 1.9 + t * 0.41 + k * 2.9 + 2.0), 2.0);
+    float wa = lw * (0.7 + 1.5 * ma), wb = lw * (0.7 + 1.5 * mb);      // ahol fényesebb, ott vastagabb is
+    float la = exp(-(da * da) / (wa * wa)) * ma, lb = exp(-(db * db) / (wb * wb)) * mb;
+    // az él fénye befelé lágyan a testbe fut (mint a referencián), kifelé élesen véget ér
+    float bleed = (exp(-max(da, 0.0) / (wpx * 0.2)) * ma + exp(-max(db, 0.0) / (wpx * 0.2)) * mb) * 0.26 * inside;
+    float lines = (la + lb) * (1.0 + high * 1.2 + beat * 0.4) + bleed;
+    // halvány fényudvar az élek körül
+    float gs = Hs * 0.02;
+    float glow = (exp(-abs(da) / gs) * ma + exp(-abs(db) / gs) * mb) * 0.05;
+    float dim = 1.0 - k * 0.45;                                        // a hátsó szalag halványabb
+    vec3 col = (lines * mix(pal0, vec3(1.0), 0.55) + (body + glow) * pal1) * dim;
+    return vec4(col, inside);
+  }
+  vec3 liquid(vec2 px, float side) {
+    float H = uRes.y, Hs = min(H, uRes.x * 1.6);                       // álló képernyőn a szélességhez mér (nem ér a közepéig)
+    float y = px.y / H + uRise;
+    float xe = (side < 0.0 ? px.x : uRes.x - px.x) / Hs;
+    float env = pow(sin(3.14159265 * clamp(y, 0.0, 1.0)), 1.1);       // a végei a sarkokba futnak
+    float yy = y * H / Hs + uFlowY;                                    // a hossz mentén (a minta a basszusra lefelé csúszik)
+    float sp = specAt(0.03 + sqrt((y - 0.5) * (y - 0.5) + 0.004) * 1.7) * uAmp * uReact;
+    float beat = uBeat * uReact;
+    float yt = 1.0 - px.y / H;
+    float colMix = 1.0 - smoothstep(uColFront - 0.18, uColFront, yt);
+    vec3 p0 = mix(uPalA[0], uPalB[0], colMix), p1 = mix(uPalA[1], uPalB[1], colMix), p2 = mix(uPalA[2], uPalB[2], colMix);
+    vec4 back = strand(xe, yy, env, Hs, 1.0, sp, beat, p1, p2);
+    vec4 front = strand(xe, yy, env, Hs, 0.0, sp, beat, p0, p1);
+    vec3 sum = back.rgb * (1.0 - front.a * 0.8) + front.rgb;          // az elülső szalag teste eltakarja a hátsót
+    return sum * smoothstep(0.0, 0.25, env) * (1.0 - smoothstep(0.34, 0.40, xe - shiftH()));
+  }
   void main() {
     vec2 px = gl_FragCoord.xy;
-    vec3 l = (ribbons(px, -1.0) + ribbons(px, 1.0)) * uGain * (uStyle < 0.5 ? 0.75 : 1.0);
+    vec3 l = (uStyle > 1.5 ? liquid(px, vSide) * 1.25 : ribbons(px, vSide) * (uStyle < 0.5 ? 0.75 : 1.0)) * uGain;
     float yt = 1.0 - gl_FragCoord.y / uRes.y;                         // 0 fent, 1 lent
     // felvillanás kattintáskor: a lefelé futó színhatár előtt fényes sáv, közben az egész kicsit felragyog, majd lecseng
     float f = uColFront;

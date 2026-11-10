@@ -45,7 +45,7 @@ export const CONTACT = { behance: '', instagram: '', email: '' };
 export const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- Glass beállítások (Figma alapértékek) ---------- */
-export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 0, pjMode: 2, pjTextStill: false, pjLight: false, realGlass: true };   // Patrik beállításai (Másolás)
+export const DEFAULTS = { ang: 24, int: 27, refr: 100, depth: 3, thick: 100, glow: false, rim: 0, disp: 100, frost: 0, splay: 100, spin: reduced ? 10 : 40, react: 42, wlight: 57, wpush: 43, wspeed: reduced ? 12 : 40, surge: 50, wshift: 0, bpmSync: true, wstyle: 2, pjMode: 2, pjTextStill: false, pjLight: false, realGlass: true };   // Patrik beállításai (Másolás)
 // pjMode: a projekt-aloldal formája (0 = üvegkártyák, 1 = függőleges pill-test csigavonallal, 2 = henger: a vízszintes pill
 // a teljes képernyőre nyúlik, a tartalom vízszintes tengelyű hengeren gördül fel; js/drum.js)
 // realGlass: élethű üveg (teszt, Patrik: fekete előtt műanyagnak hatottak a pillek): éles stúdió-tükröződések Fresnel szerint,
