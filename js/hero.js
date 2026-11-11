@@ -15,6 +15,7 @@ import { damp } from './util.js';
 import { LOGO_PATHS } from './config.js';
 
 const I = window.MPIntro || null;
+const LOGO_BW = 161.42;                          // a logó-doboz szélessége a hero-ban: a betöltő mérete (.intro-logo)
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const touchUI = matchMedia('(hover: none)').matches;
 
@@ -64,8 +65,8 @@ function drawText() {
   const c2 = g.measureText('M').actualBoundingBoxAscent || F2 * 0.72;
   const t2 = t1 + F2 * 0.28 + c2;
   g.fillText('GRAPHIC DESIGNER', W - pad, t2);
-  // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, 99,5 px-es doboz, viewBox: -4 -4 343 164; intro.js)
-  const bw = 99.5, bh = bw * 164 / 343, k = bw / 343;
+  // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, a betöltő méretében, viewBox: -4 -4 343 164; intro.js)
+  const bw = LOGO_BW, bh = bw * 164 / 343, k = bw / 343;
   g.save();
   g.globalCompositeOperation = 'lighter';
   g.translate(W / 2 - bw / 2 + 4 * k, H / 2 - bh / 2 + 4 * k); g.scale(k, k);
@@ -233,7 +234,7 @@ export function updateHero(dt) {
     state = 'in'; t = 0; inAt = now();
   }
   t += dt;
-  const L = I.heroLamp ? I.heroLamp() : { x: innerWidth / 2, y: innerHeight / 2, cy: innerHeight / 2, w: 99.5 };
+  const L = I.heroLamp ? I.heroLamp() : { x: innerWidth / 2, y: innerHeight / 2, cy: innerHeight / 2, w: LOGO_BW };
   let tgtOn = 0, tgtA = 0;
   if (state === 'in' || state === 'back') {
     tgtOn = 1;                                                   // a betöltő végén rögtön indul a fény (Patrik), a logó kicsinyedése közben
@@ -273,6 +274,6 @@ export function updateHero(dt) {
   HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc;
   HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
   HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
-  HU.uLogoK.value = 99.5 / Math.max(1, L.w);
+  HU.uLogoK.value = LOGO_BW / Math.max(1, L.w);
   HU.uGlass.value = glassText ? 1 : 0;
 }

@@ -70,15 +70,14 @@
   try { heroPref = localStorage.getItem('mpHero') !== '0'; } catch (_) {}
   state.hero = heroPref;          // a hero.js felülírhatja
   state.heroOn = false;           // a hero épp látszik (a kurzor ilyenkor is látszik)
-  const HERO_W = 99.5;            // a logó-doboz szélessége a hero-ban (Figma: a logó 97 px, a viewBox peremmel 99,5)
+  // a hero-ban a logó a betöltő méretében marad (Patrik: „ne menjen össze, csak kattintásra”; a Figmában 97 px volt)
 
   loaderDone.then(() => {
     intro.classList.add('done');
     const logoTop = document.getElementById('logoTop');
     const ui = [document.querySelector('.ui .row'), document.querySelector('.ui .bottom')].filter(Boolean);
     const from = box.getBoundingClientRect();                        // a doboz természetes helye (még nincs rajta transzformáció)
-    const kH = HERO_W / from.width;
-    const heroT = 'translate(' + ((1 - kH) * from.width / 2) + 'px, ' + ((1 - kH) * from.height / 2) + 'px) scale(' + kH + ')';
+    const heroT = 'translate(0px, 0px) scale(1)';
     const headT = () => {                                            // a fejléc logójának helye (FLIP)
       const to = logoTop.getBoundingClientRect(), k = to.width / from.width;
       return 'translate(' + (to.left - from.left) + 'px, ' + (to.top - from.top) + 'px) scale(' + k + ')';
@@ -125,12 +124,11 @@
     state.heroLamp = () => { const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.45, cy: r.top + r.height / 2, w: r.width }; };
 
     if (state.hero) {
-      // hero: a logó helyben kicsinyedik, a körvonal elhalványul; a fényt a hero.js kapcsolja fel
+      // hero: a logó a helyén marad, a körvonal elhalványul; a fényt a hero.js kapcsolja fel
       state.heroOn = true;
       state.heroUsed = true;          // a pillek ezután felvilágítva lépnek be, nem alulról úsznak fel (js/entrance.js)
       state.heroAt = performance.now();
       document.body.classList.add('hero-on');
-      box.animate([{ transform: 'none' }, { transform: heroT }], { duration: reduced ? 1 : 700, easing: POST.flyEase, fill: 'forwards' });
       lineSvg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
     } else out();
   });
