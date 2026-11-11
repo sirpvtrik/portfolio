@@ -6,7 +6,7 @@
 export const PROJECTS = [
   { id: 'P01', name: 'Water',           cat: 'Font',  meta: '' },
   { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '' },
-  { id: 'P03', name: 'Prototype',       cat: 'Font',  meta: '' },
+  { id: 'P03', name: 'Daily UI Challenge', cat: 'App', meta: '' },     // telefonos felületek (Patrik: korábban Prototype, Font)
   { id: 'P04', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5],
     detail: {   // a projekt-aloldal saját szövege (a többi mező a DETAIL_TEST-ből jön)
       label: 'Zsebkönyv · Illusztráció',

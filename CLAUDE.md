@@ -86,7 +86,7 @@ Patrik grafikus hallgató (Eszterházy Károly Egyetem, Eger) és szabadúszó t
 - A logó: „MP” jel (m + p betűforma), az útvonalak a `LOGO_PATHS`-ban.
 
 ## Nyitott pontok
-- A `PROJECTS` lista Patrik listája (9 projekt): Water, Kurwa, Prototype (Font) · Oldalra fújva, Digitális pokol (Print) · Painpoint (App) · Ringme (Web) · MDI Backrooms, Apória (Video). A **Water létező egyetemi projekt**. Kép egyelőre csak az Oldalra fújvához van; a `meta` nem jelenik meg. A fejléc „09 projekt” számlálója kikerült.
+- A `PROJECTS` lista Patrik listája (9 projekt): Water, Kurwa (Font) · Oldalra fújva, Digitális pokol (Print) · Painpoint, Daily UI Challenge (App; telefonos felületek, korábban a helyén a Prototype, Font) · Ringme (Web) · MDI Backrooms, Apória (Video). A **Water létező egyetemi projekt**. Kép egyelőre csak az Oldalra fújvához van; a `meta` nem jelenik meg. A fejléc „09 projekt” számlálója kikerült.
 - A lejátszó borítója a Figma-designból kivágott kép, minden számnál ugyanaz.
 - Projekt-aloldal: a galéria képei a Zsebkönyv illusztrációk Patrik RAR-jában lévő képei (05, 08, 12, 15, 16, 17, 19, 30, 32, 34, 35; a 39 ugyanaz, mint a 05, ezért nincs kétszer; `assets/projects/zsebkonyv/poszterek-*.webp`, WebP-be tömörítve). A korábbi 07, 09, 14, 28 kikerült (nem voltak a RAR-ban). Valódi projektenkénti tartalom a többi projekthez még nincs.
 - Teljesítmény: a hullám- és üveg-shaderek nehezek; ha gyenge gépen akad, könnyített mód kell.
