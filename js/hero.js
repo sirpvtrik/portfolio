@@ -1,15 +1,18 @@
 // Hero (Patrik, Figma: Desktop – 22, node 296-12): a betöltő után a logó középen marad, és lámpaként fényt vet a sötétben
 // álló szövegre: bal lent „DARKNESS IS / MY BRIGHTNESS”, jobb fent „MADARÁSZ PATRIK / GRAPHIC DESIGNER”.
-// A betűk üvegből vannak: fekete háttér előtt maguktól nem látszanak, csak ahol a fény éri őket (a peremük csillan, a testük
-// megtöri a mögöttük lévő fénykúpot, enyhe színszórással). Először a fény magától egyszer végigsöpör a nagy szövegen, utána a
-// kurzor felé fordul (érintésnél lassan pásztáz, húzással irányítható). Görgetésre / kattintásra / lefelé nyílra a fény lefordul,
+// A fény „isteni sugarak” (god rays; Patrik referenciája: madebyigor.com/lab): a fényforrás a logó mögött van, a logó réseiből
+// szemcsés fénynyalábok törnek ki a levegőbe, a kurzor felé legyezőben. A betűk tiszta üvegből vannak: a testük sötét, csak
+// éles élfények csillannak rajtuk, és a rajtuk átmenő nyalábok elhajlanak (enyhe színszórással). Először a fény magától egyszer
+// végigsöpör a nagy szövegen, utána a kurzor felé fordul (érintésnél lassan pásztáz, húzással irányítható). Görgetésre / kattintásra / lefelé nyílra a fény lefordul,
 // a szöveg elhalványul, a logó felúszik a fejlécbe, és alulról jönnek a pillek. A fejléc logójára kattintva vissza.
-// A szöveget egy vászonra rajzoljuk (maszk), a domborulatot a maszk elmosott mip-szintjeiből számolja a shader.
+// A szöveget (piros csatorna) és a logót (zöld csatorna) egy vászonra rajzoljuk; a sugarakat a logó-maszkból sugárirányú
+// összegzéssel, a betűk peremét a szöveg-maszk gradienséből számolja a shader.
 import { scene, onLayer, LAYER_BG, bufSize } from './scene.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { setAway, markLit, clearLit } from './entrance.js';
 import { mode } from './pills.js';
 import { damp } from './util.js';
+import { LOGO_PATHS } from './config.js';
 
 const I = window.MPIntro || null;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -31,7 +34,7 @@ function drawText() {
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height);
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.fillStyle = '#fff';
+  g.fillStyle = '#f00';                          // a szöveg a piros csatornában
   g.textBaseline = 'alphabetic';
   const FONT = "'Nohemi', 'Archivo', sans-serif";
   // Figma (1440 × 1024): a nagy szöveg 96 px, 2 sor, 84 px-es sorköz, balra 40 px, alul 64 px; a szélesség mindig elfér
@@ -61,6 +64,14 @@ function drawText() {
   const c2 = g.measureText('M').actualBoundingBoxAscent || F2 * 0.72;
   const t2 = t1 + F2 * 0.28 + c2;
   g.fillText('GRAPHIC DESIGNER', W - pad, t2);
+  // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, 99,5 px-es doboz, viewBox: -4 -4 343 164; intro.js)
+  const bw = 99.5, bh = bw * 164 / 343, k = bw / 343;
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  g.translate(W / 2 - bw / 2 + 4 * k, H / 2 - bh / 2 + 4 * k); g.scale(k, k);
+  g.fillStyle = '#0f0';
+  LOGO_PATHS.forEach(d => g.fill(new Path2D(d)));
+  g.restore();
   layout = {
     main: { x0: left, x1: left + Math.max(w1, w2), y: (b1 + b2) / 2 - cap / 2 },
     top: { x0: W - pad - wT1, x1: W - pad, y: (t1 + t2) / 2 - c1 / 2 },
@@ -69,51 +80,63 @@ function drawText() {
   tex.needsUpdate = true;
 }
 
-/* ---------- shader: üveg betűk a lámpa fényében ---------- */
+/* ---------- shader: isteni sugarak a logóból, üveg betűk ---------- */
 const HU = {
-  uTex: { value: tex }, uRes: { value: new THREE.Vector2(1, 1) }, uLamp: { value: new THREE.Vector2() }, uDir: { value: new THREE.Vector2(0, -1) },
-  uOn: { value: 0 }, uA: { value: 0 }, uLift: { value: 0 }, uS: { value: 1 }, uCone: { value: 0.26 },
+  uTex: { value: tex }, uRes: { value: new THREE.Vector2(1, 1) }, uLamp: { value: new THREE.Vector2() }, uLogo: { value: new THREE.Vector2() },
+  uOn: { value: 0 }, uA: { value: 0 }, uLift: { value: 0 }, uS: { value: 1 }, uReach: { value: 600 },
 };
 const heroFS = /* glsl */`
   precision highp float;
   uniform sampler2D uTex;
-  uniform vec2 uRes, uLamp, uDir;
-  uniform float uOn, uA, uLift, uS, uCone;
-  float M(vec2 p, float b) { return texture2D(uTex, p / uRes, b).r; }      // p: puffer-pixel (alulról)
-  // a fénykúp a lámpából: lágy szélű kúp, távolsággal halványul, a lámpa közvetlen közelében nincs kiégett folt
-  float beamAt(vec2 p) {
-    vec2 d = p - uLamp; float L = length(d);
-    float c = dot(d / max(L, 1.0), uDir);
-    float cone = smoothstep(cos(uCone), cos(uCone * 0.2), c);
-    float near = smoothstep(20.0 * uS, 110.0 * uS, L);
-    float fall = 1.0 / (1.0 + pow(L / (uRes.y * 0.95), 2.0));
-    return cone * near * fall * uOn;
+  uniform vec2 uRes, uLamp, uLogo;
+  uniform float uOn, uA, uLift, uS, uReach;
+  float T(vec2 p, float b) { return texture2D(uTex, p / uRes, b).r; }       // a szöveg (p: puffer-pixel, alulról)
+  float G(vec2 p, float b) { return texture2D(uTex, p / uRes, b).g; }       // a logó
+  float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+  // isteni sugarak: a pontból a fényforrás (a logó mögött) felé lépkedve összegyűjtjük, mennyi logón megy át a sugár;
+  // a logó betűi közti réseken átjutó fény nyalábokká áll össze. j: pontonkénti véletlen eltolás (szemcse, nincs sávosodás)
+  float rays(vec2 p, float j, float n) {
+    vec2 d = uLamp - p;
+    float s = 0.0;
+    for (int i = 0; i < 40; i++) {
+      if (float(i) >= n) break;
+      s += G(p + d * ((float(i) + j) / n), 0.5);
+    }
+    float L = length(p - uLogo);
+    return s / n * 6.5 / (1.0 + pow(L / uReach, 1.6)) * uOn;
   }
   void main() {
-    vec2 p = gl_FragCoord.xy - vec2(0.0, uLift);
-    float a = M(p, 0.0);
-    // domborulat: az elmosott maszk (mip-szint) a betű közepe felé emelkedik; a gradiens befelé mutat
-    float e = 3.0 * uS;
-    vec2 g = vec2(M(p + vec2(e, 0.0), 2.6) - M(p - vec2(e, 0.0), 2.6), M(p + vec2(0.0, e), 2.6) - M(p - vec2(0.0, e), 2.6));
-    float gl = length(g);
-    vec2 n = gl > 1e-4 ? g / gl : vec2(0.0);
-    float bev = a * clamp(gl * 5.0, 0.0, 1.0);                      // a betű peremének lejtője
-    float a1 = M(p, 0.9);
-    float line = clamp(a1 * (1.0 - a1) * 4.0, 0.0, 1.0);            // hajszálvékony kontúr
-    vec2 toL = normalize(uLamp - p);
-    float bm = beamAt(p);
-    float face = max(0.0, dot(-n, toL));                             // a lámpa felé néző perem csillan
-    float back = max(0.0, dot(n, toL));                              // a túloldali perem: gyengébb, belső visszaverődés
-    vec3 col = vec3(0.0);
-    // az üveg teste a mögötte lévő fénykúpot megtöri: a normál mentén eltolva, színenként kicsit másképp (színszórás)
-    float R = 16.0 * uS * bev + 4.0 * uS;
-    col += a * vec3(beamAt(p + n * R), beamAt(p + n * R * 1.15), beamAt(p + n * R * 1.32)) * 0.20;
-    col += bev * (pow(face, 3.0) * 1.5 + back * 0.3) * bm;
-    // kontúr: a sötétben is halványan (Figma: sötétszürke körvonal), a fényben erősen
-    col += line * (0.055 + bm * (0.35 + 0.9 * face));
-    // a fénykúp a levegőben: alig látható derengés a háttéren
-    col += (1.0 - a) * bm * 0.03;
-    gl_FragColor = vec4(col * uA, 1.0);
+    vec2 p = gl_FragCoord.xy;
+    vec2 q = p - vec2(0.0, uLift);                                   // a szöveg (kilépéskor felfelé úszik)
+    float j = hash(p);
+    float ra = rays(p, j, 40.0);
+    vec3 tint = vec3(0.93, 0.95, 1.0);
+    // a levegőben: a nyalábok, finom szemcsével (mint a referencián)
+    vec3 air = ra * tint * (0.7 + 0.3 * hash(p * 1.37 + 3.1));
+    // üveg betűk
+    float a = T(q, 0.0);
+    vec3 txt = vec3(0.0);
+    if (a > 0.003 || T(q, 2.0) > 0.003) {
+      float e = 1.5 * uS;
+      vec2 g = vec2(T(q + vec2(e, 0.0), 0.8) - T(q - vec2(e, 0.0), 0.8), T(q + vec2(0.0, e), 0.8) - T(q - vec2(0.0, e), 0.8));
+      float gl = length(g);
+      vec2 n = gl > 1e-4 ? g / gl : vec2(0.0);                      // befelé, a betű közepe felé
+      float rim = clamp(gl * 1.6, 0.0, 1.0) * smoothstep(0.1, 0.55, a);   // keskeny él a betű peremén, belül
+      vec2 toL = normalize(uLamp - p);
+      float face = max(0.0, dot(-n, toL)), back = max(0.0, dot(n, toL));
+      // a test sötét, tiszta üveg: a rajta átmenő nyalábok elhajlanak (a mélyebb részen jobban), színenként kicsit másképp
+      float depth = 1.0 - T(q, 3.0);
+      vec2 o = n * (6.0 + 14.0 * depth) * uS;
+      vec3 refr = vec3(rays(p + o, j, 20.0), rays(p + o * 1.18, j, 20.0), rays(p + o * 1.36, j, 20.0));
+      txt += a * refr * 1.3;
+      // élfények: a fény felé néző él erősen csillan, a túloldali gyengébben (belső visszaverődés); sötétben is halványan látszik
+      txt += rim * (ra * (5.0 * pow(face, 2.0) + 14.0 * pow(face, 10.0) + 1.6 * back) + 0.05);   // + éles csillanás
+      // a betű a mögötte lévő levegő-nyalábot eltakarja (helyette a megtört fény látszik)
+      air *= 1.0 - a;
+    }
+    vec3 col = air + txt * uA;
+    col = 1.0 - exp(-col * 1.15);                                   // lágy telítődés
+    gl_FragColor = vec4(col, 1.0);
   }`;
 const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
   uniforms: HU, vertexShader: fullscreenVS, fragmentShader: heroFS,
@@ -181,7 +204,7 @@ function target(L) {
     const s = Math.sin(t * 0.35);
     return s > -0.55 ? { x: rest.x + (m.x1 - m.x0) * 0.45 * Math.sin(t * 0.7), y: m.y } : { x: (layout.top.x0 + layout.top.x1) / 2, y: layout.top.y };
   }
-  if (ptr && now() - ptrT < 4) return ptr;                       // a kurzor felé; 4 mp mozdulatlanság után vissza középre
+  if (ptr && now() - ptrT < 8) return ptr;                       // a kurzor felé; 8 mp mozdulatlanság után vissza középre
   return rest;
 }
 
@@ -223,7 +246,10 @@ export function updateHero(dt) {
   if (!vis) return;
   const sc = bufSize.x / innerWidth;
   HU.uRes.value.set(bufSize.x, bufSize.y);
-  HU.uLamp.value.set(L.x * sc, bufSize.y - L.y * sc);
-  HU.uDir.value.set(Math.cos(ang), -Math.sin(ang));              // képernyő (y lefelé) → puffer (y felfelé)
+  // a fényforrás a logó mögött, a kurzorral átellenes oldalon: így a nyalábok a logóból a kurzor felé legyeznek
+  const off = 0.75 * L.w;
+  HU.uLogo.value.set(L.x * sc, bufSize.y - L.y * sc);
+  HU.uLamp.value.set((L.x - Math.cos(ang) * off) * sc, bufSize.y - (L.y - Math.sin(ang) * off) * sc);
   HU.uOn.value = on; HU.uA.value = alpha; HU.uLift.value = lift * sc; HU.uS.value = sc * (layout ? layout.s : 1);
+  HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc;
 }
