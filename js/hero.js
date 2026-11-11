@@ -38,33 +38,30 @@ function drawText() {
   g.fillStyle = '#f00';                          // a szöveg a piros csatornában
   g.textBaseline = 'alphabetic';
   const FONT = "'Nohemi', 'Archivo', sans-serif";
-  // Figma (1440 × 1024): a nagy szöveg 96 px, 2 sor, 84 px-es sorköz, balra 40 px, alul 64 px; a szélesség mindig elfér
+  // Figma (Desktop – 22, 1440 × 1024): Nohemi Bold; a nagy szöveg 96 px, 2 sor, ~98 px-es sorköz, 26 px-re a bal alsó saroktól
+  // (az utolsó sor alapvonala); jobb fent MADARÁSZ PATRIK / DESIGNER, mindkettő 40 px, 26 px-re a sarokból (mint a .ui)
   g.font = `700 100px ${FONT}`;
   const unit = g.measureText('MY BRIGHTNESS').width / 100;
-  const sH = Math.min(1.25, H / 1024);
-  let F = 96 * sH;
-  const left0 = 40 * Math.min(1, W / 1440);
-  F = Math.min(F, (W - 2 * Math.max(20, left0)) / unit);
-  const sF = F / 96, left = Math.max(20, 40 * sF), bottom = Math.max(28, 64 * sF), lh = 84 * sF;
+  const pad = 26;
+  let F = 96 * Math.min(1.25, H / 1024);
+  F = Math.min(F, (W - 2 * pad) / unit);
+  const sF = F / 96, lh = 98 * sF;
   g.font = `700 ${F}px ${FONT}`;
   const cap = g.measureText('H').actualBoundingBoxAscent || F * 0.72;
-  const b2 = H - bottom - (lh - cap) / 2, b1 = b2 - lh;
+  const b2 = H - pad, b1 = b2 - lh;
   g.textAlign = 'left';
-  g.fillText('DARKNESS IS', left, b1);
-  g.fillText('MY BRIGHTNESS', left, b2);
+  g.fillText('DARKNESS IS', pad, b1);
+  g.fillText('MY BRIGHTNESS', pad, b2);
   const w1 = g.measureText('DARKNESS IS').width, w2 = g.measureText('MY BRIGHTNESS').width;
-  // jobb fent: MADARÁSZ PATRIK (40 px) / GRAPHIC DESIGNER (32 px), jobbra zárva, 26 px-re a sarokból (mint a .ui)
-  const F1 = Math.max(15, 40 * sF), F2 = Math.max(12, 32 * sF), pad = 26;
+  const F1 = Math.max(15, 40 * sF);
   g.textAlign = 'right';
   g.font = `700 ${F1}px ${FONT}`;
   const c1 = g.measureText('M').actualBoundingBoxAscent || F1 * 0.72;
-  const t1 = pad + c1;
+  const t1 = pad + c1, t2 = t1 + F1 * 0.95;
   g.fillText('MADARÁSZ PATRIK', W - pad, t1);
+  g.fillText('DESIGNER', W - pad, t2);
   const wT1 = g.measureText('MADARÁSZ PATRIK').width;
-  g.font = `700 ${F2}px ${FONT}`;
-  const c2 = g.measureText('M').actualBoundingBoxAscent || F2 * 0.72;
-  const t2 = t1 + F2 * 0.28 + c2;
-  g.fillText('GRAPHIC DESIGNER', W - pad, t2);
+  const left = pad;
   // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, a betöltő méretében, viewBox: -4 -4 343 164; intro.js)
   const bw = LOGO_BW, bh = bw * 164 / 343, k = bw / 343;
   g.save();
