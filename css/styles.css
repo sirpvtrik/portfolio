@@ -211,10 +211,14 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 /* a blob-lejátszó, a névjegy és a sarokgombok fölött sincs rendszer-kurzor: ott is a saját (halvány) kurzor látszik (js/cursor.js) */
 .pl, .pl *, .ct, .ct *, .btn { cursor: none !important; }
 
-/* lejátszó, csukva: ha szól a zene, vékony fehér karika a hangszóró körül (Patrik); nyitva a fehér hangerő-sáv jelzi */
-.spk::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1px solid rgba(255,255,255,.55);
-  opacity: 0; transform: scale(.85); transition: opacity .45s ease, transform .6s cubic-bezier(.3,1.4,.5,1); pointer-events: none; }
+/* lejátszó, csukva: ha szól a zene, a hangszóró a fehér körön ül (ugyanaz a kör, mint nyitva a hangerő-sáv eleje: 52 px,
+   #dcdcde, sötét ikon); ha a zene áll vagy némítva van, nincs fehér kör (Patrik) */
+.spk::before { content: ''; position: absolute; inset: -10px; border-radius: 50%; background: #dcdcde; box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+  opacity: 0; transform: scale(.6); transition: opacity .35s ease, transform .55s cubic-bezier(.3,1.35,.5,1); pointer-events: none; }
+.spk svg { position: relative; }
 .pl:not(.show) .spk.on::before { opacity: 1; transform: none; }
+.pl:not(.show) .spk.on { color: #1b1b1d; }
+.pl:not(.show) .spk.on svg { mix-blend-mode: normal; }
 /* a hangerő-sáv húzható: a fehér sáv végén fogantyú (két rövid vonal), fölé víve erősebb; a sáv kicsit megemelkedik */
 .vol-fill { position: relative; transition: box-shadow .25s ease, background-color .25s ease; }
 .vol-fill::after { content: ''; position: absolute; right: 15px; top: 50%; width: 3px; height: 14px; margin-top: -7px;
