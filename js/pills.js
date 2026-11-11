@@ -1,5 +1,5 @@
 // Pill-torony: geometria, címke-textúrák, üveg, hover, görgetés
-import { PROJECTS, N, S, PW, PH, SP, TOWER_Y, VIEW_N } from './config.js';
+import { PROJECTS, N, START, S, PW, PH, SP, TOWER_Y, VIEW_N } from './config.js';
 import { renderer, camera, scene, canvas, onLayer, LAYER_BG, LAYER_GLASS, LAYER_TEXT, U, visH } from './scene.js';
 import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { damp } from './util.js';
@@ -155,7 +155,7 @@ PROJECTS.forEach((p, i) => {
   hit.visible = false; hit.userData.index = i;
   holder.add(hit); hitTargets.push(hit);
 
-  const baseY = ((N - 1) / 2 - i) * SP;
+  const baseY = (START - i) * SP;                 // a START pill van középen (config.js)
   holder.position.y = baseY;
   stack.add(holder);
   pills.push({ holder, spin, glass, back, mat: glassMat, canvas: c, tex, lf, lb, img, rv: 0, baseY, angle: i * 0.5 + 0.35, y: baseY, z: 0, s: 1, hv: 0, push: 0,

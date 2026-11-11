@@ -4,10 +4,10 @@
 // A hullámok kattintásra a kép 3 árnyalatára váltanak (automatikusan a képből; palette: [[r,g,b] ×3] kézzel felülírja,
 // color: tartalék szín, ha nincs kép)
 export const PROJECTS = [
+  // kategóriánként egymás alatt (Patrik: így nem kell kategória-szűrő, egyben látszik, ami összetartozik)
   { id: 'P01', name: 'Water',           cat: 'Font',  meta: '' },
   { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '' },
-  { id: 'P03', name: 'Daily UI Challenge', cat: 'App', meta: '' },     // telefonos felületek (Patrik: korábban Prototype, Font)
-  { id: 'P04', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5],
+  { id: 'P03', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5],
     detail: {   // a projekt-aloldal saját szövege (a többi mező a DETAIL_TEST-ből jön)
       label: 'Zsebkönyv · Illusztráció',
       intro: '24 kannabiszfajta, 24 fantázianév, 24 illusztráció – egy zsebkönyvben, ami egyszerre informatív(!) és szórakoztató.',
@@ -31,13 +31,20 @@ export const PROJECTS = [
         { src: 'assets/projects/zsebkonyv/poszterek-35.webp', name: 'Sour Diesel' },
       ],
     } },
-  { id: 'P05', name: 'Digitális pokol', cat: 'Print', meta: '' },
+  { id: 'P04', name: 'Digitális pokol', cat: 'Print', meta: '' },
+  { id: 'P05', name: 'Techno Sticker Pack', cat: 'Print', meta: '' },
   { id: 'P06', name: 'Painpoint',       cat: 'App',   meta: '' },
-  { id: 'P07', name: 'Ringme',          cat: 'Web',   meta: '' },
-  { id: 'P08', name: 'MDI Backrooms',   cat: 'Video', meta: '' },
-  { id: 'P09', name: 'Apória',          cat: 'Video', meta: '' },
+  { id: 'P07', name: 'Daily UI Challenge', cat: 'App', meta: '' },     // telefonos felületek (korábban a helyén a Prototype, Font)
+  { id: 'P08', name: 'Ringme',          cat: 'Web',   meta: '' },
+  { id: 'P09', name: 'CONCEPT',         cat: 'Photo', meta: '' },     // fotósorozat
+  { id: 'P10', name: 'CONCEPT II',      cat: 'Photo', meta: '' },     // fotósorozat
+  { id: 'P11', name: 'MDI Backrooms',   cat: 'Video', meta: '' },
+  { id: 'P12', name: 'Apória',          cat: 'Video', meta: '' },
 ];
 export const N = PROJECTS.length;
+// induláskor ez a pill áll középen (a többi körülötte, a dob végtelen): az Oldalra fújva, mert ennek van már saját tartalma.
+// Páros számú pillnél a korábbi „(N − 1) / 2” két pill közé esett volna.
+export const START = Math.max(0, PROJECTS.findIndex(p => p.name === 'Oldalra fújva'));
 
 /* ---------- Kapcsolat (a jobb felső névjegy-blob, js/contact.js) ----------
    Patriktól kell még: a Behance-profil címe, az Instagram címe és a kapcsolati e-mail. Ami üres, az nem kattintható. */
