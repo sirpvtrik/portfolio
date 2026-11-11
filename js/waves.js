@@ -4,12 +4,12 @@
 import { S } from './config.js';
 import { scene, onLayer, LAYER_BG, U } from './scene.js';
 import { damp } from './util.js';
-import { wavesRise } from './entrance.js';
+import { wavesRise, waveFront } from './entrance.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { waveVS, waveFS } from './shaders/waves.js';
 
 export const WU = { uTime: { value: 0 }, uAmp: { value: 0 }, uPush: { value: 0 }, uGain: { value: 1 }, uReact: { value: 1.2 }, uBeat: { value: 0 }, uRes: U.uRes, uBands: { value: [0, 0, 0, 0, 0, 0] }, uFlowY: { value: 0 }, uStyle: { value: 0 }, uShift: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, uReachN: { value: 2 },
-  uPalA: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uPalB: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uColFront: { value: 1.2 }, uRise: { value: 0 }, uFlash: { value: 0 },
+  uPalA: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uPalB: { value: [0, 1, 2].map(() => new THREE.Vector3(0.95, 0.96, 1.0)) }, uColFront: { value: 1.2 }, uRise: { value: 0 }, uFlash: { value: 0 }, uFront: { value: 2 },
   // egérfény (js/cursor.js állítja): a nyom pontjai pixelben, a mozgás energiája és a kurzor kis fénye
   uCur: { value: [0, 1, 2, 3, 4, 5].map(() => new THREE.Vector2(-9999, -9999)) }, uCurE: { value: 0 }, uCurB: { value: 0 }, uCurV: { value: new THREE.Vector2() } };
 const waveMat = new THREE.ShaderMaterial({
@@ -34,6 +34,7 @@ export function updateWaves(dt) {
   updateWaveColor(dt);
   shiftK = damp(shiftK, shiftTarget, 2.2, dt);
   WU.uRise.value = wavesRise();   // belépés: a szalagok alulról úsznak fel (a pillekkel együtt)
+  WU.uFront.value = waveFront();  // hero után: lentről felfelé tűnnek elő, fényes élű fronttal (a pillek ehhez igazodnak)
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
   // a négyszögek szélessége: a Folyékony stílus legfeljebb 0,40 egységnyire ér be (plusz a Középre eltolás); a régi
   // stílusok messzebbre érnek, azoknál a teljes képernyő

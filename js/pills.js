@@ -5,7 +5,7 @@ import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { damp } from './util.js';
 import { stadium, glassSlab, remapUV, faceZ } from './glassgeo.js';
 import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
-import { pillRise, litStyle, litT, getAway } from './entrance.js';
+import { pillRise, litStyle, getAway, waveFront } from './entrance.js';
 
 /* ---------- 3D pill geometria ---------- */
 function buildPillGeo() {
@@ -393,11 +393,12 @@ export function updatePills(dt) {
     const depth = r * r;
     const fade = 1 - THREE.MathUtils.smoothstep(r, 0.8, 1.0);
     const rise = pillRise(i) * visH;                 // belépés: alulról úszik fel a hullámokkal együtt (js/entrance.js)
-    // hero után (Patrik): a pillek nem úsznak fel, hanem a hullámok után lentről felfelé egymás után felvilágítanak,
-    // mintha a hullám adná nekik a fényt (egy kis felvillanással); visszalépve a hero-ba elsötétülnek
+    // hero után (Patrik): a pillek nem úsznak fel, hanem lentről felfelé egymás után felvilágítanak, ahogy a hullámok fényes
+    // frontja eléri őket, mintha a hullám adná nekik a fényt (egy kis felvillanással); visszalépve a hero-ba elsötétülnek
     if (litStyle() && mode === 'tower') {
-      const lt = litT(), ord = Math.min(1, Math.max(0, (yw + YV) / (2 * YV)));
-      const k = lt < 0 ? 0 : Math.min(1, Math.max(0, (lt - 0.95 - ord * 1.0) / 0.6));
+      // a pill magassága a képernyőn (0 = lent): akkor világít fel, amikor a hullámok fényes frontja eléri
+      const yFrac = 0.5 + (yw + TOWER_Y) / visH;
+      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.03) / 0.12));
       const aw = 1 - getAway(), lit = k * k * (3 - 2 * k) * aw, fl = Math.sin(Math.PI * k) * 0.85 * aw;
       pl.mat.uniforms.uDark.value = 1 - lit; pl.mat.uniforms.uFlash.value = fl;
       pl.back.material.uniforms.uDark.value = 1 - lit; pl.back.material.uniforms.uFlash.value = fl;

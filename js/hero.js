@@ -177,7 +177,7 @@ if (I) {
   const logoTop = document.getElementById('logoTop');
   logoTop.addEventListener('click', () => {
     if (!(state === 'off' || (state === 'out' && !I.heroOn)) || mode !== 'tower' || !I.hero) return;
-    I.heroBack(); state = 'back'; t = 0; sweep = false; awayT = 1; clearLit();
+    I.heroBack(); state = 'back'; t = 0; sweep = false; awayT = 1; clearLit();   // a hullámok egészben süllyednek le (front = 2)
   });
   // a Glass panel kapcsolója (localStorage: a következő betöltéskor is így marad)
   const chk = document.getElementById('c-hero');
