@@ -400,7 +400,7 @@ export function updatePills(dt) {
       const yFrac = 0.5 + (yw + TOWER_Y) / visH;
       // széles, lágy átmenet (Patrik: „szebben halványuljanak fel, ne ilyen darabosan”): a front alatt ~0,4 képernyőnyin
       // (~0,6 s) ötödfokú görbével világosodik ki, a felvillanás finom és lassan cseng le
-      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.05) / 0.5));
+      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.05) / 0.65));
       const sm = k * k * (3 - 2 * k);                // a terjedés üteme; a lágy átmenetet a shader adja (a végektől befelé)
       const aw = 1 - getAway(), lit = sm * aw, fl = Math.sin(Math.PI * Math.min(1, k * 1.1)) * 0.7 * aw;
       pl.mat.uniforms.uDark.value = 1 - lit; pl.mat.uniforms.uFlash.value = fl;

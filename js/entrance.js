@@ -32,7 +32,13 @@ export const clearLit = () => { litBase = null; };
 export const litT = () => litBase == null ? -1 : (performance.now() - litBase) / 1000;
 // hero után a hullámok lentről felfelé tűnnek elő egy fényes élű fronttal (képernyőmagasság-arány, 0 = lent); a pillek akkor
 // világítanak fel, amikor a front eléri a magasságukat (pills.js), így együtt haladnak. 2 = minden látszik.
-export const WAVE_FRONT_DUR = 2.4;
+export const WAVE_FRONT_DUR = 4.2;   // Patrik: lassabban jöhetnek a hullámok és a pillek fénye
+// hero után a pillek (mint eddig) alulról úsznak fel, a hullámok frontjával együtt, közben oldalról kapják meg a fényt
+function litRise() {
+  if (litBase == null) return 0;
+  const k = Math.min(1, Math.max(0, (litT() - 0.1) / (WAVE_FRONT_DUR * 0.95)));
+  return 0.75 * (1 - easeInOut(k));
+}
 export function waveFront() {
   if (!litStyle()) return 2;
   if (litBase == null) return INTRO && INTRO.t2 ? 2 : -0.2;
@@ -44,6 +50,6 @@ export const wavesIn = () => litStyle() ? (INTRO.t2 ? 1 : 0) * (1 - away) : (P ?
 // a hullámok még hátralévő emelkedése (képernyőmagasságban; 0 = a helyén)
 export const wavesRise = () => litStyle() ? (P ? P.wavesDist * away : 0) : P ? P.wavesDist * Math.max(1 - easeOut4(introK(P.rise, P.wavesDur)), away) : 0;
 // az i. pill még hátralévő emelkedése (képernyőmagasságban)
-export const pillRise = i => litStyle() ? 0 : P ? P.pillsDist * Math.max(1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur)), away) : 0;
+export const pillRise = i => litStyle() ? litRise() : P ? P.pillsDist * Math.max(1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur)), away) : 0;
 // a lejátszó-blob átlátszósága (a HTML felülettel együtt jelenik meg)
 export const uiIn = () => (P ? introK(P.ui / 1000, P.uiDur / 1000) : 1) * (1 - away);
