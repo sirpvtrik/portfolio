@@ -3,7 +3,7 @@
 // Hoverre a kurzor rugósan a gomb formáját veszi fel: a kis gyűrűből a gomb köré
 // simuló vékony fénykörvonal lesz, ami kicsit a kurzor felé húzódik; elhagyva visszaugrik kurzorrá (Patrik).
 import { scene, onLayer, LAYER_PL, rt, U, bufSize } from './scene.js';
-import { setCursorMagnet, cursorHead } from './cursor.js';
+import { setCursorMagnet, setCursorDim, cursorHead } from './cursor.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { playerFS } from './shaders/player.js';
 
@@ -22,7 +22,7 @@ window.addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; },
 const ringFS = /* glsl */`
   precision highp float;
   uniform vec4 uRect;                              // a forma (pixel, alulról), sarok = a rövidebb oldal fele
-  uniform float uScale, uA;
+  uniform float uScale, uA, uHalo;
   float sdRB(vec2 p, vec4 r) {
     vec2 h = r.zw * 0.5, c = r.xy + h;
     float rad = min(h.x, h.y);
@@ -33,14 +33,14 @@ const ringFS = /* glsl */`
     vec2 p = gl_FragCoord.xy;
     float d = sdRB(p, uRect), lw = max(1.1, uScale * 1.1);
     float ring = exp(-pow(d / lw, 2.0));                                        // hajszálvékony, mint a kurzor gyűrűje
-    float halo = exp(-max(d, 0.0) / (uScale * 9.0)) * step(0.0, d) * 0.14;     // kívül halvány fényudvar
+    float halo = exp(-max(d, 0.0) / (uScale * 9.0)) * step(0.0, d) * uHalo;     // kívül halvány fényudvar
     float la = clamp(ring * 0.9 + halo, 0.0, 1.0);
     if (la * uA < 0.002) discard;
     gl_FragColor = vec4(vec3(0.93, 0.96, 1.0), la * uA);
   }`;
 export function cursorRing(opts = {}) {
   const K = opts.k ?? 1, PAD = opts.pad ?? 4;
-  const ru = { uRect: { value: new THREE.Vector4() }, uScale: { value: 1 }, uA: { value: 0 } };
+  const ru = { uRect: { value: new THREE.Vector4() }, uScale: { value: 1 }, uA: { value: 0 }, uHalo: { value: opts.halo ?? 0.14 } };
   const ring = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     uniforms: ru, transparent: true, depthTest: false, depthWrite: false, vertexShader: fullscreenVS, fragmentShader: ringFS,
   }));
@@ -122,7 +122,8 @@ export const touchUpdate = glassButton(document.getElementById('pjTouch'));
 
 /* ---------- a lejátszó és a névjegy kis gombjai: a kurzor ezek formáját is felveszi (Patrik), visszafogottabban ----------
    (a vonal halványabb és közelebb simul, hogy lássuk, hol vagyunk, de ne legyen zavaró) */
-const iconRing = cursorRing({ k: 0.62, pad: 2 });
+// Patrik: itt csak halványan látszódjon, hol vagyunk: vékony, halvány körvonal fényudvar nélkül
+const iconRing = cursorRing({ k: 0.3, pad: 2, halo: 0 });
 let iconOver = null;
 document.querySelectorAll('.ct-ic, .cb, .spk, .ct-av').forEach(el => {
   el.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') iconOver = el; });
@@ -136,4 +137,5 @@ export function iconsUpdate(dt) {
     else iconOver = null;
   }
   iconRing(dt, r, 1);
+  setCursorDim(document.querySelector('.pl:hover, .ct:hover') ? 0.4 : 1);   // a lejátszó / névjegy fölött a kurzor is halványabb
 }

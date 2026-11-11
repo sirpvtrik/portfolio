@@ -207,3 +207,6 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .intro-on .ui .row, .intro-on .ui .bottom, .intro-on .logo-top { opacity: 0; }
 /* a logó difference keveréssel: világos kép fölött sötétre fordul (Patrik) */
 .intro-on .ui .row, .intro-on .ui .bottom { visibility: hidden; }
+
+/* a blob-lejátszó, a névjegy és a sarokgombok fölött sincs rendszer-kurzor: ott is a saját (halvány) kurzor látszik (js/cursor.js) */
+.pl, .pl *, .ct, .ct *, .btn { cursor: none !important; }
