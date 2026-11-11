@@ -43,8 +43,8 @@ function drawText() {
   const unit = g.measureText('MY BRIGHTNESS').width / 100;
   const pad = 26;
   let F = 64 * Math.min(1.25, H / 1024);
-  const arcW = W <= 600 ? 110 : 151;                               // a jobb alsó ív: a szöveg ne érjen bele (telefonon se)
-  F = Math.min(F, (W - 2 * pad - arcW - 10) / unit);
+  const holdW = W <= 600 ? 0 : 170;                                // gépen jobb lent a HOLD TO START: a szöveg ne érjen bele
+  F = Math.min(F, (W - 2 * pad - holdW) / unit);
   const sF = F / 64, lh = 65 * sF;
   g.font = `700 ${F}px ${FONT}`;
   const cap = g.measureText('H').actualBoundingBoxAscent || F * 0.72;
@@ -62,13 +62,11 @@ function drawText() {
   g.fillText('DESIGNER', W - pad, t2);
   const wT1 = g.measureText('MADARÁSZ PATRIK').width;
   const left = pad;
-  // sarokívek (Figma: node 297-66 / 297-67, Patrik SVG-je): a szöveggel együtt a piros csatornában, így ezek is csak a fényben
-  // látszanak (Patrik: „az ívek se látszódjanak fény nélkül”); bal fent és jobb lent, 26 px-re a széltől; telefonon kisebbek
-  const arc = new Path2D('M0.5 150.5V50.5C0.5 22.8858 22.8858 0.5 50.5 0.5H150.5');
-  const as = arcW / 151;
-  g.save(); g.strokeStyle = '#f00'; g.lineWidth = 1 / as; g.lineCap = 'round';
-  g.translate(pad, pad); g.scale(as, as); g.stroke(arc); g.restore();
-  g.save(); g.strokeStyle = '#f00'; g.lineWidth = 1 / as; g.lineCap = 'round'; g.translate(W - pad, H - pad); g.rotate(Math.PI); g.scale(as, as); g.stroke(arc); g.restore();
+  // bal fent: PORTFOLIO 2026 (Figma: Nohemi Regular 20 px, 26 px-re a sarokból); a többi szöveggel együtt csak a fényben látszik
+  g.textAlign = 'left';
+  const F3 = Math.max(12, 20 * sF);
+  g.font = `400 ${F3}px ${FONT}`;
+  g.fillText('PORTFOLIO 2026', pad, pad + (g.measureText('P').actualBoundingBoxAscent || F3 * 0.72));
   // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, a betöltő méretében, viewBox: -4 -4 343 164; intro.js)
   const bw = LOGO_BW, bh = bw * 164 / 343, k = bw / 343;
   g.save();
@@ -181,16 +179,21 @@ if (I) {
     if (state === 'in' && t > 0.6) sweep = false;                 // ha a látogató megmozdítja, rögtön az övé a fény
   }, { passive: true });
   // kilépés: görgetés lefelé, lefelé nyíl / PageDown / szóköz / Enter, kattintás, felfelé húzás (érintés)
-  let ty = null;
+  // HOLD TO START (Patrik, Figma: Desktop – 22): nyomva tartva (egér vagy ujj, 2,5 s) a nyaláb visszahúzódik a logóba, és ha
+  // végig kitart, a logó felúszik (kilépés); korábban elengedve a fény lágyan visszanő. Koppintás / kattintás / görgetés nem
+  // léptet tovább (telefonon könnyű véletlenül hozzáérni). Billentyűzettel: Enter / szóköz / ↓ azonnal.
   const leave = () => { if (state === 'in' && now() - inAt > 0.6) { state = 'out'; outT = 0; } };   // valós időhöz mérve (a kockaidő korlátos)
-  window.addEventListener('wheel', e => { if (state === 'in' && e.deltaY > 2) leave(); }, { passive: true });
   window.addEventListener('keydown', e => { if (state === 'in' && /^(ArrowDown|PageDown|Enter| )$/.test(e.key)) { e.preventDefault(); leave(); } });
-  window.addEventListener('pointerdown', e => { ty = e.pointerType === 'touch' ? e.clientY : null; });
-  window.addEventListener('pointerup', e => {
-    if (state !== 'in') return;
-    if (e.pointerType === 'touch') { if (ty != null && ty - e.clientY > 40) leave(); else if (ty != null && Math.abs(ty - e.clientY) < 8) leave(); }
-    else if (!e.target.closest || !e.target.closest('.panel, .btn')) leave();
+  window.addEventListener('pointerdown', e => {
+    if (state !== 'in' || (e.target.closest && e.target.closest('.panel, .btn'))) return;
+    holding = true;
+    if (e.pointerType === 'touch') { ptr = { x: e.clientX, y: e.clientY }; ptrT = now(); sweep = false; }   // az ujj felé fordul
   });
+  const release = () => { holding = false; };
+  window.addEventListener('pointerup', release);
+  window.addEventListener('pointercancel', release);
+  window.addEventListener('blur', release);
+  window.addEventListener('contextmenu', e => { if (state === 'in') e.preventDefault(); });   // telefonon a hosszú nyomás ne hozzon menüt
   // vissza: a fejléc logójára kattintva (csak a toronyból, nyitott projektnél nem)
   const logoTop = document.getElementById('logoTop');
   logoTop.addEventListener('click', () => {
@@ -216,6 +219,9 @@ if (I) {
 
 // a fény célpontja (CSS-pixel): söprés a nagy szövegen, utána a kurzor, nyugalomban a nagy szöveg közepe
 let idle = false, idleAng = 0, dtNow = 0, grow = 0;
+let holding = false, hold = 0, lastReal = 0;                     // HOLD TO START: nyomva tartás (0 → 1 = 2,5 s)
+const HOLD_S = 2.5;
+const holdEl = document.getElementById('heroHold');
 function target(L) {
   const m = layout.main;
   const rest = { x: (m.x0 + m.x1) / 2, y: m.y };
@@ -253,7 +259,7 @@ export function updateHero(dt) {
     outT += dt;
     angT = Math.PI / 2;                                          // a fény lefelé fordul, a pillek felé
     tgtOn = 0; tgtA = 0;                                         // kattintásra a fény rögtön kialszik (Patrik: a logóval együtt fent maradt)
-    if (outT > 0.25 && I.heroOn) { I.heroOut(); awayT = 0; markLit(); }
+    if (outT > 0.25 && I.heroOn) { I.heroOut(); awayT = 0; markLit(); hold = 0; }
     if (outT > 1.4) state = 'off';
   } else if (state === 'off') { tgtOn = 0; tgtA = 0; }
   // szög: lágyan követ (a legrövidebb úton)
@@ -262,7 +268,13 @@ export function updateHero(dt) {
   // felkapcsolás: lassan, ~2,5 s alatt nő ki a fény a logóból (Patrik: „szépen lassan megnő, nem hirtelen”): az erőssége és
   // a hatótávja is fokozatosan nő; a kialvás továbbra is gyors
   if (state === 'in' || state === 'back') { grow = Math.min(1, grow + dt / 2.5); } else if (state === 'off') grow = 0;
-  const gE = grow * grow * (3 - 2 * grow);
+  // nyomva tartás: a töltés nő, elengedve kétszer olyan gyorsan visszafut; ha betelt, kilépés
+  const rt = now(), rdt = Math.min(0.25, rt - (lastReal || rt)); lastReal = rt;   // valós idő: minden gépen pontosan 2,5 s
+  hold = state === 'in' && holding ? Math.min(1, hold + rdt / HOLD_S) : Math.max(0, hold - rdt * 2 / HOLD_S);
+  if (state === 'in' && hold >= 1) { state = 'out'; outT = 0; holding = false; }
+  if (holdEl) holdEl.style.setProperty('--hold', (state === 'in' ? hold : 0).toFixed(3));
+  const pull = hold * hold * (3 - 2 * hold);                  // a nyaláb visszahúzódása a logóba
+  const gE = grow * grow * (3 - 2 * grow) * (1 - pull);
   on = damp(on, tgtOn * (state === 'in' || state === 'back' ? gE : 1), tgtOn > on ? 6 : (state === 'out' || state === 'off' ? 14 : 4), dt);
   if (state === 'out' && outT > 0.3) on = 0;                    // mire a logó elindul a fejlécbe, a fény már nem ég
   alpha = damp(alpha, tgtA, tgtA > alpha ? 3 : 3.5, dt);
@@ -282,7 +294,7 @@ export function updateHero(dt) {
   HU.uLogo.value.set(L.x * sc, bufSize.y - L.y * sc);
   HU.uLamp.value.set((L.x - Math.cos(ang) * off) * sc, bufSize.y - (L.y - Math.sin(ang) * off) * sc);
   HU.uOn.value = on; HU.uA.value = alpha; HU.uLift.value = lift * sc; HU.uS.value = sc * (layout ? layout.s : 1);
-  HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc * (0.12 + 0.88 * grow * grow * (3 - 2 * grow));   // a fény messzebbre nyúlik, ahogy nő
+  HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc * (0.12 + 0.88 * gE);   // a fény messzebbre nyúlik, ahogy nő (és visszahúzódik, ha nyomva tartják)
   HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
   HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
   HU.uLogoK.value = LOGO_BW / Math.max(1, L.w);
