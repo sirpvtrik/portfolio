@@ -4,13 +4,13 @@ import { scene, onLayer, LAYER_PL, rt, U, bufSize } from './scene.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { playerFS } from './shaders/player.js';
 import { uiIn } from './entrance.js';
-import { actx, mode, fileBuf, vol, setVol, togglePlay, switchTo, position, duration, seekTo } from './audio.js';
+import { actx, mode, fileBuf, vol, playing, setVol, togglePlay, switchTo, position, duration, seekTo } from './audio.js';
 
 /* ---------- Blob lejátszó: nyitás, hangerő, előző / következő ---------- */
 const pl = document.getElementById('pl'), spk = document.getElementById('spk');
 const volEl = document.getElementById('vol'), volFill = document.getElementById('volFill');
 const spkWaves = document.getElementById('spkWaves');
-let lastVol = 0.8, closeT = null;
+let lastVol = 0.8, closeT = null, nudgeT = -1, nudged = false;   // nudge: az első nyitáskor a hangerő-sáv finoman megmoccan (húzható)
 
 /* Idővonal: 0 = csukott kör, 1 = nyitott lejátszó.
    Nyitás: jobbra nyúlik → középen felnő egy csepp → kétfelé válik → felül kinő egy csepp → szétnyílik.
@@ -37,6 +37,15 @@ function plGeom(t) {
   return [top, vb, hb, l, cc, r, bot];
 }
 const plCur = plGeom(0).map(q => q.slice()), plVel = plCur.map(() => [0, 0, 0, 0]);
+// a csukott kör (az alsó sor alapja): a rugó csukáskor se húzza ennél kisebbre, különben a túllendüléstől egy pillanatra
+// a hangszóró-kör alá húzódott vissza az üveg (Patrik); nyitáskor a túllendülés megmarad
+const BASE = plGeom(0)[6].slice();
+export function keepBase(c, v, m) {
+  if (c[0] > m[0]) { c[0] = m[0]; v[0] = Math.min(0, v[0]); }
+  if (c[1] > m[1]) { c[1] = m[1]; v[1] = Math.min(0, v[1]); }
+  if (c[0] + c[2] < m[0] + m[2]) { c[2] = m[0] + m[2] - c[0]; v[2] = Math.max(0, v[2]); }
+  if (c[1] + c[3] < m[1] + m[3]) { c[3] = m[1] + m[3] - c[1]; v[3] = Math.max(0, v[3]); }
+}
 function setOpen(v) {
   clearTimeout(closeT);
   plTarget = v ? 1 : 0;
@@ -110,14 +119,25 @@ export function plUpdate(dt) {
         if (tg[i][j] === 0 && plCur[i][j] < 4) { plCur[i][j] = 0; plVel[i][j] = 0; }
       }
     }
+    keepBase(plCur[6], plVel[6], BASE);
   }
   for (let i = 0; i < 7; i++) for (let j = 0; j < 4; j++) speed += Math.abs(plVel[i][j]);
   speed /= 28;
   plU.uK.value = 13 + Math.min(16, speed * 0.06);                      // mozgás közben nyúlósabb összeolvadás
-  if (plTarget === 1 && plT > 0.95 && speed < 40) pl.classList.add('show');
+  if (plTarget === 1 && plT > 0.95 && speed < 40 && !pl.classList.contains('show')) {
+    pl.classList.add('show');
+    if (!nudged && !reduced) { nudged = true; nudgeT = 0; }
+  }
+  // csukva: ha szól a zene, egy vékony fehér karika a hangszóró körül (Patrik)
+  spk.classList.toggle('on', playing && vol > 0);
   const g = { list: plCur.map(q => [q[0], q[1], Math.max(0, q[2]), Math.max(0, q[3])]), a: Math.min(1, Math.max(0, (plCur[6][2] - 64) / 172)) };
   // hangszóró: csukva a kör közepén, nyitva a világos hangerő-sáv közepén
-  const fw = Math.max(52, vol * 224);
+  // húzhatóság: az első nyitáskor a sáv vége kétszer finoman, csillapítva megmoccan, mintha valaki megpöccintené
+  let nd = 0;
+  if (nudgeT >= 0) { nudgeT += dt; nd = Math.sin(nudgeT * 9) * Math.exp(-nudgeT * 3.2) * Math.min(1, nudgeT * 6); if (nudgeT > 1.6) nudgeT = -1; }
+  const fw = Math.max(52, Math.min(224, vol * 224 - 18 * nd));
+  volFill.style.width = fw + 'px';
+  volFill.classList.toggle('grip', fw > 100);           // a fogantyú csak akkor, ha elfér a hangszóró mellett
   spk.style.left = L1(16, 6 + fw / 2 - 16, g.a) + 'px';
   const r = pl.getBoundingClientRect(), sc = bufSize.x / innerWidth;
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;

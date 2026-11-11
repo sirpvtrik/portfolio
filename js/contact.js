@@ -8,6 +8,7 @@ import { scene, onLayer, LAYER_PL, rt, U, bufSize } from './scene.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { playerFS } from './shaders/player.js';
 import { uiIn } from './entrance.js';
+import { keepBase } from './player.js';
 
 const ct = document.getElementById('ct'), box = document.getElementById('ctIn'), av = document.getElementById('ctAv');
 const SC = 0.9, W = 236, H = 140;                    // a lejátszó egységeiben (236 széles, sorok 64 magasak), 0,9-szeresen
@@ -39,6 +40,7 @@ function geom(x) {
   return [vb, hb, l, cc, r, bot, [0, 0, 0, 0]].map(q => [(W - q[0] - q[2]) * SC, (H - q[1] - q[3]) * SC, q[2] * SC, q[3] * SC]);
 }
 const cur = geom(0).map(q => q.slice()), vel = cur.map(() => [0, 0, 0, 0]);
+const BASE = geom(0)[5].slice();                // a csukott kör: a rugó csukáskor se húzza a profilkép alá (lásd player.js keepBase)
 
 function setOpen(v) {
   clearTimeout(closeT);
@@ -84,6 +86,7 @@ export function ctUpdate(dt) {
         if (tg[i][j] === 0 && cur[i][j] < 4) { cur[i][j] = 0; vel[i][j] = 0; }
       }
     }
+    keepBase(cur[5], vel[5], BASE);
   }
   for (let i = 0; i < 7; i++) for (let j = 0; j < 4; j++) speed += Math.abs(vel[i][j]);
   speed /= 28;

@@ -210,3 +210,15 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 
 /* a blob-lejátszó, a névjegy és a sarokgombok fölött sincs rendszer-kurzor: ott is a saját (halvány) kurzor látszik (js/cursor.js) */
 .pl, .pl *, .ct, .ct *, .btn { cursor: none !important; }
+
+/* lejátszó, csukva: ha szól a zene, vékony fehér karika a hangszóró körül (Patrik); nyitva a fehér hangerő-sáv jelzi */
+.spk::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; border: 1px solid rgba(255,255,255,.55);
+  opacity: 0; transform: scale(.85); transition: opacity .45s ease, transform .6s cubic-bezier(.3,1.4,.5,1); pointer-events: none; }
+.pl:not(.show) .spk.on::before { opacity: 1; transform: none; }
+/* a hangerő-sáv húzható: a fehér sáv végén fogantyú (két rövid vonal), fölé víve erősebb; a sáv kicsit megemelkedik */
+.vol-fill { position: relative; transition: box-shadow .25s ease, background-color .25s ease; }
+.vol-fill::after { content: ''; position: absolute; right: 15px; top: 50%; width: 3px; height: 14px; margin-top: -7px;
+  border-left: 1.5px solid rgba(27,27,29,.42); border-right: 1.5px solid rgba(27,27,29,.42); opacity: 0; transition: opacity .25s ease; }
+.vol-fill.grip::after { opacity: 1; }
+.c-vol:hover .vol-fill, .c-vol:active .vol-fill { background: #ececee; box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 0 18px rgba(255,255,255,.18); }
+.c-vol:hover .vol-fill.grip::after { border-color: rgba(27,27,29,.7); }
