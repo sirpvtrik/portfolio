@@ -67,6 +67,13 @@ function drawText() {
   const F3 = Math.max(12, 20 * sF);
   g.font = `400 ${F3}px ${FONT}`;
   g.fillText('PORTFOLIO 2026', pad, pad + (g.measureText('P').actualBoundingBoxAscent || F3 * 0.72));
+  // HOLD TO START (Figma: Nohemi Regular 20 px, jobb lent, 26 px-re a sarokból; telefonon középen a logó alatt) a kék
+  // csatornában: ez is csak a fényben látszik (Patrik: „a nyalábon alapból látják”, nem kell külön töltés-jelzés)
+  const mob = W <= 600, F4 = mob ? 14 : Math.max(13, 20 * Math.min(1, sF * 1.0));
+  g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = '#00f'; g.font = `400 ${F4}px ${FONT}`;
+  const hw = g.measureText('HOLD TO START').width;
+  const hx = mob ? W / 2 - hw / 2 : W - pad - hw, hy = mob ? H / 2 + 90 + F4 : H - pad;
+  g.textAlign = 'left'; g.fillText('HOLD TO START', hx, hy); g.restore();
   // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, a betöltő méretében, viewBox: -4 -4 343 164; intro.js)
   const bw = LOGO_BW, bh = bw * 164 / 343, k = bw / 343;
   g.save();
@@ -87,7 +94,7 @@ function drawText() {
 const HU = {
   uTex: { value: tex }, uRes: { value: new THREE.Vector2(1, 1) }, uLamp: { value: new THREE.Vector2() }, uLogo: { value: new THREE.Vector2() },
   uOn: { value: 0 }, uA: { value: 0 }, uLift: { value: 0 }, uS: { value: 1 }, uReach: { value: 600 },
-  uGlass: { value: 0 }, uBoxC: { value: new THREE.Vector2() }, uMaskC: { value: new THREE.Vector2() }, uLogoK: { value: 1 },
+  uGlass: { value: 0 }, uCut: { value: 1e5 }, uBoxC: { value: new THREE.Vector2() }, uMaskC: { value: new THREE.Vector2() }, uLogoK: { value: 1 },
 };
 const heroFS = /* glsl */`
   precision highp float;
@@ -97,7 +104,9 @@ const heroFS = /* glsl */`
   uniform float uGlass;          // 1 = üveg betűk, 0 = sima fehér betűk (Glass panel „Hero: üveg betűk”)
   uniform vec2 uBoxC, uMaskC;    // a logó-doboz mostani közepe és a maszkon rajzolt helye (a logó a betöltő után még kicsinyedik)
   uniform float uLogoK;          // a maszkon rajzolt logó / a mostani logó mérete
+  uniform float uCut;            // HOLD TO START: a nyaláb vége ennyire ér a logótól (puffer-pixel); nyomva tartva visszahúzódik
   float T(vec2 p, float b) { return texture2D(uTex, p / uRes, b).r; }       // a szöveg (p: puffer-pixel, alulról)
+  float B(vec2 p) { return texture2D(uTex, p / uRes, 0.0).b; }              // a HOLD TO START
   float G(vec2 p, float b) { return texture2D(uTex, p / uRes, b).g; }       // a logó
   float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   // isteni sugarak: a pontból a fényforrás (a logó mögött) felé lépkedve összegyűjtjük, mennyi logón megy át a sugár;
@@ -111,7 +120,7 @@ const heroFS = /* glsl */`
       s += G(uMaskC + (sp - uBoxC) * uLogoK, 0.5);                  // a maszk a logó mostani helyére és méretére igazítva
     }
     float L = length(p - uLogo);
-    return s / n * 6.5 / (1.0 + pow(L / uReach, 1.6)) * uOn;
+    return s / n * 6.5 / (1.0 + pow(L / uReach, 1.6)) * uOn * (1.0 - smoothstep(uCut * 0.55, uCut, L));
   }
   void main() {
     vec2 p = gl_FragCoord.xy;
@@ -146,6 +155,12 @@ const heroFS = /* glsl */`
       txt += rim * (ra * (5.0 * pow(face, 2.0) + 14.0 * pow(face, 10.0) + 1.6 * back) + 0.05);   // + éles csillanás
       // a betű a mögötte lévő levegő-nyalábot eltakarja (helyette a megtört fény látszik)
       air *= 1.0 - a;
+    }
+    // HOLD TO START: csak a fényben látszik, mint a többi szöveg (a töltést a visszahúzódó nyaláb mutatja; Patrik)
+    float hb = B(p);
+    if (hb > 0.003) {
+      wt = max(wt, hb * (1.0 - exp(-ra * 8.0)));
+      air *= 1.0 - hb;
     }
     vec3 col = air + txt * uA;
     col = 1.0 - exp(-col * 1.15);                                   // lágy telítődés
@@ -221,7 +236,6 @@ if (I) {
 let idle = false, idleAng = 0, dtNow = 0, grow = 0;
 let holding = false, hold = 0, lastReal = 0;                     // HOLD TO START: nyomva tartás (0 → 1 = 2,5 s)
 const HOLD_S = 2.5;
-const holdEl = document.getElementById('heroHold');
 function target(L) {
   const m = layout.main;
   const rest = { x: (m.x0 + m.x1) / 2, y: m.y };
@@ -272,9 +286,8 @@ export function updateHero(dt) {
   const rt = now(), rdt = Math.min(0.25, rt - (lastReal || rt)); lastReal = rt;   // valós idő: minden gépen pontosan 2,5 s
   hold = state === 'in' && holding ? Math.min(1, hold + rdt / HOLD_S) : Math.max(0, hold - rdt * 2 / HOLD_S);
   if (state === 'in' && hold >= 1) { state = 'out'; outT = 0; holding = false; }
-  if (holdEl) holdEl.style.setProperty('--hold', (state === 'in' ? hold : 0).toFixed(3));
   const pull = hold * hold * (3 - 2 * hold);                  // a nyaláb visszahúzódása a logóba
-  const gE = grow * grow * (3 - 2 * grow) * (1 - pull);
+  const gE = grow * grow * (3 - 2 * grow);
   on = damp(on, tgtOn * (state === 'in' || state === 'back' ? gE : 1), tgtOn > on ? 6 : (state === 'out' || state === 'off' ? 14 : 4), dt);
   if (state === 'out' && outT > 0.3) on = 0;                    // mire a logó elindul a fejlécbe, a fény már nem ég
   alpha = damp(alpha, tgtA, tgtA > alpha ? 3 : 3.5, dt);
@@ -294,7 +307,10 @@ export function updateHero(dt) {
   HU.uLogo.value.set(L.x * sc, bufSize.y - L.y * sc);
   HU.uLamp.value.set((L.x - Math.cos(ang) * off) * sc, bufSize.y - (L.y - Math.sin(ang) * off) * sc);
   HU.uOn.value = on; HU.uA.value = alpha; HU.uLift.value = lift * sc; HU.uS.value = sc * (layout ? layout.s : 1);
-  HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc * (0.12 + 0.88 * gE);   // a fény messzebbre nyúlik, ahogy nő (és visszahúzódik, ha nyomva tartják)
+  HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc * (0.12 + 0.88 * gE);   // a fény messzebbre nyúlik, ahogy nő
+  // nyomva tartva a nyaláb vége a logó felé húzódik vissza (Patrik: „a fény húzódjon vissza, amikor nyomjuk”), nem csak halványul
+  const far = Math.hypot(innerWidth, innerHeight) * sc;
+  HU.uCut.value = pull > 0.001 ? far * Math.pow(1 - pull, 1.6) + 0.35 * L.w * sc : 1e5;
   HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
   HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
   HU.uLogoK.value = LOGO_BW / Math.max(1, L.w);
