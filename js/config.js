@@ -5,8 +5,8 @@
 // color: tartalék szín, ha nincs kép)
 export const PROJECTS = [
   // kategóriánként egymás alatt (Patrik: így nem kell kategória-szűrő, egyben látszik, ami összetartozik)
-  { id: 'P01', name: 'Water',           cat: 'Font',  meta: '' },
-  { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '' },
+  { id: 'P01', name: 'Water',           cat: 'Font',  meta: '', image: 'assets/projects/water/cover.webp', focus: [0.52, 0.5] },
+  { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '', image: 'assets/projects/kurwa/cover.webp', focus: [0.5, 0.55] },
   { id: 'P03', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5],
     detail: {   // a projekt-aloldal saját szövege (a többi mező a DETAIL_TEST-ből jön)
       label: 'Zsebkönyv · Illusztráció',
@@ -31,15 +31,16 @@ export const PROJECTS = [
         { src: 'assets/projects/zsebkonyv/poszterek-35.webp', name: 'Sour Diesel' },
       ],
     } },
-  { id: 'P04', name: 'Digitális pokol', cat: 'Print', meta: '' },
-  { id: 'P05', name: 'Techno Sticker Pack', cat: 'Print', meta: '' },
+  { id: 'P04', name: 'Digitális pokol', cat: 'Print', meta: '', image: 'assets/projects/digitalis-pokol/cover.webp', focus: [0.58, 0.48] },
+  { id: 'P05', name: 'Techno Sticker Pack', cat: 'Print', meta: '', image: 'assets/projects/techno-sticker-pack/cover.webp', focus: [0.5, 0.5],
+    palette: [[1.0, 0.56, 0.3], [0.74, 0.3, 0.74], [0.2, 0.42, 0.74]] },   // kézzel: a matricák vékony színes vonalai a kicsinyített képből kiszámolva elszürkültek (narancs, magenta, kék)
   { id: 'P06', name: 'Painpoint',       cat: 'App',   meta: '' },
   { id: 'P07', name: 'Daily UI Challenge', cat: 'App', meta: '' },     // telefonos felületek (korábban a helyén a Prototype, Font)
   { id: 'P08', name: 'Ringme',          cat: 'Web',   meta: '' },
   { id: 'P09', name: 'CONCEPT',         cat: 'Photo', meta: '' },     // fotósorozat
   { id: 'P10', name: 'CONCEPT II',      cat: 'Photo', meta: '' },     // fotósorozat
   { id: 'P11', name: 'MDI Backrooms',   cat: 'Video', meta: '' },
-  { id: 'P12', name: 'Apória',          cat: 'Video', meta: '' },
+  { id: 'P12', name: 'Apória',          cat: 'Video', meta: '', image: 'assets/projects/aporia/cover.webp', focus: [0.55, 0.45] },
 ];
 export const N = PROJECTS.length;
 // induláskor ez a pill áll középen (a többi körülötte, a dob végtelen): az Oldalra fújva, mert ennek van már saját tartalma.
