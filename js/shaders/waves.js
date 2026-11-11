@@ -14,7 +14,7 @@ export const waveVS = /* glsl */`
 export const waveFS = /* glsl */`
   precision highp float;
   uniform float uTime, uAmp, uPush, uReact, uBeat, uGain, uFlowY, uStyle, uShift, uColFront, uRise, uFlash;
-  uniform float uFront;   // hero után: eddig (képernyőmagasság-arány, lentről) látszanak a szalagok; fölötte sötét, a határon fényes él
+  uniform float uFront;   // hero után: e fölött (képernyőmagasság-arány, lentről mérve) látszanak a szalagok; a front fentről lefelé halad
   uniform vec2 uCur[6];      // az egérfény nyomának pontjai (pixel, alulról)
   uniform float uCurE, uCurB; // a mozgás energiája (0 → 1) és a kurzor kis fénye (0 → 1)
   uniform vec2 uCurV;        // a kurzor (a rugós fej) sebessége, pixel/s: ettől nyúlik cseppé
@@ -198,10 +198,10 @@ export const waveFS = /* glsl */`
     float band = exp(-pow((yt - f + 0.06) / 0.1, 2.0)) * (1.0 - smoothstep(1.0, 1.2, f));
     float glow = smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.15, 1.2, f));
     l *= 1.0 + uFlash * (0.3 * glow + 0.9 * band);
-    if (uFront < 1.5) {
+    if (uFront < 1.5) {                                              // hero után: fentről lefelé fénylenek fel, a határon fényes él
       float yb = gl_FragCoord.y / uRes.y;
-      float edge = exp(-pow((yb - uFront + 0.035) / 0.045, 2.0));
-      l *= (1.0 - smoothstep(uFront - 0.1, uFront, yb)) * (1.0 + 1.6 * edge);
+      float edge = exp(-pow((yb - uFront - 0.04) / 0.05, 2.0));
+      l *= smoothstep(uFront, uFront + 0.12, yb) * (1.0 + 1.6 * edge);
     }
     vec3 v = 1.0 - exp(-l * 1.1);                                    // lágy fénycsúcsok, nincs kiégés
     // a kurzort már nem itt rajzoljuk: saját, legfelső rétegen van (js/cursor.js), hogy ne kerüljön semmi mögé

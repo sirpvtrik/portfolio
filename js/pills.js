@@ -5,7 +5,7 @@ import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { damp } from './util.js';
 import { stadium, glassSlab, remapUV, faceZ } from './glassgeo.js';
 import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
-import { pillRise, litStyle, getAway, waveFront } from './entrance.js';
+import { pillRise } from './entrance.js';
 
 /* ---------- 3D pill geometria ---------- */
 function buildPillGeo() {
@@ -393,21 +393,6 @@ export function updatePills(dt) {
     const depth = r * r;
     const fade = 1 - THREE.MathUtils.smoothstep(r, 0.8, 1.0);
     const rise = pillRise(i) * visH;                 // belépés: alulról úszik fel a hullámokkal együtt (js/entrance.js)
-    // hero után (Patrik): a pillek nem úsznak fel, hanem lentről felfelé egymás után felvilágítanak, ahogy a hullámok fényes
-    // frontja eléri őket, mintha a hullám adná nekik a fényt (egy kis felvillanással); visszalépve a hero-ba elsötétülnek
-    if (litStyle() && mode === 'tower') {
-      // a pill magassága a képernyőn (0 = lent): akkor világít fel, amikor a hullámok fényes frontja eléri
-      const yFrac = 0.5 + (yw + TOWER_Y) / visH;
-      // széles, lágy átmenet (Patrik: „szebben halványuljanak fel, ne ilyen darabosan”): a front alatt ~0,4 képernyőnyin
-      // (~0,6 s) ötödfokú görbével világosodik ki, a felvillanás finom és lassan cseng le
-      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.05) / 0.65));
-      const sm = k * k * (3 - 2 * k);                // a terjedés üteme; a lágy átmenetet a shader adja (a végektől befelé)
-      const aw = 1 - getAway(), lit = sm * aw, fl = Math.sin(Math.PI * Math.min(1, k * 1.1)) * 0.7 * aw;
-      pl.mat.uniforms.uDark.value = 1 - lit; pl.mat.uniforms.uFlash.value = fl;
-      pl.back.material.uniforms.uDark.value = 1 - lit; pl.back.material.uniforms.uFlash.value = fl;
-      pl.lf.material.opacity = Math.min(1, Math.max(0, (lit - 0.45) / 0.5));   // a felirat középen van: akkor jön, amikor a fény odaér
-      pl.holder.visible = lit > 0.004;
-    }
     pl.holder.position.set(0, yw + pl.push + pl.dy - rise, pl.z - depth * 1.8 + pl.dz);
     pl.holder.scale.setScalar(Math.max(0.0001, pl.s * (1 - depth * 0.35) * fade * pl.ds));
     pl.holder.rotation.x = -(Math.max(-1, Math.min(1, yw / YV))) * 0.5 - scrollVel * 0.025;

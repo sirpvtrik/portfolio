@@ -34,7 +34,7 @@ export function updateWaves(dt) {
   updateWaveColor(dt);
   shiftK = damp(shiftK, shiftTarget, 2.2, dt);
   WU.uRise.value = wavesRise();   // belépés: a szalagok alulról úsznak fel (a pillekkel együtt)
-  WU.uFront.value = waveFront();  // hero után: lentről felfelé tűnnek elő, fényes élű fronttal (a pillek ehhez igazodnak)
+  WU.uFront.value = waveFront();  // hero után: fentről lefelé fénylenek fel, fényes élű fronttal (utána jönnek a pillek)
   WU.uShift.value = S.wshift / 100 * 1.4 * shiftK;   // ~70 → a szalagok épp a pillek széléig érnek (a shader a képarányhoz igazítja)
   // a négyszögek szélessége: a Folyékony stílus legfeljebb 0,40 egységnyire ér be (plusz a Középre eltolás); a régi
   // stílusok messzebbre érnek, azoknál a teljes képernyő

@@ -24,32 +24,34 @@ const pillsDur = P ? P.wavesDur * P.pillsDist / P.wavesDist : 0;
 let away = 0;
 export const setAway = v => { away = v; };
 export const getAway = () => away;
-// hero után a pillek felvilágítva lépnek be (nem úsznak fel): a hero.js jelzi a kilépést (markLit), ehhez mér a pills.js
+// hero után más a belépés (lent): a hero.js jelzi a kilépést (markLit), ehhez mér a hullám és a pillek
 let litBase = null;
 export const litStyle = () => !!(INTRO && INTRO.heroUsed);
 export const markLit = () => { litBase = performance.now(); };
 export const clearLit = () => { litBase = null; };
 export const litT = () => litBase == null ? -1 : (performance.now() - litBase) / 1000;
-// hero után a hullámok lentről felfelé tűnnek elő egy fényes élű fronttal (képernyőmagasság-arány, 0 = lent); a pillek akkor
-// világítanak fel, amikor a front eléri a magasságukat (pills.js), így együtt haladnak. 2 = minden látszik.
-export const WAVE_FRONT_DUR = 4.2;   // Patrik: lassabban jöhetnek a hullámok és a pillek fénye
-// hero után a pillek (mint eddig) alulról úsznak fel, a hullámok frontjával együtt, közben oldalról kapják meg a fényt
+export const WAVE_FRONT_DUR = 3.0;   // a hullámok fentről lefelé ennyi idő alatt fénylenek fel
+// hero után (Patrik): a hullámok fentről lefelé fénylenek fel, utána a pillek a megszokott módon alulról felúsznak
+// (külön pill-felvilágítás nincs: „nem kell a fényeléssel bajlódni”). Visszalépve a hero-ba a pillek lesüllyednek (away);
+// 1,7 képernyőnyit, hogy a torony legfelső pillje se lógjon be alul.
+export const PILL_RISE_DELAY = WAVE_FRONT_DUR * 0.6, PILL_RISE_DUR = 1.9;
 function litRise() {
-  if (litBase == null) return 0;
-  const k = Math.min(1, Math.max(0, (litT() - 0.1) / (WAVE_FRONT_DUR * 0.95)));
-  return 0.75 * (1 - easeInOut(k));
+  if (litBase == null) return INTRO && INTRO.t2 ? 0 : 1;          // a hero előtt lent, a képen kívül
+  const k = Math.min(1, Math.max(0, (litT() - PILL_RISE_DELAY) / PILL_RISE_DUR));
+  return Math.pow(1 - k, 3);                                     // lágyan lassulva ér a helyére
 }
+// a hullámok fénylő frontja (képernyőmagasság-arány, 0 = lent): fentről lefelé halad, fölötte látszanak a szalagok; 2 = minden
 export function waveFront() {
   if (!litStyle()) return 2;
-  if (litBase == null) return INTRO && INTRO.t2 ? 2 : -0.2;
-  const k = Math.min(1, Math.max(0, (litT() - 0.2) / WAVE_FRONT_DUR));
-  return k >= 1 ? 2 : -0.15 + 1.7 * easeInOut(k);   // túlfut a képernyő tetején, így a felső pillek is végig lágyan érnek be
+  if (litBase == null) return INTRO && INTRO.t2 ? 2 : 1.3;
+  const k = Math.min(1, Math.max(0, (litT() - 0.15) / WAVE_FRONT_DUR));
+  return k >= 1 ? 2 : 1.25 - 1.5 * easeInOut(k);
 }
 // a hullámok fényereje (0 → 1)
 export const wavesIn = () => litStyle() ? (INTRO.t2 ? 1 : 0) * (1 - away) : (P ? easeInOut(introK(P.rise, P.wavesFade)) : 1) * (1 - away);
 // a hullámok még hátralévő emelkedése (képernyőmagasságban; 0 = a helyén)
 export const wavesRise = () => litStyle() ? (P ? P.wavesDist * away : 0) : P ? P.wavesDist * Math.max(1 - easeOut4(introK(P.rise, P.wavesDur)), away) : 0;
 // az i. pill még hátralévő emelkedése (képernyőmagasságban)
-export const pillRise = i => litStyle() ? litRise() : P ? P.pillsDist * Math.max(1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur)), away) : 0;
+export const pillRise = i => litStyle() ? 1.7 * Math.max(litRise(), away) : P ? P.pillsDist * Math.max(1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur)), away) : 0;
 // a lejátszó-blob átlátszósága (a HTML felülettel együtt jelenik meg)
 export const uiIn = () => (P ? introK(P.ui / 1000, P.uiDur / 1000) : 1) * (1 - away);
