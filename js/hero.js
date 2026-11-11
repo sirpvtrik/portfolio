@@ -62,6 +62,13 @@ function drawText() {
   g.fillText('DESIGNER', W - pad, t2);
   const wT1 = g.measureText('MADARÁSZ PATRIK').width;
   const left = pad;
+  // sarokívek (Figma: node 297-66 / 297-67, Patrik SVG-je): a szöveggel együtt a piros csatornában, így ezek is csak a fényben
+  // látszanak (Patrik: „az ívek se látszódjanak fény nélkül”); bal fent és jobb lent, 26 px-re a széltől; telefonon a jobb alsó nincs
+  const arc = new Path2D('M0.5 150.5V50.5C0.5 22.8858 22.8858 0.5 50.5 0.5H150.5');
+  const as = W <= 600 ? 97 / 151 : 1;
+  g.save(); g.strokeStyle = '#f00'; g.lineWidth = 1 / as; g.lineCap = 'round';
+  g.translate(pad, pad); g.scale(as, as); g.stroke(arc); g.restore();
+  if (W > 600) { g.save(); g.strokeStyle = '#f00'; g.lineWidth = 1; g.lineCap = 'round'; g.translate(W - pad, H - pad); g.rotate(Math.PI); g.stroke(arc); g.restore(); }
   // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, a betöltő méretében, viewBox: -4 -4 343 164; intro.js)
   const bw = LOGO_BW, bh = bw * 164 / 343, k = bw / 343;
   g.save();
