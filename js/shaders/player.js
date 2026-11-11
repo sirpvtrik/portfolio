@@ -73,8 +73,9 @@ export const playerFS = /* glsl */`
       for (int i = 0; i < 8; i++) {
         float an = float(i) * 0.7854 + 0.39;
         vec2 dv = vec2(cos(an), sin(an));
-        o1 += smoothstep(-1.0, 1.0, scene(p + dv * uScale * 3.5));
-        o2 += smoothstep(-1.0, 1.0, scene(p + dv * uScale * 11.0));
+        // lágy (a mintavétel sugarával arányos) átmenet: így a derengés folytonos, nem pöttyözött (Patrik: „fura lett a széle”)
+        o1 += smoothstep(-uScale * 3.0, uScale * 3.0, scene(p + dv * uScale * 3.5));
+        o2 += smoothstep(-uScale * 9.0, uScale * 9.0, scene(p + dv * uScale * 11.0));
       }
       float gl = (o2 / 8.0) * 0.5 + (o1 / 8.0) * 0.45;
       col += vec3(gl * uRimGlow * (0.75 + 0.25 * n.y));
