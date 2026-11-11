@@ -8,7 +8,7 @@ import { scene, onLayer, LAYER_PL, rt, U, bufSize } from './scene.js';
 import { fullscreenVS } from './shaders/fullscreen.js';
 import { playerFS } from './shaders/player.js';
 import { uiIn } from './entrance.js';
-import { keepBase } from './player.js';
+import { keepBase, sst, fitOf, showPart } from './player.js';
 
 const ct = document.getElementById('ct'), box = document.getElementById('ctIn'), av = document.getElementById('ctAv');
 const SC = 0.9, W = 236, H = 140;                    // a lejátszó egységeiben (236 széles, sorok 64 magasak), 0,9-szeresen
@@ -41,6 +41,11 @@ function geom(x) {
 }
 const cur = geom(0).map(q => q.slice()), vel = cur.map(() => [0, 0, 0, 0]);
 const BASE = geom(0)[5].slice();                // a csukott kör: a rugó csukáskor se húzza a profilkép alá (lásd player.js keepBase)
+const FIN = geom(1);
+// a tartalom részenként jelenik meg, ahogy a saját formája a helyére ér (lásd player.js showPart)
+const part = el => { el.style.opacity = 0; el.style.visibility = 'hidden'; return { el, v: 0 }; };
+const partName = part(box.querySelector('.ct-name'));
+const partIc = [['ctMl', 2], ['ctIg', 3], ['ctBe', 4]].map(([id, k]) => ({ p: part(document.getElementById(id)), k }));   // a tükrözés miatt: e-mail ↔ bal kör
 
 function setOpen(v) {
   clearTimeout(closeT);
@@ -92,6 +97,8 @@ export function ctUpdate(dt) {
   speed /= 28;
   cu.uK.value = 12 + Math.min(14, speed * 0.06);
   if (target === 1 && t > 0.95 && speed < 40) ct.classList.add('show');
+  showPart(partName, sst(0.8, 0.97, (cur[5][2] / SC - 64) / 172), dt);    // a név: amikor a névpill kinyúlt
+  partIc.forEach(q => showPart(q.p, fitOf(cur[q.k], FIN[q.k], SC), dt));    // az ikonok: amikor a saját körük kész (pl. a Behance már előbb)
   const r = box.getBoundingClientRect(), sc = bufSize.x / innerWidth;
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   cur.forEach((q, i) => {

@@ -40,6 +40,21 @@ const plCur = plGeom(0).map(q => q.slice()), plVel = plCur.map(() => [0, 0, 0, 0
 // a csukott kör (az alsó sor alapja): a rugó csukáskor se húzza ennél kisebbre, különben a túllendüléstől egy pillanatra
 // a hangszóró-kör alá húzódott vissza az üveg (Patrik); nyitáskor a túllendülés megmarad
 const BASE = plGeom(0)[6].slice();
+const FIN = plGeom(1);
+export const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// mennyire ért a helyére egy rugós forma (1 = a helyén, 0 = még messze): a négy adata közül a legnagyobb eltérés
+export const fitOf = (c, f, s = 1) => 1 - sst(3 * s, 16 * s, Math.max(Math.abs(c[0] - f[0]), Math.abs(c[1] - f[1]), Math.abs(c[2] - f[2]), Math.abs(c[3] - f[3])));
+// egy tartalom-elem átlátszósága lágyan követi a célt; láthatatlanul nem kattintható és nem fókuszálható
+export function showPart(p, target, dt) {
+  p.v += (target - p.v) * (1 - Math.exp(-16 * dt));
+  if (target === 0 && p.v < 0.01) p.v = 0;
+  p.el.style.opacity = p.v.toFixed(3);
+  p.el.style.visibility = p.v > 0.02 ? 'visible' : 'hidden';
+}
+const part = el => { el.style.opacity = 0; el.style.visibility = 'hidden'; return { el, v: 0 }; };
+const partTop = part(pl.querySelector('.c-top'));
+const partBtn = ['prev', 'play', 'next'].map(id => part(document.getElementById(id)));
+let onAmt = 0;
 export function keepBase(c, v, m) {
   if (c[0] > m[0]) { c[0] = m[0]; v[0] = Math.min(0, v[0]); }
   if (c[1] > m[1]) { c[1] = m[1]; v[1] = Math.min(0, v[1]); }
@@ -124,21 +139,26 @@ export function plUpdate(dt) {
   for (let i = 0; i < 7; i++) for (let j = 0; j < 4; j++) speed += Math.abs(plVel[i][j]);
   speed /= 28;
   plU.uK.value = 13 + Math.min(16, speed * 0.06);                      // mozgás közben nyúlósabb összeolvadás
-  if (plTarget === 1 && plT > 0.95 && speed < 40 && !pl.classList.contains('show')) {
-    pl.classList.add('show');
-    if (!nudged && !reduced) { nudged = true; nudgeT = 0; }
-  }
-  // csukva: ha szól a zene, egy vékony fehér karika a hangszóró körül (Patrik)
-  spk.classList.toggle('on', playing && vol > 0);
+  if (plTarget === 1 && plT > 0.95 && speed < 40) pl.classList.add('show');
   const g = { list: plCur.map(q => [q[0], q[1], Math.max(0, q[2]), Math.max(0, q[3])]), a: Math.min(1, Math.max(0, (plCur[6][2] - 64) / 172)) };
-  // hangszóró: csukva a kör közepén, nyitva a világos hangerő-sáv közepén
-  // húzhatóság: az első nyitáskor a sáv vége kétszer finoman, csillapítva megmoccan, mintha valaki megpöccintené
-  let nd = 0;
+  // A tartalom fokozatosan, részenként jelenik meg (Patrik: „ne kelljen megvárni, mire a teteje is kinyílik”): minden elem
+  // akkor látszik, amikor a saját üveg-formája már a helyén van (a rugós alak aktuális helyzetéből), csukáskor ugyanígy tűnik el.
+  showPart(partTop, sst(0.82, 0.98, plCur[0][2] / 236), dt);           // felső sor: amikor a felső pill kiszélesedett
+  for (let i = 0; i < 3; i++) showPart(partBtn[i], fitOf(plCur[3 + i], FIN[3 + i]), dt);   // előző / lejátszás / következő: a saját körük
+  // hangerő-sáv: folyamatosan nő az alsó pillel (a csukott fehér körből), nem a végén vált át
+  if (!nudged && !reduced && plTarget === 1 && g.a > 0.97) { nudged = true; nudgeT = 0; }
+  let nd = 0;                                            // húzhatóság: az első nyitáskor a sáv vége kétszer finoman megmoccan
   if (nudgeT >= 0) { nudgeT += dt; nd = Math.sin(nudgeT * 9) * Math.exp(-nudgeT * 3.2) * Math.min(1, nudgeT * 6); if (nudgeT > 1.6) nudgeT = -1; }
-  const fw = Math.max(52, Math.min(224, vol * 224 - 18 * nd));
+  const fwOpen = Math.max(52, Math.min(224, vol * 224 - 18 * nd));
+  const fw = L1(52, fwOpen, g.a);
   volFill.style.width = fw + 'px';
   volFill.classList.toggle('grip', fw > 100);           // a fogantyú csak akkor, ha elfér a hangszóró mellett
-  spk.style.left = L1(16, 6 + fw / 2 - 16, g.a) + 'px';
+  // csukva csak akkor fehér a kör, ha szól a zene (Patrik); nyitva mindig látszik a sáv
+  onAmt += ((playing && vol > 0 ? 1 : 0) - onAmt) * (1 - Math.exp(-8 * dt));
+  const fo = Math.max(onAmt, sst(0, 0.3, g.a));
+  volFill.style.opacity = fo.toFixed(3);
+  spk.classList.toggle('dark', fo > 0.5);                // fehér körön sötét az ikon
+  spk.style.left = (6 + fw / 2 - 16) + 'px';             // a hangszóró mindig a fehér sáv / kör közepén
   const r = pl.getBoundingClientRect(), sc = bufSize.x / innerWidth;
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   g.list.forEach((q, i) => {
