@@ -67,7 +67,16 @@ export const playerFS = /* glsl */`
     col += (rim * (0.14 + 1.0 * spec) + inner * spec * 0.12 + band * spec * 0.1) * uLightInt;
     if (uRimGlow > 0.001) {
       // fent kicsit erősebb (mint a GET IN TOUCH gombon), befelé lágyan elfogy
-      float gl = exp(-dist / (uScale * 9.0)) * 0.36 + exp(-dist / (uScale * 2.2)) * 0.22;
+      // a peremtől mért távolságot nem a belső SDF-ből vesszük (az alakzatok uniójában a belső, átfedő élek „csíkokat”
+      // húztak a névjegy összekötőinél), hanem abból, hogy a pont körüli kis körök mekkora része esik az alakzaton kívül
+      float o1 = 0.0, o2 = 0.0;
+      for (int i = 0; i < 8; i++) {
+        float an = float(i) * 0.7854 + 0.39;
+        vec2 dv = vec2(cos(an), sin(an));
+        o1 += smoothstep(-1.0, 1.0, scene(p + dv * uScale * 3.5));
+        o2 += smoothstep(-1.0, 1.0, scene(p + dv * uScale * 11.0));
+      }
+      float gl = (o2 / 8.0) * 0.5 + (o1 / 8.0) * 0.45;
       col += vec3(gl * uRimGlow * (0.75 + 0.25 * n.y));
     }
     gl_FragColor = vec4(col, alpha * uAlpha);

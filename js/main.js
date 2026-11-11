@@ -9,7 +9,7 @@ import { plUpdate, updateTime } from './player.js';
 import { updateProject } from './project.js';
 import { updateCursor } from './cursor.js';
 import { ctUpdate } from './contact.js';
-import { backUpdate, touchUpdate } from './backglass.js';
+import { backUpdate, touchUpdate, iconsUpdate } from './backglass.js';
 
 startLoop(dt => {
   updatePills(dt);           // hover, görgetés, pillek
@@ -21,5 +21,6 @@ startLoop(dt => {
   ctUpdate(dt);              // a névjegy-blob jobb felül
   backUpdate(dt);            // a Vissza gomb üvege
   touchUpdate(dt);           // a GET IN TOUCH gomb üvege (a projekt-oldal végén)
+  iconsUpdate(dt);           // a lejátszó és a névjegy kis gombjai: a kurzor a formájukat veszi fel
   updateProject(dt);         // projekt-aloldal: domború sorok, galéria
 });
