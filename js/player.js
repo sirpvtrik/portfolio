@@ -127,7 +127,7 @@ export function plUpdate(dt) {
     plRects[i].set(X, Y, W, Hh);
     if (W > 0.5 && Hh > 0.5) { x0 = Math.min(x0, X); y0 = Math.min(y0, Y); x1 = Math.max(x1, X + W); y1 = Math.max(y1, Y + Hh); }
   });
-  const m = 30 * sc;
+  const m = 64 * sc;                                                 // a külső ragyogás is beleférjen
   plU.uBox.value.set(x0 - m, y0 - m, x1 + m, y1 + m);
   plU.uScale.value = sc;
   plU.uAlpha.value = uiIn();   // belépéskor a felülettel együtt jelenik meg

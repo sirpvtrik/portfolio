@@ -97,7 +97,7 @@ export function ctUpdate(dt) {
     rects[i].set(X, Y, Wd, Hh);
     if (Wd > 0.5 && Hh > 0.5) { x0 = Math.min(x0, X); y0 = Math.min(y0, Y); x1 = Math.max(x1, X + Wd); y1 = Math.max(y1, Y + Hh); }
   });
-  const m = 30 * sc;
+  const m = 64 * sc;                                                 // a külső ragyogás is beleférjen
   cu.uBox.value.set(x0 - m, y0 - m, x1 + m, y1 + m);
   cu.uScale.value = sc;
   cu.uAlpha.value = uiIn();                                              // belépéskor a felülettel együtt jelenik meg

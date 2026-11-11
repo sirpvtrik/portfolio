@@ -108,7 +108,7 @@ export function glassButton(btn, opts = {}) {
     const r = btn.getBoundingClientRect(), sc = bufSize.x / innerWidth;
     const X = r.left * sc, W = r.width * sc, H = r.height * sc, Y = bufSize.y - r.top * sc - H;
     rects[0].set(X, Y, W, H);
-    const mg = 30 * sc;
+    const mg = 64 * sc;                                             // a külső ragyogás is beleférjen
     cu.uBox.value.set(X - mg, Y - mg, X + W + mg, Y + H + mg);
     cu.uScale.value = sc;
     cu.uAlpha.value = a;
