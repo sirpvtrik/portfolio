@@ -53,7 +53,10 @@ function drawLabel(c, p) {
 const IW = PW - 0.06, IH = PH - 0.06;
 const imageGeo = remapUV(new THREE.ShapeGeometry(stadium(IW, IH), 72));
 const palettes = [];                                  // projektenként a képből vett 3 árnyalat (a hullámokhoz)
-export const paletteOf = i => PROJECTS[i].palette || palettes[i] || (PROJECTS[i].color ? [PROJECTS[i].color, PROJECTS[i].color, PROJECTS[i].color] : null);
+// mindig van árnyalat (Patrik: „sose legyen átlátszó, mert akkor olyan, mintha üres vagy hibás lenne”): kép / szín nélkül
+// (vagy fekete-fehér képnél, amiből nem jön szín) semleges, kicsit hideg ezüst, nem a hullám alap fehérje
+const SILVER = [[0.76, 0.77, 0.8], [0.58, 0.59, 0.62], [0.44, 0.45, 0.48]];
+export const paletteOf = i => PROJECTS[i].palette || palettes[i] || (PROJECTS[i].color ? [PROJECTS[i].color, PROJECTS[i].color, PROJECTS[i].color] : SILVER);
 
 // 3 jellemző árnyalat a képből (k-közép a telített képpontokon), világostól sötétig, fényként használható fényerőre hozva
 function extractPalette(img) {

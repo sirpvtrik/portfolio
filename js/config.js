@@ -2,11 +2,13 @@
 // cat: a pillen a cím alatt nagybetűvel; meta: egyelőre nem jelenik meg
 // image: hoverre a pill belsejében középről kinyíló kép (focus: a kép melyik pontja kerüljön középre, 0..1)
 // A hullámok kattintásra a kép 3 árnyalatára váltanak (automatikusan a képből; palette: [[r,g,b] ×3] kézzel felülírja,
-// color: tartalék szín, ha nincs kép)
+// color: tartalék szín, ha nincs kép; ha egyik sincs, semleges ezüst: a hullám sose maradjon fehér, mert az üresnek / hibásnak hat)
 export const PROJECTS = [
   // kategóriánként egymás alatt (Patrik: így nem kell kategória-szűrő, egyben látszik, ami összetartozik)
-  { id: 'P01', name: 'Water',           cat: 'Font',  meta: '', image: 'assets/projects/water/cover.webp', focus: [0.52, 0.5] },
-  { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '', image: 'assets/projects/kurwa/cover.webp', focus: [0.5, 0.55] },
+  { id: 'P01', name: 'Water',           cat: 'Font',  meta: '', image: 'assets/projects/water/cover.webp', focus: [0.52, 0.5],
+    palette: [[0.74, 0.76, 0.79], [0.56, 0.58, 0.61], [0.42, 0.43, 0.46]] },   // szürkés alufólia (Patrik)
+  { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '', image: 'assets/projects/kurwa/cover.webp', focus: [0.5, 0.55],
+    palette: [[0.84, 0.84, 0.88], [0.62, 0.62, 0.67], [0.47, 0.47, 0.52]] },   // ezüst flitter (a kép fekete-fehér)
   { id: 'P03', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5],
     detail: {   // a projekt-aloldal saját szövege (a többi mező a DETAIL_TEST-ből jön)
       label: 'Zsebkönyv · Illusztráció',
@@ -31,7 +33,8 @@ export const PROJECTS = [
         { src: 'assets/projects/zsebkonyv/poszterek-35.webp', name: 'Sour Diesel' },
       ],
     } },
-  { id: 'P04', name: 'Digitális pokol', cat: 'Print', meta: '', image: 'assets/projects/digitalis-pokol/cover.webp', focus: [0.58, 0.48] },
+  { id: 'P04', name: 'Digitális pokol', cat: 'Print', meta: '', image: 'assets/projects/digitalis-pokol/cover.webp', focus: [0.58, 0.48],
+    palette: [[0.86, 0.18, 0.21], [0.68, 0.09, 0.11], [0.5, 0.06, 0.08]] },    // mély vörös, a borító pirosa (Patrik; a képből számolva rózsaszínes lett)
   { id: 'P05', name: 'Techno Sticker Pack', cat: 'Print', meta: '', image: 'assets/projects/techno-sticker-pack/cover.webp', focus: [0.5, 0.5],
     palette: [[1.0, 0.56, 0.3], [0.74, 0.3, 0.74], [0.2, 0.42, 0.74]] },   // kézzel: a matricák vékony színes vonalai a kicsinyített képből kiszámolva elszürkültek (narancs, magenta, kék)
   { id: 'P06', name: 'Painpoint',       cat: 'App',   meta: '' },
@@ -40,7 +43,8 @@ export const PROJECTS = [
   { id: 'P09', name: 'CONCEPT',         cat: 'Photo', meta: '' },     // fotósorozat
   { id: 'P10', name: 'CONCEPT II',      cat: 'Photo', meta: '' },     // fotósorozat
   { id: 'P11', name: 'MDI Backrooms',   cat: 'Video', meta: '' },
-  { id: 'P12', name: 'Apória',          cat: 'Video', meta: '', image: 'assets/projects/aporia/cover.webp', focus: [0.55, 0.45] },
+  { id: 'P12', name: 'Apória',          cat: 'Video', meta: '', image: 'assets/projects/aporia/cover.webp', focus: [0.55, 0.45],
+    palette: [[0.84, 0.8, 0.72], [0.62, 0.59, 0.54], [0.46, 0.44, 0.41]] },   // napfényes szürke (a kép fekete-fehér)
 ];
 export const N = PROJECTS.length;
 // induláskor ez a pill áll középen (a többi körülötte, a dob végtelen): az Oldalra fújva, mert ennek van már saját tartalma.
