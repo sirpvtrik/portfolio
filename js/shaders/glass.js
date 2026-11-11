@@ -108,6 +108,16 @@ export const glassFS = /* glsl */`
     return rd.xy + V.xy;               // eltérés az egyenes nézéstől
   }
 
+  // belépés a hero után (Patrik: „oldalt kapják meg a fényt, szép átmenettel világosodjanak fel”): a fény a pill két végén,
+  // a hullámok felől jön be, és fényes szegéllyel lágyan a közepe felé terjed. uDark: 1 = sötét, 0 = kész (más lapokon 0)
+  vec3 sideLight(vec3 c) {
+    if (uDark < 0.001) return c;
+    float p = (1.0 - uDark) * 1.4;
+    float s = 1.0 - clamp(abs(vLocal.x) / max(uHalf.x, 1e-3), 0.0, 1.0);   // 0 a két végén, 1 középen
+    float r = smoothstep(0.0, 0.4, p - s);
+    float band = exp(-pow((p - s - 0.08) / 0.1, 2.0)) * uFlash;
+    return c * r + (c * 0.8 + vec3(0.93, 0.96, 1.0) * 0.1) * band;
+  }
   void main() {
     vec3 N = normalize(vN);
     vec3 V = normalize(-vV);
@@ -259,7 +269,7 @@ export const glassFS = /* glsl */`
       float soft = exp(-ein / uEdgeW) * 0.45 + exp(-ein / (uEdgeW * 0.28)) * 0.55;
       col += vec3(0.93, 0.96, 1.0) * uEdge * lf * mix(line * 0.55 + soft * 0.17, 0.42, w);
     }
-    col = col * (1.0 - uDark) * (1.0 + 1.6 * uFlash) + vec3(0.93, 0.96, 1.0) * 0.07 * uFlash;
+    col = sideLight(col);
     gl_FragColor = vec4(col, 1.0);
   }`;
 
@@ -270,6 +280,7 @@ export const glassBackFS = /* glsl */`
   precision highp float;
   uniform float uLightAng, uLightInt, uRim;
   uniform float uDark, uFlash;
+  uniform vec2 uHalf;     // (csak a pillek hátlapja kapja; máshol uDark = 0, így nem használjuk)
   uniform float uBackK;   // a belső hátlap fénye (1 = pill; a teljes képernyős projekt-testen halvány, különben az egész kép ködös)
   uniform float uReal;    // élethű üveg (teszt): a belső felületek a stúdiót tükrözik, a kritikus szög fölött teljesen` + realEnv + /* glsl */`
   varying vec3 vN;
@@ -277,6 +288,16 @@ export const glassBackFS = /* glsl */`
   varying float vEdge;
   varying vec2 vLocal;
   varying vec3 vTx, vTy;
+  // belépés a hero után (Patrik: „oldalt kapják meg a fényt, szép átmenettel világosodjanak fel”): a fény a pill két végén,
+  // a hullámok felől jön be, és fényes szegéllyel lágyan a közepe felé terjed. uDark: 1 = sötét, 0 = kész (más lapokon 0)
+  vec3 sideLight(vec3 c) {
+    if (uDark < 0.001) return c;
+    float p = (1.0 - uDark) * 1.4;
+    float s = 1.0 - clamp(abs(vLocal.x) / max(uHalf.x, 1e-3), 0.0, 1.0);   // 0 a két végén, 1 középen
+    float r = smoothstep(0.0, 0.4, p - s);
+    float band = exp(-pow((p - s - 0.08) / 0.1, 2.0)) * uFlash;
+    return c * r + (c * 0.8 + vec3(0.93, 0.96, 1.0) * 0.1) * band;
+  }
   void main() {
     vec3 N = -normalize(vN);                                   // a belső felület befelé néz
     vec3 V = normalize(-vV);
@@ -304,8 +325,8 @@ export const glassBackFS = /* glsl */`
       vec3 Rb = reflect(-V, normalize(N - (vTx * dl.x + vTy * dl.y) * 0.42 * (1.0 - w)));
       float fR = clamp(length(fwidth(Rb)) * 1.2, 0.0, 0.4);
       float e = (envFront(Rb, la, fR, w) + envBack(Rb, fR)) * Fi * 0.85;
-      gl_FragColor = vec4((1.0 - exp(-vec3(e) * li)) * uBackK * (1.0 - uDark) * (1.0 + 1.6 * uFlash), 1.0);
+      gl_FragColor = vec4(sideLight((1.0 - exp(-vec3(e) * li)) * uBackK), 1.0);
       return;
     }
-    gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim) * uBackK * (1.0 - uDark) * (1.0 + 1.6 * uFlash), 1.0);
+    gl_FragColor = vec4(sideLight(col * li * (0.6 + 0.4 * uRim) * uBackK), 1.0);
   }`;

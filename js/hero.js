@@ -121,9 +121,10 @@ const heroFS = /* glsl */`
     // üveg betűk
     float a = T(q, 0.0);
     vec3 txt = vec3(0.0);
+    float wt = 0.0;                                                  // a fehér betű takarása (0 = háttér, 1 = tiszta fehér)
     if (uGlass < 0.5) {
-      // sima fehér betűk: a sötétben alig látszanak, ahol a nyaláb éri őket, kivilágosodnak
-      txt = vec3(a * (0.08 + 1.9 * ra));
+      // sima fehér betűk: a sötétben nem látszanak, ahol a nyaláb éri őket, kifehérednek
+      wt = a * (1.0 - exp(-ra * 8.0));                            // a sötétben háttérszínű (Patrik: ne legyen szürke), a fényben tiszta fehér
       air *= 1.0 - a;
     } else if (a > 0.003 || T(q, 2.0) > 0.003) {
       float e = 1.5 * uS;
@@ -145,6 +146,7 @@ const heroFS = /* glsl */`
     }
     vec3 col = air + txt * uA;
     col = 1.0 - exp(-col * 1.15);                                   // lágy telítődés
+    col = mix(col, vec3(1.0), wt * uA);                             // a fehér betű a telítődés után: nem szürkül
     gl_FragColor = vec4(col, 1.0);
   }`;
 const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({

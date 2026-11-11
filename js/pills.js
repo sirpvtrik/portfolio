@@ -145,7 +145,7 @@ PROJECTS.forEach((p, i) => {
   spin.add(glass);
   // a pill belső, hátsó felülete a háttérbe, csak fényként: az elülső lap ezt megtörve mutatja → átlátszik (glassBackFS)
   // (pillenként saját anyag, hogy a hero utáni belépésnél egyenként világíthasson fel; a shader ugyanaz)
-  const bMat = backMat.clone(); bMat.uniforms = Object.assign({}, U, { uDark: { value: 0 }, uFlash: { value: 0 } });
+  const bMat = backMat.clone(); bMat.uniforms = Object.assign({}, U, { uDark: { value: 0 }, uFlash: { value: 0 }, uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) } });
   const back = onLayer(new THREE.Mesh(pillGeo, bMat), LAYER_BG);
   back.renderOrder = 1;
   spin.add(back);
@@ -400,12 +400,12 @@ export function updatePills(dt) {
       const yFrac = 0.5 + (yw + TOWER_Y) / visH;
       // széles, lágy átmenet (Patrik: „szebben halványuljanak fel, ne ilyen darabosan”): a front alatt ~0,4 képernyőnyin
       // (~0,6 s) ötödfokú görbével világosodik ki, a felvillanás finom és lassan cseng le
-      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.05) / 0.4));
-      const sm = k * k * k * (k * (k * 6 - 15) + 10);
-      const aw = 1 - getAway(), lit = sm * aw, fl = Math.pow(Math.sin(Math.PI * k), 2) * 0.35 * aw;
+      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.05) / 0.5));
+      const sm = k * k * (3 - 2 * k);                // a terjedés üteme; a lágy átmenetet a shader adja (a végektől befelé)
+      const aw = 1 - getAway(), lit = sm * aw, fl = Math.sin(Math.PI * Math.min(1, k * 1.1)) * 0.7 * aw;
       pl.mat.uniforms.uDark.value = 1 - lit; pl.mat.uniforms.uFlash.value = fl;
       pl.back.material.uniforms.uDark.value = 1 - lit; pl.back.material.uniforms.uFlash.value = fl;
-      pl.lf.material.opacity = lit;
+      pl.lf.material.opacity = Math.min(1, Math.max(0, (lit - 0.45) / 0.5));   // a felirat középen van: akkor jön, amikor a fény odaér
       pl.holder.visible = lit > 0.004;
     }
     pl.holder.position.set(0, yw + pl.push + pl.dy - rise, pl.z - depth * 1.8 + pl.dz);
