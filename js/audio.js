@@ -229,9 +229,10 @@ let prevL = 0, prevM = 0, prevH = 0, surge = 0, surgeS = 0, flowVel = 0, flowY =
 
 export function updateAudio(dt) {
   let hasData = false;
-  if (analyser && playing) { analyser.getByteFrequencyData(freq); hasData = true; }
+  const on = playing && vol > 0;              // némítva nem mozog semmi (a logó teljes, a hullám nyugodt; Patrik)
+  if (analyser && on) { analyser.getByteFrequencyData(freq); hasData = true; }
   updateLogo(freq, actx ? actx.sampleRate : 48000, 2048, hasData, 0.8 + (S.react / 50) * 0.5);
-  musicAmt = damp(musicAmt, playing ? 1 : 0, playing ? 2.5 : 1.2, dt);
+  musicAmt = damp(musicAmt, on ? 1 : 0, on ? 2.5 : 1.2, dt);
   const binHz = actx ? actx.sampleRate / 2 / freq.length : 1;
   let low = 0, mid = 0, high = 0;
   for (let r = 0; r < BANDS; r++) {
@@ -282,7 +283,7 @@ export function updateAudio(dt) {
   WU.uFlowY.value = flowY;
   // BPM-szinkron: a tempóval arányos áramlás + lökés minden ütemre
   let syncPulse = 0, bpmFactor = 1;
-  if (S.bpmSync && actx && playing) {
+  if (S.bpmSync && actx && on) {
     const ph = (((position() - (mode === 'file' ? beatOffset : 0)) * trackBpm / 60) % 1 + 1) % 1;
     syncPulse = (0.5 + 0.5 * Math.cos(ph * Math.PI * 2)) * 0.6 * musicAmt;   // puha hullám az ütemen, nem rángatás
     bpmFactor = 1 + (trackBpm / 92 - 1) * musicAmt;
