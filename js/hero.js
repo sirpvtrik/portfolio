@@ -37,14 +37,15 @@ function drawText() {
   g.fillStyle = '#f00';                          // a szöveg a piros csatornában
   g.textBaseline = 'alphabetic';
   const FONT = "'Nohemi', 'Archivo', sans-serif";
-  // Figma (Desktop – 22, 1440 × 1024): Nohemi Bold; a nagy szöveg 96 px, 2 sor, ~98 px-es sorköz, 26 px-re a bal alsó saroktól
-  // (az utolsó sor alapvonala); jobb fent MADARÁSZ PATRIK / DESIGNER, mindkettő 40 px, 26 px-re a sarokból (mint a .ui)
+  // Figma (Desktop – 22, 1440 × 1024): Nohemi Bold; a nagy szöveg 64 px, 2 sor, ~65 px-es sorköz, 26 px-re a bal alsó saroktól
+  // (az utolsó sor alapvonala); jobb fent MADARÁSZ PATRIK / DESIGNER, mindkettő 24 px, 26 px-re a sarokból (mint a .ui)
   g.font = `700 100px ${FONT}`;
   const unit = g.measureText('MY BRIGHTNESS').width / 100;
   const pad = 26;
-  let F = 96 * Math.min(1.25, H / 1024);
-  F = Math.min(F, (W - 2 * pad) / unit);
-  const sF = F / 96, lh = 98 * sF;
+  let F = 64 * Math.min(1.25, H / 1024);
+  const arcW = W <= 600 ? 110 : 151;                               // a jobb alsó ív: a szöveg ne érjen bele (telefonon se)
+  F = Math.min(F, (W - 2 * pad - arcW - 10) / unit);
+  const sF = F / 64, lh = 65 * sF;
   g.font = `700 ${F}px ${FONT}`;
   const cap = g.measureText('H').actualBoundingBoxAscent || F * 0.72;
   const b2 = H - pad, b1 = b2 - lh;
@@ -52,22 +53,22 @@ function drawText() {
   g.fillText('DARKNESS IS', pad, b1);
   g.fillText('MY BRIGHTNESS', pad, b2);
   const w1 = g.measureText('DARKNESS IS').width, w2 = g.measureText('MY BRIGHTNESS').width;
-  const F1 = Math.max(15, 40 * sF);
+  const F1 = Math.max(13, 24 * sF);
   g.textAlign = 'right';
   g.font = `700 ${F1}px ${FONT}`;
   const c1 = g.measureText('M').actualBoundingBoxAscent || F1 * 0.72;
-  const t1 = pad + c1, t2 = t1 + F1 * 0.95;
+  const t1 = pad + c1, t2 = t1 + F1 * 1.0;
   g.fillText('MADARÁSZ PATRIK', W - pad, t1);
   g.fillText('DESIGNER', W - pad, t2);
   const wT1 = g.measureText('MADARÁSZ PATRIK').width;
   const left = pad;
   // sarokívek (Figma: node 297-66 / 297-67, Patrik SVG-je): a szöveggel együtt a piros csatornában, így ezek is csak a fényben
-  // látszanak (Patrik: „az ívek se látszódjanak fény nélkül”); bal fent és jobb lent, 26 px-re a széltől; telefonon a jobb alsó nincs
+  // látszanak (Patrik: „az ívek se látszódjanak fény nélkül”); bal fent és jobb lent, 26 px-re a széltől; telefonon kisebbek
   const arc = new Path2D('M0.5 150.5V50.5C0.5 22.8858 22.8858 0.5 50.5 0.5H150.5');
-  const as = W <= 600 ? 97 / 151 : 1;
+  const as = arcW / 151;
   g.save(); g.strokeStyle = '#f00'; g.lineWidth = 1 / as; g.lineCap = 'round';
   g.translate(pad, pad); g.scale(as, as); g.stroke(arc); g.restore();
-  if (W > 600) { g.save(); g.strokeStyle = '#f00'; g.lineWidth = 1; g.lineCap = 'round'; g.translate(W - pad, H - pad); g.rotate(Math.PI); g.stroke(arc); g.restore(); }
+  g.save(); g.strokeStyle = '#f00'; g.lineWidth = 1 / as; g.lineCap = 'round'; g.translate(W - pad, H - pad); g.rotate(Math.PI); g.scale(as, as); g.stroke(arc); g.restore();
   // a logó a zöld csatornában, a hero-beli helyén (a képernyő közepén, a betöltő méretében, viewBox: -4 -4 343 164; intro.js)
   const bw = LOGO_BW, bh = bw * 164 / 343, k = bw / 343;
   g.save();
@@ -214,7 +215,7 @@ if (I) {
 }
 
 // a fény célpontja (CSS-pixel): söprés a nagy szövegen, utána a kurzor, nyugalomban a nagy szöveg közepe
-let idle = false, idleAng = 0, dtNow = 0;
+let idle = false, idleAng = 0, dtNow = 0, grow = 0;
 function target(L) {
   const m = layout.main;
   const rest = { x: (m.x0 + m.x1) / 2, y: m.y };
@@ -242,7 +243,7 @@ export function updateHero(dt) {
   const L = I.heroLamp ? I.heroLamp() : { x: innerWidth / 2, y: innerHeight / 2, cy: innerHeight / 2, w: LOGO_BW };
   let tgtOn = 0, tgtA = 0;
   if (state === 'in' || state === 'back') {
-    tgtOn = 1;                                                   // a betöltő végén rögtön indul a fény (Patrik), a logó kicsinyedése közben
+    tgtOn = 1;                                                   // a betöltő végén rögtön indul a fény (Patrik)
     tgtA = 1;
     dtNow = dt;
     const T = target(L);
@@ -258,7 +259,11 @@ export function updateHero(dt) {
   // szög: lágyan követ (a legrövidebb úton)
   let da = angT - ang; da -= Math.round(da / (2 * Math.PI)) * 2 * Math.PI;
   ang += da * (1 - Math.exp(-(state === 'out' ? 5 : sweep ? 9 : 4.5) * dt));
-  on = damp(on, tgtOn, tgtOn > on ? 2.2 : (state === 'out' || state === 'off' ? 14 : 4), dt);
+  // felkapcsolás: lassan, ~2,5 s alatt nő ki a fény a logóból (Patrik: „szépen lassan megnő, nem hirtelen”): az erőssége és
+  // a hatótávja is fokozatosan nő; a kialvás továbbra is gyors
+  if (state === 'in' || state === 'back') { grow = Math.min(1, grow + dt / 2.5); } else if (state === 'off') grow = 0;
+  const gE = grow * grow * (3 - 2 * grow);
+  on = damp(on, tgtOn * (state === 'in' || state === 'back' ? gE : 1), tgtOn > on ? 6 : (state === 'out' || state === 'off' ? 14 : 4), dt);
   if (state === 'out' && outT > 0.3) on = 0;                    // mire a logó elindul a fejlécbe, a fény már nem ég
   alpha = damp(alpha, tgtA, tgtA > alpha ? 3 : 3.5, dt);
   lift = damp(lift, state === 'out' || state === 'off' ? 70 : 0, 3, dt);
@@ -277,7 +282,7 @@ export function updateHero(dt) {
   HU.uLogo.value.set(L.x * sc, bufSize.y - L.y * sc);
   HU.uLamp.value.set((L.x - Math.cos(ang) * off) * sc, bufSize.y - (L.y - Math.sin(ang) * off) * sc);
   HU.uOn.value = on; HU.uA.value = alpha; HU.uLift.value = lift * sc; HU.uS.value = sc * (layout ? layout.s : 1);
-  HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc;
+  HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc * (0.12 + 0.88 * grow * grow * (3 - 2 * grow));   // a fény messzebbre nyúlik, ahogy nő
   HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
   HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
   HU.uLogoK.value = LOGO_BW / Math.max(1, L.w);
