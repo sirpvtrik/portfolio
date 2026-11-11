@@ -281,6 +281,7 @@ export function restorePills(keep = -1) {
     pl.drz = stay ? 0 : (Math.random() - 0.5) * 0.8; pl.dvrz = 0;
     pl.ds = 1; pl.dz = 0; pl.delay = stay ? 0 : j * 0.06;
     pl.holder.visible = true;
+    pl.lf.rotation.z = 0; pl.lf.material.opacity = 1; if (pl.img) pl.img.mesh.rotation.z = 0;   // a halomban megfordított felirat vissza
   });
 }
 function updateDrop(dt) {

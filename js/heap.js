@@ -40,7 +40,7 @@ export function resetHeap() {
 
 function build() {
   const M = window.Matter, { floor, width, pillW } = cfg, pillH = pillW * PH / PW;
-  engine = M.Engine.create({ gravity: { x: 0, y: 1, scale: 0.0024 }, positionIterations: 10, velocityIterations: 8, constraintIterations: 6 });
+  engine = M.Engine.create({ gravity: { x: 0, y: 1, scale: 0.0019 }, positionIterations: 10, velocityIterations: 8, constraintIterations: 6 });
   const wall = { isStatic: true, friction: 0.5 };
   const T = 2000, H = 20000;
   M.Composite.add(engine.world, [
@@ -56,13 +56,14 @@ function build() {
     const y = top - n * pillH * 1.25 - Math.random() * pillH;
     // a fizikai test kicsit nagyobb a látható pillnél (7%): így a pillek nem érnek egymáshoz és a padlóhoz, levegősek maradnak
     const b = M.Bodies.rectangle(x, y, pillW * 1.07, pillH * 1.07, {
-      chamfer: { radius: pillH * 1.07 * 0.499 }, friction: 0.35, frictionStatic: 0.7, restitution: 0.18,
-      frictionAir: 0.012, density: 0.0012,
+      chamfer: { radius: pillH * 1.07 * 0.499 }, friction: 0.35, frictionStatic: 0.7, restitution: 0.08,
+      frictionAir: 0.016, density: 0.0012,
     });
     M.Body.setAngle(b, (Math.random() - 0.5) * 2.4);
-    M.Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.16);
+    M.Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.11);
     M.Body.setVelocity(b, { x: (Math.random() - 0.5) * 3, y: Math.random() * 4 });
-    b.plIndex = i; b.flip = 0;
+    b.plIndex = i; b.flip = 0; b.lf = 0; b.lo = 1;
+    b.px = b.position.x; b.py = b.position.y; b.pa = b.angle;
     bodies.push(b);
   });
   M.Composite.add(engine.world, bodies);
@@ -132,7 +133,12 @@ export function updateHeap(dt, v, on, canSpawn = true) {
     drag.c.pointA = { x: drag.client.x - cfg.vw / 2, y: drag.client.y + v };
   }
   acc = Math.min(acc + dt * 1000, STEP * 6);
-  while (acc >= STEP) { M.Engine.update(engine, STEP); acc -= STEP; }
+  while (acc >= STEP) {
+    bodies.forEach(b => { b.px = b.position.x; b.py = b.position.y; b.pa = b.angle; });
+    M.Engine.update(engine, STEP); acc -= STEP;
+  }
+  // a rajz a két utolsó fizikai lépés között interpolál: a fix lépés és a változó képkocka-idő ne rángasson
+  const t = acc / STEP;
 
   // hover: a kurzor alatti pill (húzás közben a húzott)
   let h = -1;
@@ -151,13 +157,20 @@ export function updateHeap(dt, v, on, canSpawn = true) {
     pl.holder.visible = true;
     pl.hv = damp(pl.hv, isH ? 1 : 0, 6, dt);
     pl.mat.uniforms.uHover.value = pl.hv;
-    pl.holder.position.set(b.position.x * k * pc, -(b.position.y - v - cfg.vh / 2) * k * pc, HEAP_Z + pl.hv * 0.15);
-    // a stadion 180°-ra elforgatva ugyanaz az alak: ha fejjel lefelé állna, a pillt 180°-kal arrébb rajzoljuk, így a felirat
-    // mindig olvasható (hiszterézissel, hogy az élére állt pill ne billegjen oda-vissza)
+    const bx = b.px + (b.position.x - b.px) * t, by = b.py + (b.position.y - b.py) * t, ba = b.pa + (b.angle - b.pa) * t;
+    pl.holder.position.set(bx * k * pc, -(by - v - cfg.vh / 2) * k * pc, HEAP_Z + pl.hv * 0.15);
+    pl.holder.rotation.set(0, 0, -ba);             // az üveg pontosan a fizikai testtel fordul (nincs 180°-os ugrás)
+    // a felirat mindig olvasható legyen: ha a pill fejjel lefelé áll, csak a felirat (és a projektkép) fordul meg 180°-kal,
+    // a stadion alakja ugyanaz. Esés, pörgés közben nem vált; ha megnyugodott, a felirat lágyan elhalványul, megfordul és
+    // visszajön (korábban az egész pill ugrott 180°-ot pörgés közben, ettől rángatott). Hiszterézissel, hogy ne billegjen.
     let r = b.angle + b.flip;
     r -= Math.round(r / (2 * Math.PI)) * 2 * Math.PI;
-    if (Math.abs(r) > 1.75) { b.flip += r > 0 ? -Math.PI : Math.PI; r += r > 0 ? -Math.PI : Math.PI; }
-    pl.holder.rotation.set(0, 0, -r);
+    if (Math.abs(r) > 1.75 && Math.abs(b.angularVelocity) < 0.03 && b.speed < 3) b.flip += r > 0 ? -Math.PI : Math.PI;
+    const want = Math.round(b.flip / Math.PI) & 1;
+    b.lo = damp(b.lo, want !== b.lf ? 0 : 1, want !== b.lf ? 14 : 5, dt);
+    if (want !== b.lf && b.lo < 0.04) b.lf = want;
+    pl.lf.rotation.z = b.lf ? Math.PI : 0; pl.lf.material.opacity = b.lo;
+    if (pl.img) pl.img.mesh.rotation.z = b.lf ? Math.PI : 0;
     pl.holder.scale.setScalar(Math.max(0.0001, hs * pc * a * (1 + pl.hv * 0.03)));
     pl.spin.rotation.set(0, 0, 0);                  // itt nem forognak: szemből látszanak
     if (pl.img) {                                    // projektkép: hoverre kinyílik, mint a tornyon
