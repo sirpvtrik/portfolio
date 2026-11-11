@@ -10,6 +10,7 @@ import { updateProject } from './project.js';
 import { updateCursor } from './cursor.js';
 import { ctUpdate } from './contact.js';
 import { backUpdate, touchUpdate, iconsUpdate } from './backglass.js';
+import { updateHero } from './hero.js';
 
 startLoop(dt => {
   updatePills(dt);           // hover, görgetés, pillek
@@ -23,4 +24,5 @@ startLoop(dt => {
   touchUpdate(dt);           // a GET IN TOUCH gomb üvege (a projekt-oldal végén)
   iconsUpdate(dt);           // a lejátszó és a névjegy kis gombjai: a kurzor a formájukat veszi fel
   updateProject(dt);         // projekt-aloldal: domború sorok, galéria
+  updateHero(dt);            // hero: a logó fénye a szövegen (a betöltő után, a pillek előtt)
 });

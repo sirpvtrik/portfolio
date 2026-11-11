@@ -218,3 +218,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .vol-fill.grip::after { opacity: 1; }
 .c-vol:hover .vol-fill, .c-vol:active .vol-fill { background: #ececee; box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 0 18px rgba(255,255,255,.18); }
 .c-vol:hover .vol-fill.grip::after { border-color: rgba(27,27,29,.7); }
+
+/* Hero (js/hero.js): amíg látszik, a sarkok felülete és a fejléc logója rejtve; a fejléc logójára kattintva vissza a hero-ba */
+.hero-on .ui .row, .hero-on .ui .bottom, .hero-on .logo-top { opacity: 0 !important; visibility: hidden; transition: opacity .4s ease, visibility 0s linear .4s; }
+.logo-top { pointer-events: auto; cursor: none; }

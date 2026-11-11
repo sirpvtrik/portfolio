@@ -57,6 +57,7 @@ export const glassFS = /* glsl */`
   uniform sampler2D uBg;
   uniform vec2  uRes;
   uniform float uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uHover, uPulse, uThick, uTintK;
+  uniform float uDark, uFlash;   // belépés a hero után: sötétből felvilágít, közben felvillan (js/pills.js)
   uniform vec3 uTint;
   uniform vec2 uHalf;     // a lap fél szélessége / magassága (a körvonal)
   uniform float uRad;     // a sarok sugara (pillnél a fél magasság)
@@ -258,6 +259,7 @@ export const glassFS = /* glsl */`
       float soft = exp(-ein / uEdgeW) * 0.45 + exp(-ein / (uEdgeW * 0.28)) * 0.55;
       col += vec3(0.93, 0.96, 1.0) * uEdge * lf * mix(line * 0.55 + soft * 0.17, 0.42, w);
     }
+    col = col * (1.0 - uDark) * (1.0 + 1.6 * uFlash) + vec3(0.93, 0.96, 1.0) * 0.07 * uFlash;
     gl_FragColor = vec4(col, 1.0);
   }`;
 
@@ -267,6 +269,7 @@ export const glassFS = /* glsl */`
 export const glassBackFS = /* glsl */`
   precision highp float;
   uniform float uLightAng, uLightInt, uRim;
+  uniform float uDark, uFlash;
   uniform float uBackK;   // a belső hátlap fénye (1 = pill; a teljes képernyős projekt-testen halvány, különben az egész kép ködös)
   uniform float uReal;    // élethű üveg (teszt): a belső felületek a stúdiót tükrözik, a kritikus szög fölött teljesen` + realEnv + /* glsl */`
   varying vec3 vN;
@@ -301,8 +304,8 @@ export const glassBackFS = /* glsl */`
       vec3 Rb = reflect(-V, normalize(N - (vTx * dl.x + vTy * dl.y) * 0.42 * (1.0 - w)));
       float fR = clamp(length(fwidth(Rb)) * 1.2, 0.0, 0.4);
       float e = (envFront(Rb, la, fR, w) + envBack(Rb, fR)) * Fi * 0.85;
-      gl_FragColor = vec4((1.0 - exp(-vec3(e) * li)) * uBackK, 1.0);
+      gl_FragColor = vec4((1.0 - exp(-vec3(e) * li)) * uBackK * (1.0 - uDark) * (1.0 + 1.6 * uFlash), 1.0);
       return;
     }
-    gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim) * uBackK, 1.0);
+    gl_FragColor = vec4(col * li * (0.6 + 0.4 * uRim) * uBackK * (1.0 - uDark) * (1.0 + 1.6 * uFlash), 1.0);
   }`;

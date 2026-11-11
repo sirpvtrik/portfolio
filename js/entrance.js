@@ -20,11 +20,21 @@ export const easeInOut = x => x * x * (3 - 2 * x);
 const P = introPost;
 const pillsDur = P ? P.wavesDur * P.pillsDist / P.wavesDist : 0;
 
+// a hero-ba visszalépve (js/hero.js) a hullámok és a pillek lesüllyednek, a felület elhalványul: away 0 → 1
+let away = 0;
+export const setAway = v => { away = v; };
+export const getAway = () => away;
+// hero után a pillek felvilágítva lépnek be (nem úsznak fel): a hero.js jelzi a kilépést (markLit), ehhez mér a pills.js
+let litBase = null;
+export const litStyle = () => !!(INTRO && INTRO.heroUsed);
+export const markLit = () => { litBase = performance.now(); };
+export const clearLit = () => { litBase = null; };
+export const litT = () => litBase == null ? -1 : (performance.now() - litBase) / 1000;
 // a hullámok fényereje (0 → 1)
-export const wavesIn = () => P ? easeInOut(introK(P.rise, P.wavesFade)) : 1;
+export const wavesIn = () => (P ? easeInOut(introK(P.rise, P.wavesFade)) : 1) * (1 - away);
 // a hullámok még hátralévő emelkedése (képernyőmagasságban; 0 = a helyén)
-export const wavesRise = () => P ? P.wavesDist * (1 - easeOut4(introK(P.rise, P.wavesDur))) : 0;
+export const wavesRise = () => P ? P.wavesDist * Math.max(1 - easeOut4(introK(P.rise, P.wavesDur)), away) : 0;
 // az i. pill még hátralévő emelkedése (képernyőmagasságban)
-export const pillRise = i => P ? P.pillsDist * (1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur))) : 0;
+export const pillRise = i => litStyle() ? 0 : P ? P.pillsDist * Math.max(1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur)), away) : 0;
 // a lejátszó-blob átlátszósága (a HTML felülettel együtt jelenik meg)
-export const uiIn = () => P ? introK(P.ui / 1000, P.uiDur / 1000) : 1;
+export const uiIn = () => (P ? introK(P.ui / 1000, P.uiDur / 1000) : 1) * (1 - away);

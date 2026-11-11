@@ -5,7 +5,7 @@ import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { damp } from './util.js';
 import { stadium, glassSlab, remapUV, faceZ } from './glassgeo.js';
 import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
-import { pillRise } from './entrance.js';
+import { pillRise, litStyle, litT, getAway } from './entrance.js';
 
 /* ---------- 3D pill geometria ---------- */
 function buildPillGeo() {
@@ -134,7 +134,7 @@ PROJECTS.forEach((p, i) => {
   const labelMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.FrontSide });
   const glassMat = new THREE.ShaderMaterial({
     vertexShader: glassVS, fragmentShader: glassFS, extensions: { derivatives: true },
-    uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 },
+    uniforms: Object.assign({}, U, { uHover: { value: 0 }, uTintK: { value: 0 }, uDark: { value: 0 }, uFlash: { value: 0 },
       uTint: { value: new THREE.Vector3().fromArray(p.color || [1, 1, 1]) },
       uHalf: { value: new THREE.Vector2(PW / 2, PH / 2) }, uRad: { value: PH / 2 }, uGlow: { value: 1 }, uLens: { value: 1 } }),   // Figma: belső fehér ragyogás
   });
@@ -144,7 +144,9 @@ PROJECTS.forEach((p, i) => {
   const glass = onLayer(new THREE.Mesh(pillGeo, glassMat), LAYER_GLASS);
   spin.add(glass);
   // a pill belső, hátsó felülete a háttérbe, csak fényként: az elülső lap ezt megtörve mutatja → átlátszik (glassBackFS)
-  const back = onLayer(new THREE.Mesh(pillGeo, backMat), LAYER_BG);
+  // (pillenként saját anyag, hogy a hero utáni belépésnél egyenként világíthasson fel; a shader ugyanaz)
+  const bMat = backMat.clone(); bMat.uniforms = Object.assign({}, U, { uDark: { value: 0 }, uFlash: { value: 0 } });
+  const back = onLayer(new THREE.Mesh(pillGeo, bMat), LAYER_BG);
   back.renderOrder = 1;
   spin.add(back);
   // a felirat mindkét előlapon, kicsivel az üveg előtt (LAYER_TEXT); a mélységteszt miatt a takart rész nem látszik
@@ -206,14 +208,15 @@ canvas.addEventListener('pointerleave', () => { pointerIn = false; });
 let scrollPos = 0, dragging = false, dragY = 0, dragMoved = 0, lastDragT = 0;
 export let scrollVel = 0;   // a hullámok is olvassák (görgetésre beljebb úsznak)
 const clampV = v => Math.max(-14, Math.min(14, v));
+const inHero = () => !!(window.MPIntro && window.MPIntro.heroOn);   // a hero alatt a torony nem görög (js/hero.js)
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  if (mode !== 'tower') return;
+  if (mode !== 'tower' || inHero()) return;
   const k = e.deltaMode === 1 ? 1.6 : (e.deltaMode === 2 ? 20 : 0.045);
   scrollVel = clampV(scrollVel + e.deltaY * k);
 }, { passive: false });
 canvas.addEventListener('pointerdown', e => {
-  if (mode !== 'tower') return;
+  if (mode !== 'tower' || inHero()) return;
   dragging = true; dragY = e.clientY; dragMoved = 0; lastDragT = performance.now();
   scrollVel = 0;
   try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
@@ -234,7 +237,7 @@ const endDrag = () => {
 canvas.addEventListener('pointerup', e => {
   const wasDrag = dragMoved > 6;
   endDrag();
-  if (wasDrag || mode !== 'tower') return;
+  if (wasDrag || mode !== 'tower' || inHero()) return;
   // kattintás (nem húzás): ha pillre esett, kiválasztjuk
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   camera.layers.set(0);
@@ -245,7 +248,7 @@ canvas.addEventListener('pointerup', e => {
 canvas.addEventListener('pointercancel', endDrag);
 document.addEventListener('keydown', e => {
   if (e.target && (/INPUT|BUTTON/.test(e.target.tagName) || (e.target.closest && e.target.closest('#vol')))) return;
-  if (mode !== 'tower') return;
+  if (mode !== 'tower' || inHero()) return;
   if (e.key === 'ArrowDown') { scrollVel = clampV(scrollVel + 5); e.preventDefault(); }
   if (e.key === 'ArrowUp') { scrollVel = clampV(scrollVel - 5); e.preventDefault(); }
 });
@@ -390,6 +393,17 @@ export function updatePills(dt) {
     const depth = r * r;
     const fade = 1 - THREE.MathUtils.smoothstep(r, 0.8, 1.0);
     const rise = pillRise(i) * visH;                 // belépés: alulról úszik fel a hullámokkal együtt (js/entrance.js)
+    // hero után (Patrik): a pillek nem úsznak fel, hanem a hullámok után lentről felfelé egymás után felvilágítanak,
+    // mintha a hullám adná nekik a fényt (egy kis felvillanással); visszalépve a hero-ba elsötétülnek
+    if (litStyle() && mode === 'tower') {
+      const lt = litT(), ord = Math.min(1, Math.max(0, (yw + YV) / (2 * YV)));
+      const k = lt < 0 ? 0 : Math.min(1, Math.max(0, (lt - 0.95 - ord * 1.0) / 0.6));
+      const aw = 1 - getAway(), lit = k * k * (3 - 2 * k) * aw, fl = Math.sin(Math.PI * k) * 0.85 * aw;
+      pl.mat.uniforms.uDark.value = 1 - lit; pl.mat.uniforms.uFlash.value = fl;
+      pl.back.material.uniforms.uDark.value = 1 - lit; pl.back.material.uniforms.uFlash.value = fl;
+      pl.lf.material.opacity = lit;
+      pl.holder.visible = lit > 0.004;
+    }
     pl.holder.position.set(0, yw + pl.push + pl.dy - rise, pl.z - depth * 1.8 + pl.dz);
     pl.holder.scale.setScalar(Math.max(0.0001, pl.s * (1 - depth * 0.35) * fade * pl.ds));
     pl.holder.rotation.x = -(Math.max(-1, Math.min(1, yw / YV))) * 0.5 - scrollVel * 0.025;

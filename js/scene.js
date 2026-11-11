@@ -46,7 +46,8 @@ export const U = {
   uLensW: { value: 0.62 },   // a lencse-sáv szélessége (a pilleken; a projekt-test sajátot kap)
   uEdge: { value: 0 }, uEdgeW: { value: 0.1 },   // a henger-test széle (a drum.js teste sajátot kap; máshol nincs)
   uReal: { value: 1 },    // élethű üveg (teszt, Glass panel): a pilleken éles stúdió-tükröződések, Fresnel szerint
-  uFace: { value: 1 }, uBackK: { value: 1 }, uSpecK: { value: 1 },   // a sík lap tükröződése / a belső hátlap fénye (a henger-test sajátot kap)
+  uFace: { value: 1 }, uBackK: { value: 1 }, uSpecK: { value: 1 },
+  uDark: { value: 0 }, uFlash: { value: 0 },   // a pill elsötétítése / felvillanása (a hero utáni belépés, js/pills.js: pillenként saját)   // a sík lap tükröződése / a belső hátlap fénye (a henger-test sajátot kap)
 };
 
 // a render target kirajzolása a képernyőre (így a háttér csak egyszer számolódik)

@@ -96,7 +96,7 @@ export function updateCursor(dt) {
   const target = Math.min(1, speed / 1400);
   energy = damp(energy, target, target > energy ? 6 : 1.1, dt);
   // a kurzor kis fénye: egérrel mindig látszik (ha az ablakban van), érintésnél csak húzás közben
-  const ready = !window.MPIntro || window.MPIntro.t2 != null;   // a betöltő alatt nincs kurzor
+  const ready = !window.MPIntro || window.MPIntro.t2 != null || window.MPIntro.heroOn;   // a hero alatt is (a fényt irányítja)   // a betöltő alatt nincs kurzor
   dim = damp(dim, dimT, 8, dt);
   base = damp(base, ready && !magnet && (isTouch ? touching : inside) ? dim : 0, magnet ? 30 : 4, dt);
   // rugós nyom: az első pont a kurzort, a többi az előzőt követi, egyre lazábban

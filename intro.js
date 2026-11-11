@@ -6,7 +6,8 @@
  *    3,15   → 3,75 s  a fehér kitöltés lentről felfelé, vízszintes határvonallal
  *    3,75   → 4,50 s  a kész logó kitart (a körvonal végig megmarad)
  *
- * 2. szakasz: átvezetés az oldalba (a POST értékek itt állíthatók)
+ * 2. szakasz: hero (ha be van kapcsolva): a logó középen marad, fényt vet a szövegre (js/hero.js); görgetésre tovább.
+ * 3. szakasz: átvezetés az oldalba (a POST értékek itt állíthatók)
  *    a logó felúszik a fejléc helyére; közben a hullámokkal együtt alulról felúsznak a pillek, végül jön a felület.
  *    A hullámokat, a pilleket és a lejátszó-blobot a WebGL rajzolja: a js/entrance.js a window.MPIntro.t2 időponthoz méri magát.
  */
@@ -62,41 +63,75 @@
   // a körvonal végétől számolva: kitöltés + kitartás
   const loaderDone = lineAnim.finished.then(() => new Promise(r => setTimeout(r, total - t2)));
 
+  // Hero (Patrik, Figma: Desktop – 22, node 296-12): a betöltő után a logó középen marad (kicsinyítve), mint egy lámpa,
+  // és fényt vet a „DARKNESS IS MY BRIGHTNESS” szövegre (js/hero.js). A pillek és a hullámok csak a hero elhagyásakor
+  // úsznak fel: a t2 (a js/entrance.js időpontja) ekkor indul. Kikapcsolható a Glass panelen („Hero (teszt)”, localStorage).
+  let heroPref = true;
+  try { heroPref = localStorage.getItem('mpHero') !== '0'; } catch (_) {}
+  state.hero = heroPref;          // a hero.js felülírhatja
+  state.heroOn = false;           // a hero épp látszik (a kurzor ilyenkor is látszik)
+  const HERO_W = 99.5;            // a logó-doboz szélessége a hero-ban (Figma: a logó 97 px, a viewBox peremmel 99,5)
+
   loaderDone.then(() => {
     intro.classList.add('done');
-    state.t2 = performance.now();
-
     const logoTop = document.getElementById('logoTop');
     const ui = [document.querySelector('.ui .row'), document.querySelector('.ui .bottom')].filter(Boolean);
-
-    // 1) a logó a fejléc logójának helyére úszik és oda kicsinyedik (FLIP)
-    const from = box.getBoundingClientRect();
-    const to = logoTop.getBoundingClientRect();
-    const k = to.width / from.width;
-    const dx = to.left - from.left, dy = to.top - from.top;
-    const swap = () => {
-      logoTop.style.opacity = '1';
-      intro.remove();
+    const from = box.getBoundingClientRect();                        // a doboz természetes helye (még nincs rajta transzformáció)
+    const kH = HERO_W / from.width;
+    const heroT = 'translate(' + ((1 - kH) * from.width / 2) + 'px, ' + ((1 - kH) * from.height / 2) + 'px) scale(' + kH + ')';
+    const headT = () => {                                            // a fejléc logójának helye (FLIP)
+      const to = logoTop.getBoundingClientRect(), k = to.width / from.width;
+      return 'translate(' + (to.left - from.left) + 'px, ' + (to.top - from.top) + 'px) scale(' + k + ')';
     };
-    if (reduced) {
-      box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
-      logoTop.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400 });
-      logoTop.style.opacity = '1';
-      setTimeout(() => intro.remove(), 420);
-    } else {
-      box.animate(
-        [{ transform: 'translate(0, 0) scale(1)' }, { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + k + ')' }],
-        { duration: POST.fly, easing: POST.flyEase, fill: 'forwards' });
-      // a fejléc logója körvonal nélküli és --fg színű: menet közben ehhez igazodik
-      lineSvg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: POST.fly * 0.8, easing: 'ease-out', fill: 'forwards' });
-      fill.animate([{ fill: '#ffffff' }, { fill: getComputedStyle(logoTop).fill || '#ececee' }], { duration: POST.fly, fill: 'forwards' });
-      setTimeout(swap, POST.fly);
-    }
+    const curT = () => getComputedStyle(box).transform;
+    const toFg = () => getComputedStyle(logoTop).fill || '#ececee';
+    let first = true;
 
-    // 2) a feliratok és a lejátszó
-    setTimeout(() => {
-      document.body.classList.remove('intro-on');
-      ui.forEach(el => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: POST.uiDur, easing: 'ease-out' }));
-    }, reduced ? 300 : POST.ui);
+    // a logó a fejléc helyére úszik, majd átadja a helyét a fejléc logójának (első alkalommal: belépés a pillekhez)
+    function out() {
+      state.heroOn = false;
+      if (first) state.t2 = performance.now();
+      if (reduced) {
+        box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
+        document.body.classList.remove('hero-on');
+        logoTop.style.opacity = '1';
+        setTimeout(() => { intro.style.visibility = 'hidden'; }, 420);
+      } else {
+        box.animate([{ transform: curT() }, { transform: headT() }], { duration: POST.fly, easing: POST.flyEase, fill: 'forwards' });
+        lineSvg.animate([{ opacity: getComputedStyle(lineSvg).opacity }, { opacity: 0 }], { duration: POST.fly * 0.8, easing: 'ease-out', fill: 'forwards' });
+        fill.animate([{ fill: '#ffffff' }, { fill: toFg() }], { duration: POST.fly, fill: 'forwards' });
+        setTimeout(() => { if (!state.heroOn) { document.body.classList.remove('hero-on'); logoTop.style.opacity = '1'; intro.style.visibility = 'hidden'; } }, POST.fly);
+      }
+      // a feliratok és a lejátszó
+      setTimeout(() => {
+        if (state.heroOn) return;
+        document.body.classList.remove('intro-on', 'hero-on');
+        ui.forEach(el => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: POST.uiDur, easing: 'ease-out' }));
+      }, reduced ? 300 : (first ? POST.ui : POST.fly * 0.6));
+      first = false;
+    }
+    // vissza a hero-ba (a fejléc logójára kattintva, js/hero.js): a logó a fejlécből visszaúszik középre
+    function back() {
+      state.heroOn = true;
+      document.body.classList.add('hero-on');
+      intro.style.visibility = 'visible';
+      logoTop.style.opacity = '0';
+      box.animate([{ transform: headT(), opacity: 1 }, { transform: heroT, opacity: 1 }], { duration: reduced ? 1 : POST.fly, easing: POST.flyEase, fill: 'forwards' });
+      fill.animate([{ fill: toFg() }, { fill: '#ffffff' }], { duration: reduced ? 1 : POST.fly, fill: 'forwards' });
+    }
+    state.heroOut = () => { if (state.heroOn) out(); };
+    state.heroBack = () => { if (!state.heroOn && !first) back(); };
+    // a lámpa (a logó) közepe a képernyőn, CSS-pixelben
+    state.heroLamp = () => { const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.45, w: r.width }; };
+
+    if (state.hero) {
+      // hero: a logó helyben kicsinyedik, a körvonal elhalványul; a fényt a hero.js kapcsolja fel
+      state.heroOn = true;
+      state.heroUsed = true;          // a pillek ezután felvilágítva lépnek be, nem alulról úsznak fel (js/entrance.js)
+      state.heroAt = performance.now();
+      document.body.classList.add('hero-on');
+      box.animate([{ transform: 'none' }, { transform: heroT }], { duration: reduced ? 1 : 700, easing: POST.flyEase, fill: 'forwards' });
+      lineSvg.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, easing: 'ease-out', fill: 'forwards' });
+    } else out();
   });
 })();
