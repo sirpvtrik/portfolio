@@ -58,11 +58,13 @@ const part = el => { el.style.opacity = 0; el.style.visibility = 'hidden'; retur
 const partTop = part(pl.querySelector('.c-top'));
 const partBtn = ['prev', 'play', 'next'].map(id => part(document.getElementById(id)));
 let onAmt = 0;
-export function keepBase(c, v, m) {
-  if (c[0] > m[0]) { c[0] = m[0]; v[0] = Math.min(0, v[0]); }
-  if (c[1] > m[1]) { c[1] = m[1]; v[1] = Math.min(0, v[1]); }
-  if (c[0] + c[2] < m[0] + m[2]) { c[2] = m[0] + m[2] - c[0]; v[2] = Math.max(0, v[2]); }
-  if (c[1] + c[3] < m[1] + m[3]) { c[3] = m[1] + m[3] - c[1]; v[3] = Math.max(0, v[3]); }
+// e: tűrés. Tűrés nélkül a lebegőpontos kerekítés (x + w egy hajszállal a határ alatt) menet közben is beavatkozott, és
+// lenullázta a szélesség sebességét: a névjegy pillje csukáskor ettől jobbra túllendült a profilképen (Patrik)
+export function keepBase(c, v, m, e = 0.25) {
+  if (c[0] > m[0] + e) { c[0] = m[0]; v[0] = Math.min(0, v[0]); }
+  if (c[1] > m[1] + e) { c[1] = m[1]; v[1] = Math.min(0, v[1]); }
+  if (c[0] + c[2] < m[0] + m[2] - e) { c[2] = m[0] + m[2] - c[0]; v[2] = Math.max(0, v[2]); }
+  if (c[1] + c[3] < m[1] + m[3] - e) { c[3] = m[1] + m[3] - c[1]; v[3] = Math.max(0, v[3]); }
 }
 function setOpen(v) {
   clearTimeout(closeT);
