@@ -17,7 +17,6 @@ import { LOGO_PATHS } from './config.js';
 const I = window.MPIntro || null;
 const LOGO_BW = 161.42;                          // a logó-doboz szélessége a hero-ban: a betöltő mérete (.intro-logo)
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const touchUI = matchMedia('(hover: none)').matches;
 
 /* ---------- a szöveg maszkja (vászon) ---------- */
 const cv = document.createElement('canvas');
@@ -215,6 +214,7 @@ if (I) {
 }
 
 // a fény célpontja (CSS-pixel): söprés a nagy szövegen, utána a kurzor, nyugalomban a nagy szöveg közepe
+let idle = false, idleAng = 0, dtNow = 0;
 function target(L) {
   const m = layout.main;
   const rest = { x: (m.x0 + m.x1) / 2, y: m.y };
@@ -223,12 +223,13 @@ function target(L) {
     if (t < 2.85) return { x: m.x0 - 40 + (m.x1 - m.x0 + 80) * e, y: m.y };
     sweep = false;
   }
-  if (touchUI && (!ptr || now() - ptrT > 2.5)) {                 // érintés: lassan pásztáz a két szöveg között
-    const s = Math.sin(t * 0.35);
-    return s > -0.55 ? { x: rest.x + (m.x1 - m.x0) * 0.45 * Math.sin(t * 0.7), y: m.y } : { x: (layout.top.x0 + layout.top.x1) / 2, y: layout.top.y };
-  }
-  if (ptr && now() - ptrT < 8) return ptr;                       // a kurzor felé; 8 mp mozdulatlanság után vissza középre
-  return rest;
+  // ha nem nyúlunk hozzá (3 mp óta nincs egér- / ujjmozdulat), a fény lassan körbeforog (~20 mp egy kör; Patrik); a kurzor
+  // megmozdítására újra azt követi. Mozgáscsökkentésnél nem forog, a nagy szövegen marad.
+  if (ptr && now() - ptrT < 3) { idle = false; return ptr; }
+  if (reduced) return rest;
+  if (!idle) { idle = true; idleAng = ang; }
+  idleAng += dtNow * 0.32;
+  return { x: L.x + Math.cos(idleAng) * 600, y: L.y + Math.sin(idleAng) * 600 };
 }
 
 export function updateHero(dt) {
@@ -243,6 +244,7 @@ export function updateHero(dt) {
   if (state === 'in' || state === 'back') {
     tgtOn = 1;                                                   // a betöltő végén rögtön indul a fény (Patrik), a logó kicsinyedése közben
     tgtA = 1;
+    dtNow = dt;
     const T = target(L);
     angT = Math.atan2(T.y - L.y, T.x - L.x);
     if (state === 'back' && t > 0.6) { state = 'in'; inAt = now(); }
