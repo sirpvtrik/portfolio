@@ -84,12 +84,16 @@ function drawText() {
 const HU = {
   uTex: { value: tex }, uRes: { value: new THREE.Vector2(1, 1) }, uLamp: { value: new THREE.Vector2() }, uLogo: { value: new THREE.Vector2() },
   uOn: { value: 0 }, uA: { value: 0 }, uLift: { value: 0 }, uS: { value: 1 }, uReach: { value: 600 },
+  uGlass: { value: 0 }, uBoxC: { value: new THREE.Vector2() }, uMaskC: { value: new THREE.Vector2() }, uLogoK: { value: 1 },
 };
 const heroFS = /* glsl */`
   precision highp float;
   uniform sampler2D uTex;
   uniform vec2 uRes, uLamp, uLogo;
   uniform float uOn, uA, uLift, uS, uReach;
+  uniform float uGlass;          // 1 = üveg betűk, 0 = sima fehér betűk (Glass panel „Hero: üveg betűk”)
+  uniform vec2 uBoxC, uMaskC;    // a logó-doboz mostani közepe és a maszkon rajzolt helye (a logó a betöltő után még kicsinyedik)
+  uniform float uLogoK;          // a maszkon rajzolt logó / a mostani logó mérete
   float T(vec2 p, float b) { return texture2D(uTex, p / uRes, b).r; }       // a szöveg (p: puffer-pixel, alulról)
   float G(vec2 p, float b) { return texture2D(uTex, p / uRes, b).g; }       // a logó
   float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -100,7 +104,8 @@ const heroFS = /* glsl */`
     float s = 0.0;
     for (int i = 0; i < 40; i++) {
       if (float(i) >= n) break;
-      s += G(p + d * ((float(i) + j) / n), 0.5);
+      vec2 sp = p + d * ((float(i) + j) / n);
+      s += G(uMaskC + (sp - uBoxC) * uLogoK, 0.5);                  // a maszk a logó mostani helyére és méretére igazítva
     }
     float L = length(p - uLogo);
     return s / n * 6.5 / (1.0 + pow(L / uReach, 1.6)) * uOn;
@@ -116,7 +121,11 @@ const heroFS = /* glsl */`
     // üveg betűk
     float a = T(q, 0.0);
     vec3 txt = vec3(0.0);
-    if (a > 0.003 || T(q, 2.0) > 0.003) {
+    if (uGlass < 0.5) {
+      // sima fehér betűk: a sötétben alig látszanak, ahol a nyaláb éri őket, kivilágosodnak
+      txt = vec3(a * (0.08 + 1.9 * ra));
+      air *= 1.0 - a;
+    } else if (a > 0.003 || T(q, 2.0) > 0.003) {
       float e = 1.5 * uS;
       vec2 g = vec2(T(q + vec2(e, 0.0), 0.8) - T(q - vec2(e, 0.0), 0.8), T(q + vec2(0.0, e), 0.8) - T(q - vec2(0.0, e), 0.8));
       float gl = length(g);
@@ -149,6 +158,8 @@ scene.add(onLayer(mesh, LAYER_BG));
 let state = 'wait';           // wait → in (a betöltő után) → out (kilépés) → off → back (visszatérés) → in …
 let t = 0, on = 0, alpha = 0, lift = 0, away = 0, awayT = 0;
 let ang = -Math.PI / 2, angT = -Math.PI / 2;     // a fénykúp iránya (a lámpából; képernyő-koordinátában, y lefelé)
+let glassText = false;                            // üveg vagy sima fehér betűk (Patrik: „nézzük meg sima fehér texttel”)
+try { glassText = localStorage.getItem('mpHeroGlass') === '1'; } catch (_) {}
 let ptr = null, ptrT = -1e9, sweep = !reduced, outT = 0, inAt = 0;
 const now = () => performance.now() / 1000;
 
@@ -180,6 +191,11 @@ if (I) {
     I.heroBack(); state = 'back'; t = 0; sweep = false; awayT = 1; clearLit();   // a hullámok egészben süllyednek le (front = 2)
   });
   // a Glass panel kapcsolója (localStorage: a következő betöltéskor is így marad)
+  const chkG = document.getElementById('c-heroglass');
+  if (chkG) {
+    chkG.checked = glassText;
+    chkG.addEventListener('change', () => { glassText = chkG.checked; try { localStorage.setItem('mpHeroGlass', glassText ? '1' : '0'); } catch (_) {} });
+  }
   const chk = document.getElementById('c-hero');
   if (chk) {
     chk.checked = I.hero;
@@ -196,8 +212,8 @@ function target(L) {
   const m = layout.main;
   const rest = { x: (m.x0 + m.x1) / 2, y: m.y };
   if (sweep) {
-    const k = Math.min(1, Math.max(0, (t - 0.5) / 2.6)), e = k * k * (3 - 2 * k);
-    if (t < 3.1) return { x: m.x0 - 40 + (m.x1 - m.x0 + 80) * e, y: m.y };
+    const k = Math.min(1, Math.max(0, (t - 0.25) / 2.6)), e = k * k * (3 - 2 * k);
+    if (t < 2.85) return { x: m.x0 - 40 + (m.x1 - m.x0 + 80) * e, y: m.y };
     sweep = false;
   }
   if (touchUI && (!ptr || now() - ptrT > 2.5)) {                 // érintés: lassan pásztáz a két szöveg között
@@ -215,25 +231,26 @@ export function updateHero(dt) {
     state = 'in'; t = 0; inAt = now();
   }
   t += dt;
-  const L = I.heroLamp ? I.heroLamp() : { x: innerWidth / 2, y: innerHeight / 2, w: 100 };
+  const L = I.heroLamp ? I.heroLamp() : { x: innerWidth / 2, y: innerHeight / 2, cy: innerHeight / 2, w: 99.5 };
   let tgtOn = 0, tgtA = 0;
   if (state === 'in' || state === 'back') {
-    tgtOn = t > 0.55 ? 1 : 0;                                    // a logó kicsinyedése után kapcsol fel
-    tgtA = t > 0.45 ? 1 : 0;
+    tgtOn = 1;                                                   // a betöltő végén rögtön indul a fény (Patrik), a logó kicsinyedése közben
+    tgtA = 1;
     const T = target(L);
     angT = Math.atan2(T.y - L.y, T.x - L.x);
     if (state === 'back' && t > 0.6) { state = 'in'; inAt = now(); }
   } else if (state === 'out') {
     outT += dt;
     angT = Math.PI / 2;                                          // a fény lefelé fordul, a pillek felé
-    tgtOn = outT < 0.55 ? 1 : 0; tgtA = 0;
+    tgtOn = 0; tgtA = 0;                                         // kattintásra a fény rögtön kialszik (Patrik: a logóval együtt fent maradt)
     if (outT > 0.25 && I.heroOn) { I.heroOut(); awayT = 0; markLit(); }
     if (outT > 1.4) state = 'off';
   } else if (state === 'off') { tgtOn = 0; tgtA = 0; }
   // szög: lágyan követ (a legrövidebb úton)
   let da = angT - ang; da -= Math.round(da / (2 * Math.PI)) * 2 * Math.PI;
   ang += da * (1 - Math.exp(-(state === 'out' ? 5 : sweep ? 9 : 4.5) * dt));
-  on = damp(on, tgtOn, tgtOn > on ? 2.2 : 4, dt);
+  on = damp(on, tgtOn, tgtOn > on ? 2.2 : (state === 'out' || state === 'off' ? 14 : 4), dt);
+  if (state === 'out' && outT > 0.3) on = 0;                    // mire a logó elindul a fejlécbe, a fény már nem ég
   alpha = damp(alpha, tgtA, tgtA > alpha ? 3 : 3.5, dt);
   lift = damp(lift, state === 'out' || state === 'off' ? 70 : 0, 3, dt);
   away = damp(away, awayT, awayT > away ? 2.4 : 3, dt);
@@ -252,4 +269,8 @@ export function updateHero(dt) {
   HU.uLamp.value.set((L.x - Math.cos(ang) * off) * sc, bufSize.y - (L.y - Math.sin(ang) * off) * sc);
   HU.uOn.value = on; HU.uA.value = alpha; HU.uLift.value = lift * sc; HU.uS.value = sc * (layout ? layout.s : 1);
   HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc;
+  HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
+  HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
+  HU.uLogoK.value = 99.5 / Math.max(1, L.w);
+  HU.uGlass.value = glassText ? 1 : 0;
 }

@@ -398,8 +398,11 @@ export function updatePills(dt) {
     if (litStyle() && mode === 'tower') {
       // a pill magassága a képernyőn (0 = lent): akkor világít fel, amikor a hullámok fényes frontja eléri
       const yFrac = 0.5 + (yw + TOWER_Y) / visH;
-      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.03) / 0.12));
-      const aw = 1 - getAway(), lit = k * k * (3 - 2 * k) * aw, fl = Math.sin(Math.PI * k) * 0.85 * aw;
+      // széles, lágy átmenet (Patrik: „szebben halványuljanak fel, ne ilyen darabosan”): a front alatt ~0,4 képernyőnyin
+      // (~0,6 s) ötödfokú görbével világosodik ki, a felvillanás finom és lassan cseng le
+      const k = Math.min(1, Math.max(0, (waveFront() - yFrac + 0.05) / 0.4));
+      const sm = k * k * k * (k * (k * 6 - 15) + 10);
+      const aw = 1 - getAway(), lit = sm * aw, fl = Math.pow(Math.sin(Math.PI * k), 2) * 0.35 * aw;
       pl.mat.uniforms.uDark.value = 1 - lit; pl.mat.uniforms.uFlash.value = fl;
       pl.back.material.uniforms.uDark.value = 1 - lit; pl.back.material.uniforms.uFlash.value = fl;
       pl.lf.material.opacity = lit;

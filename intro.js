@@ -122,7 +122,7 @@
     state.heroOut = () => { if (state.heroOn) out(); };
     state.heroBack = () => { if (!state.heroOn && !first) back(); };
     // a lámpa (a logó) közepe a képernyőn, CSS-pixelben
-    state.heroLamp = () => { const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.45, w: r.width }; };
+    state.heroLamp = () => { const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.45, cy: r.top + r.height / 2, w: r.width }; };
 
     if (state.hero) {
       // hero: a logó helyben kicsinyedik, a körvonal elhalványul; a fényt a hero.js kapcsolja fel

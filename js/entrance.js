@@ -32,12 +32,12 @@ export const clearLit = () => { litBase = null; };
 export const litT = () => litBase == null ? -1 : (performance.now() - litBase) / 1000;
 // hero után a hullámok lentről felfelé tűnnek elő egy fényes élű fronttal (képernyőmagasság-arány, 0 = lent); a pillek akkor
 // világítanak fel, amikor a front eléri a magasságukat (pills.js), így együtt haladnak. 2 = minden látszik.
-export const WAVE_FRONT_DUR = 2.0;
+export const WAVE_FRONT_DUR = 2.4;
 export function waveFront() {
   if (!litStyle()) return 2;
   if (litBase == null) return INTRO && INTRO.t2 ? 2 : -0.2;
   const k = Math.min(1, Math.max(0, (litT() - 0.2) / WAVE_FRONT_DUR));
-  return k >= 1 ? 2 : -0.15 + 1.35 * easeInOut(k);
+  return k >= 1 ? 2 : -0.15 + 1.7 * easeInOut(k);   // túlfut a képernyő tetején, így a felső pillek is végig lágyan érnek be
 }
 // a hullámok fényereje (0 → 1)
 export const wavesIn = () => litStyle() ? (INTRO.t2 ? 1 : 0) * (1 - away) : (P ? easeInOut(introK(P.rise, P.wavesFade)) : 1) * (1 - away);
