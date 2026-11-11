@@ -45,8 +45,11 @@ export const sst = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b
 // mennyire ért a helyére egy rugós forma (1 = a helyén, 0 = még messze): a négy adata közül a legnagyobb eltérés
 export const fitOf = (c, f, s = 1) => 1 - sst(3 * s, 16 * s, Math.max(Math.abs(c[0] - f[0]), Math.abs(c[1] - f[1]), Math.abs(c[2] - f[2]), Math.abs(c[3] - f[3])));
 // egy tartalom-elem átlátszósága lágyan követi a célt; láthatatlanul nem kattintható és nem fókuszálható
-export function showPart(p, target, dt) {
-  p.v += (target - p.v) * (1 - Math.exp(-16 * dt));
+// closing: csukáskor az elem már akkor gyorsan eltűnik, amikor a formája épp elindul (Patrik: az ikonok halványan még
+// látszottak, amikor a kör már elhúzódott alóluk)
+export function showPart(p, target, dt, closing = false) {
+  if (closing) target = sst(0.92, 1, target);
+  p.v += (target - p.v) * (1 - Math.exp(-(closing && target < p.v ? 45 : 16) * dt));
   if (target === 0 && p.v < 0.01) p.v = 0;
   p.el.style.opacity = p.v.toFixed(3);
   p.el.style.visibility = p.v > 0.02 ? 'visible' : 'hidden';
@@ -143,8 +146,8 @@ export function plUpdate(dt) {
   const g = { list: plCur.map(q => [q[0], q[1], Math.max(0, q[2]), Math.max(0, q[3])]), a: Math.min(1, Math.max(0, (plCur[6][2] - 64) / 172)) };
   // A tartalom fokozatosan, részenként jelenik meg (Patrik: „ne kelljen megvárni, mire a teteje is kinyílik”): minden elem
   // akkor látszik, amikor a saját üveg-formája már a helyén van (a rugós alak aktuális helyzetéből), csukáskor ugyanígy tűnik el.
-  showPart(partTop, sst(0.82, 0.98, plCur[0][2] / 236), dt);           // felső sor: amikor a felső pill kiszélesedett
-  for (let i = 0; i < 3; i++) showPart(partBtn[i], fitOf(plCur[3 + i], FIN[3 + i]), dt);   // előző / lejátszás / következő: a saját körük
+  showPart(partTop, sst(0.82, 0.98, plCur[0][2] / 236), dt, plTarget === 0);           // felső sor: amikor a felső pill kiszélesedett
+  for (let i = 0; i < 3; i++) showPart(partBtn[i], fitOf(plCur[3 + i], FIN[3 + i]), dt, plTarget === 0);   // előző / lejátszás / következő: a saját körük
   // hangerő-sáv: folyamatosan nő az alsó pillel (a csukott fehér körből), nem a végén vált át
   if (!nudged && !reduced && plTarget === 1 && g.a > 0.97) { nudged = true; nudgeT = 0; }
   let nd = 0;                                            // húzhatóság: az első nyitáskor a sáv vége kétszer finoman megmoccan

@@ -97,8 +97,8 @@ export function ctUpdate(dt) {
   speed /= 28;
   cu.uK.value = 12 + Math.min(14, speed * 0.06);
   if (target === 1 && t > 0.95 && speed < 40) ct.classList.add('show');
-  showPart(partName, sst(0.8, 0.97, (cur[5][2] / SC - 64) / 172), dt);    // a név: amikor a névpill kinyúlt
-  partIc.forEach(q => showPart(q.p, fitOf(cur[q.k], FIN[q.k], SC), dt));    // az ikonok: amikor a saját körük kész (pl. a Behance már előbb)
+  showPart(partName, sst(0.8, 0.97, (cur[5][2] / SC - 64) / 172), dt, target === 0);    // a név: amikor a névpill kinyúlt
+  partIc.forEach(q => showPart(q.p, fitOf(cur[q.k], FIN[q.k], SC), dt, target === 0));    // az ikonok: amikor a saját körük kész (pl. a Behance már előbb)
   const r = box.getBoundingClientRect(), sc = bufSize.x / innerWidth;
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   cur.forEach((q, i) => {
