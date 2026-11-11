@@ -15,7 +15,7 @@ function magnetOn(d) { magnets = Math.max(0, magnets + d); setCursorMagnet(magne
 export function glassButton(btn, opts = {}) {
   const rects = [0, 1, 2, 3, 4, 5, 6].map(() => new THREE.Vector4());
   const cu = {
-    uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: rects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 12 }, uAlpha: { value: 0 }, uClear: { value: 1 }, uGrad: { value: 1 },
+    uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: rects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 12 }, uAlpha: { value: 0 }, uClear: { value: 1 }, uGrad: { value: 0 }, uRimGlow: { value: 0 },
     uRefr: U.uRefr, uDisp: U.uDisp, uFrost: U.uFrost, uSplay: U.uSplay, uLightAng: U.uLightAng, uLightInt: U.uLightInt,
   };
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
@@ -72,9 +72,9 @@ export function glassButton(btn, opts = {}) {
     quad.visible = a > 0.003;
     if (!quad.visible) { if (magnet) { magnet = false; magnetOn(-1); } ring.visible = false; m = mv = 0; return; }
     hov += ((over || (tabbed && document.activeElement === btn) ? 1 : 0) - hov) * Math.min(1, dt * 8);
-    cu.uClear.value = 1 - hov;
-    btn.classList.toggle('tinted', hov > 0.35);          // a szürke üvegen a felirat fehér marad (difference nélkül)
-    if (opts.onFrame) opts.onFrame(cu, hov, dt);
+    // hoverre a peremen derengés (mint a GET IN TOUCH-on), a közepe tiszta marad; nem szürkül be (Patrik)
+  cu.uRimGlow.value = hov; cu.uClear.value = 1 - 0.12 * hov;
+      if (opts.onFrame) opts.onFrame(cu, hov, dt);
     const r = btn.getBoundingClientRect(), sc = bufSize.x / innerWidth;
     const X = r.left * sc, W = r.width * sc, H = r.height * sc, Y = bufSize.y - r.top * sc - H;
     rects[0].set(X, Y, W, H);

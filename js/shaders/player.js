@@ -9,6 +9,8 @@ export const playerFS = /* glsl */`
   uniform float uScale, uRefr, uDisp, uFrost, uSplay, uLightAng, uLightInt, uK, uAlpha;
   uniform float uClear;                            // 1: nincs szürke kitöltés, csak a tiszta üveg (a Vissza gomb alapból)
   uniform float uGrad;                             // a Vissza gomb hoverje: világosabb, fentről lefelé szürkés átmenet
+  uniform float uRimGlow;                          // hover / nyitva: a perem belső szélén fehér derengés (Patrik: a GET IN TOUCH-hoz
+                                                   // hasonlóan a szélén legyen gradiens, ne szürküljön be teljesen)
   float sdRB(vec2 p, vec4 r) {                     // pill alakú lekerekített téglalap
     vec2 h = r.zw * 0.5, c = r.xy + h;
     float rad = min(h.x, h.y);
@@ -63,5 +65,10 @@ export const playerFS = /* glsl */`
     float inner = smoothstep(uScale * 5.0, uScale * 1.5, dist) * (1.0 - rim);
     float band = pow(1.0 - t, 3.0);
     col += (rim * (0.14 + 1.0 * spec) + inner * spec * 0.12 + band * spec * 0.1) * uLightInt;
+    if (uRimGlow > 0.001) {
+      // fent kicsit erősebb (mint a GET IN TOUCH gombon), befelé lágyan elfogy
+      float gl = exp(-dist / (uScale * 9.0)) * 0.36 + exp(-dist / (uScale * 2.2)) * 0.22;
+      col += vec3(gl * uRimGlow * (0.75 + 0.25 * n.y));
+    }
     gl_FragColor = vec4(col, alpha * uAlpha);
   }`;

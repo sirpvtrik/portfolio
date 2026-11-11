@@ -82,7 +82,7 @@ applyVol();
 // a lejátszó üvegét rajzoló teljes képernyős réteg
 const plRects = [0, 1, 2, 3, 4, 5, 6].map(() => new THREE.Vector4());
 const plU = {
-  uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: plRects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 13 }, uAlpha: { value: 1 },
+  uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: plRects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 13 }, uAlpha: { value: 1 }, uClear: { value: 1 }, uGrad: { value: 0 }, uRimGlow: { value: 0 },   // a saját értékei (a közös shaderben különben a gombokéi szivárognának át)
   uRefr: U.uRefr, uDisp: U.uDisp, uFrost: U.uFrost, uSplay: U.uSplay, uLightAng: U.uLightAng, uLightInt: U.uLightInt,
 };
 const plQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
@@ -131,6 +131,8 @@ export function plUpdate(dt) {
   plU.uBox.value.set(x0 - m, y0 - m, x1 + m, y1 + m);
   plU.uScale.value = sc;
   plU.uAlpha.value = uiIn();   // belépéskor a felülettel együtt jelenik meg
+  // nyitva: a peremen derengés, és csak enyhe sötétítés (az olvashatóságért), nem szürkül be (Patrik)
+  plU.uRimGlow.value = plT; plU.uClear.value = 1 - 0.32 * plT;
 }
 
 /* ---------- Tekerés ---------- */

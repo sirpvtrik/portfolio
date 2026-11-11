@@ -155,7 +155,6 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 /* Difference keverés (Patrik: telefonon a világos képek fölött nem látszottak a fehér ikonok): ahol az ikon mögött a kép
    átlátszik (a Vissza gomb tiszta üvege, a Glass gomb, a csukott lejátszó hangszórója), ott világos fölött sötétre fordul. */
 .back { mix-blend-mode: difference; }
-.back.tinted { mix-blend-mode: normal; }                /* hoverre előjön a szürke üveg: azon a fehér látszik jobban */
 .btn.square svg { mix-blend-mode: difference; }
 .pl:not(.show) .spk svg { mix-blend-mode: difference; }  /* csukott lejátszó: az üvege világos kép fölött világos marad; nyitva a fehér gombján sötét az ikon */
 .pj-input { position: absolute; inset: 0; touch-action: none; cursor: none; }   /* itt is az egérfény a kurzor */

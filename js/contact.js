@@ -58,7 +58,7 @@ av.addEventListener('click', () => setOpen(!ct.classList.contains('open') || tar
 // az üvegét rajzoló teljes képernyős réteg (a lejátszó shadere, saját alakzatokkal)
 const rects = [0, 1, 2, 3, 4, 5, 6].map(() => new THREE.Vector4());
 const cu = {
-  uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: rects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 13 }, uAlpha: { value: 1 },
+  uBg: { value: rt.texture }, uRes: U.uRes, uR: { value: rects }, uBox: { value: new THREE.Vector4() }, uScale: { value: 1 }, uK: { value: 13 }, uAlpha: { value: 1 }, uClear: { value: 1 }, uGrad: { value: 0 }, uRimGlow: { value: 0 },   // a saját értékei (lásd player.js)
   uRefr: U.uRefr, uDisp: U.uDisp, uFrost: U.uFrost, uSplay: U.uSplay, uLightAng: U.uLightAng, uLightInt: U.uLightInt,
 };
 const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
@@ -101,4 +101,5 @@ export function ctUpdate(dt) {
   cu.uBox.value.set(x0 - m, y0 - m, x1 + m, y1 + m);
   cu.uScale.value = sc;
   cu.uAlpha.value = uiIn();                                              // belépéskor a felülettel együtt jelenik meg
+  cu.uRimGlow.value = t; cu.uClear.value = 1 - 0.32 * t;               // nyitva: derengő perem, enyhe sötétítés (mint a lejátszón)
 }
