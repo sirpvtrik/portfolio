@@ -310,7 +310,10 @@ export function updateHero(dt) {
   HU.uReach.value = Math.max(innerWidth, innerHeight) * 0.75 * sc * (0.12 + 0.88 * gE);   // a fény messzebbre nyúlik, ahogy nő
   // nyomva tartva a nyaláb vége a logó felé húzódik vissza (Patrik: „a fény húzódjon vissza, amikor nyomjuk”), nem csak halványul
   const far = Math.hypot(innerWidth, innerHeight) * sc;
-  HU.uCut.value = pull > 0.001 ? far * Math.pow(1 - pull, 1.6) + 0.35 * L.w * sc : 1e5;
+  // a vége a logóig rövidül (nem áll meg egy kör körülötte: az kerek foltként világított, Patrik képernyőképe), és az utolsó
+  // negyedben el is halványul, így a logóba tűnik el
+  HU.uCut.value = pull > 0.001 ? far * Math.pow(1 - pull, 1.6) : 1e5;
+  HU.uOn.value = on * (1 - Math.min(1, Math.max(0, (pull - 0.7) / 0.3)));
   HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
   HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
   HU.uLogoK.value = LOGO_BW / Math.max(1, L.w);
