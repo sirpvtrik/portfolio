@@ -92,13 +92,16 @@ function extractPalette(img) {
 }
 
 function makeImage(p, i) {
+  // img: projektenkénti kép-szintek (sötét képhez: feketeszint, erősítés, telítettség, kisebb elmosás)
+  const o = p.img || {}, f = o.frost ?? 6.2;
   const mat = new THREE.ShaderMaterial({
     vertexShader: pillImageVS, fragmentShader: pillImageFS,
     transparent: true, depthWrite: false, side: THREE.DoubleSide,
     uniforms: {
       uMap: { value: null }, uReveal: { value: 0 }, uAspect: { value: IW / IH }, uImgAspect: { value: 1.5 },
       uFocus: { value: new THREE.Vector2().fromArray(p.focus || [0.5, 0.5]) }, uTexSize: { value: new THREE.Vector2(1600, 1000) },
-      uTime: { value: 0 }, uDim: { value: 0.9 }, uFrostC: { value: 6.2 }, uFrostE: { value: 6.2 },   // Figma: 90%, erős, egyenletes elmosás
+      uTime: { value: 0 }, uDim: { value: 0.9 }, uFrostC: { value: f }, uFrostE: { value: f },   // Figma: 90%, erős, egyenletes elmosás
+      uBlack: { value: o.black ?? 0 }, uGain: { value: o.gain ?? 1 }, uSat: { value: o.sat ?? 1 },
     },
   });
   new THREE.TextureLoader().load(p.image, tex => {

@@ -34,6 +34,7 @@ export const PROJECTS = [
       ],
     } },
   { id: 'P04', name: 'Digitális pokol', cat: 'Print', meta: '', image: 'assets/projects/digitalis-pokol/cover.webp', focus: [0.58, 0.48],
+    img: { black: 0.06, gain: 4.5, sat: 1.6, frost: 4.6 },   // a borító szinte fekete, vékony piros vonalakkal: elmosva halvány lett (Patrik), ezért szintezve
     palette: [[0.86, 0.18, 0.21], [0.68, 0.09, 0.11], [0.5, 0.06, 0.08]] },    // mély vörös, a borító pirosa (Patrik; a képből számolva rózsaszínes lett)
   { id: 'P05', name: 'Techno Sticker Pack', cat: 'Print', meta: '', image: 'assets/projects/techno-sticker-pack/cover.webp', focus: [0.5, 0.5],
     palette: [[1.0, 0.56, 0.3], [0.74, 0.3, 0.74], [0.2, 0.42, 0.74]] },   // kézzel: a matricák vékony színes vonalai a kicsinyített képből kiszámolva elszürkültek (narancs, magenta, kék)

@@ -21,6 +21,9 @@ export const pillImageFS = /* glsl */`
   uniform float uDim;        // általános fényerő (olvashatóság)
   uniform float uFrostC;     // elmosás középen (mip-szint)
   uniform float uFrostE;     // elmosás a szélen (mip-szint)
+  uniform float uBlack;      // feketeszint: ennyit levonunk (sötét képnél a szürke alap ne világosodjon)
+  uniform float uGain;       // erősítés a feketeszint után (sötét képnél a színes részek kijönnek)
+  uniform float uSat;        // telítettség (1 = változatlan)
   varying vec2 vUv;
 
   // elmosott minta: két körön 16 pont + a közép, a megadott mip-szinten (sima, nem kockás)
@@ -56,6 +59,11 @@ export const pillImageFS = /* glsl */`
     // helyfüggő frost: középen erős, a szél felé gyengül
     float lod = mix(uFrostC, uFrostE, smoothstep(0.15, 0.95, e));
     vec3 col = blurAt(iuv, lod);
+
+    // projektenkénti szintek (img a PROJECTS-ben; alapból változatlan): feketeszint, erősítés, telítettség
+    col = max(col - uBlack, 0.0) * uGain;
+    float lu = dot(col, vec3(0.299, 0.587, 0.114));
+    col = clamp(mix(vec3(lu), col, uSat), 0.0, 1.0);
 
     col *= uDim;                                       // fényerő (Figma: 90%-os átlátszóság a fekete fölött)
 
