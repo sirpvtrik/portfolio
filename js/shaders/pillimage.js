@@ -24,6 +24,9 @@ export const pillImageFS = /* glsl */`
   uniform float uBlack;      // feketeszint: ennyit levonunk (sötét képnél a szürke alap ne világosodjon)
   uniform float uGain;       // erősítés a feketeszint után (sötét képnél a színes részek kijönnek)
   uniform float uSat;        // telítettség (1 = változatlan)
+  uniform vec3 uTint;        // egyszínű kép (pl. Digitális pokol: az egész pill piros)
+  uniform float uTintK;      // 0 = a kép saját színe, 1 = egyszínű (a kép fényessége csak árnyal)
+  uniform float uFloor;      // egyszínűnél a sötét részek fényessége (így a pill sehol sem fekete)
   varying vec2 vUv;
 
   // elmosott minta: két körön 16 pont + a közép, a megadott mip-szinten (sima, nem kockás)
@@ -64,6 +67,9 @@ export const pillImageFS = /* glsl */`
     col = max(col - uBlack, 0.0) * uGain;
     float lu = dot(col, vec3(0.299, 0.587, 0.114));
     col = clamp(mix(vec3(lu), col, uSat), 0.0, 1.0);
+    // egyszínű: az egész kép a tint színe, a világosabb részek (pl. a piros vonalak) erősebben izzanak
+    vec3 tc = uTint * (uFloor + (1.0 - uFloor) * clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0));
+    col = mix(col, tc, uTintK);
 
     col *= uDim;                                       // fényerő (Figma: 90%-os átlátszóság a fekete fölött)
 

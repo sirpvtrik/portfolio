@@ -102,6 +102,7 @@ function makeImage(p, i) {
       uFocus: { value: new THREE.Vector2().fromArray(p.focus || [0.5, 0.5]) }, uTexSize: { value: new THREE.Vector2(1600, 1000) },
       uTime: { value: 0 }, uDim: { value: 0.9 }, uFrostC: { value: f }, uFrostE: { value: f },   // Figma: 90%, erős, egyenletes elmosás
       uBlack: { value: o.black ?? 0 }, uGain: { value: o.gain ?? 1 }, uSat: { value: o.sat ?? 1 },
+      uTint: { value: new THREE.Color().fromArray(o.tint || [1, 1, 1]) }, uTintK: { value: o.tint ? 1 : 0 }, uFloor: { value: o.floor ?? 0.5 },
     },
   });
   new THREE.TextureLoader().load(p.image, tex => {
