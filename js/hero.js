@@ -37,15 +37,16 @@ function drawText() {
   g.fillStyle = '#f00';                          // a szöveg a piros csatornában
   g.textBaseline = 'alphabetic';
   const FONT = "'Nohemi', 'Archivo', sans-serif";
-  // Figma (Desktop – 22, 1440 × 1024): Nohemi Bold; a nagy szöveg 64 px, 2 sor, ~65 px-es sorköz, 26 px-re a bal alsó saroktól
-  // (az utolsó sor alapvonala); jobb fent MADARÁSZ PATRIK / DESIGNER, mindkettő 24 px, 26 px-re a sarokból (mint a .ui)
+  // Figma (Desktop – 22, 1440 × 1024): Nohemi Bold, a nagy szöveg és a név **egyenrangú**, mindkettő 48 px, 2 sor, normál
+  // sorköz (~1,016 × méret); bal lent DARKNESS IS / MY BRIGHTNESS (az utolsó sor alapvonala 26 px-re a saroktól), jobb fent
+  // MADARÁSZ PATRIK / DESIGNER jobbra zárva (a nagybetűk teteje 26 px-re a sarokból, mint a .ui)
   g.font = `700 100px ${FONT}`;
-  const unit = g.measureText('MY BRIGHTNESS').width / 100;
+  const unit = g.measureText('MY BRIGHTNESS').width / 100, unitN = g.measureText('MADARÁSZ PATRIK').width / 100;
   const pad = 26;
-  let F = 64 * Math.min(1.25, H / 1024);
+  let F = 48 * Math.min(1.25, H / 1024);
   const holdW = W <= 600 ? 0 : 170;                                // gépen jobb lent a HOLD TO START: a szöveg ne érjen bele
   F = Math.min(F, (W - 2 * pad - holdW) / unit);
-  const sF = F / 64, lh = 65 * sF;
+  const fs = F / 48, sF = F / 64, lh = F * 1.016;                  // fs: a Figma-méret aránya; sF: a betű-üveg léptéke (64 px = 1)
   g.font = `700 ${F}px ${FONT}`;
   const cap = g.measureText('H').actualBoundingBoxAscent || F * 0.72;
   const b2 = H - pad, b1 = b2 - lh;
@@ -53,23 +54,26 @@ function drawText() {
   g.fillText('DARKNESS IS', pad, b1);
   g.fillText('MY BRIGHTNESS', pad, b2);
   const w1 = g.measureText('DARKNESS IS').width, w2 = g.measureText('MY BRIGHTNESS').width;
-  const F1 = Math.max(13, 24 * sF);
+  // a név ugyanakkora; csak ha nem fér el a PORTFOLIO 2026 mellett (keskeny képernyő), akkor kisebb
+  const F3 = Math.max(12, 20 * fs);
+  g.font = `400 ${F3}px ${FONT}`;
+  const wP = g.measureText('PORTFOLIO 2026').width;
+  const F1 = Math.max(13, Math.min(F, (W - 2 * pad - wP - 24) / unitN));
   g.textAlign = 'right';
   g.font = `700 ${F1}px ${FONT}`;
   const c1 = g.measureText('M').actualBoundingBoxAscent || F1 * 0.72;
-  const t1 = pad + c1, t2 = t1 + F1 * 1.0;
+  const t1 = pad + c1, t2 = t1 + F1 * 1.016;
   g.fillText('MADARÁSZ PATRIK', W - pad, t1);
   g.fillText('DESIGNER', W - pad, t2);
   const wT1 = g.measureText('MADARÁSZ PATRIK').width;
   const left = pad;
   // bal fent: PORTFOLIO 2026 (Figma: Nohemi Regular 20 px, 26 px-re a sarokból); a többi szöveggel együtt csak a fényben látszik
   g.textAlign = 'left';
-  const F3 = Math.max(12, 20 * sF);
   g.font = `400 ${F3}px ${FONT}`;
   g.fillText('PORTFOLIO 2026', pad, pad + (g.measureText('P').actualBoundingBoxAscent || F3 * 0.72));
   // HOLD TO START (Figma: Nohemi Regular 20 px, jobb lent, 26 px-re a sarokból; telefonon középen a logó alatt) a kék
   // csatornában: ez is csak a fényben látszik (Patrik: „a nyalábon alapból látják”, nem kell külön töltés-jelzés)
-  const mob = W <= 600, F4 = mob ? 14 : Math.max(13, 20 * Math.min(1, sF * 1.0));
+  const mob = W <= 600, F4 = mob ? 14 : Math.max(13, 20 * Math.min(1, fs));
   g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = '#00f'; g.font = `400 ${F4}px ${FONT}`;
   const hw = g.measureText('HOLD TO START').width;
   const hx = mob ? W / 2 - hw / 2 : W - pad - hw, hy = mob ? H / 2 + 90 + F4 : H - pad;
