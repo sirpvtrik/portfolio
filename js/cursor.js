@@ -53,8 +53,10 @@ const curFS = /* glsl */`
     w = mix(w, 0.9, uP * smoothstep(hole * 0.6, hole, rr));
     vec3 cin = mix(bg, vec3(1.0), w);
     float inside = smoothstep(R + 0.6, R - 0.6, d);
-    float ring = exp(-pow((d - R) / lw, 2.0));
-    float halo = exp(-max(d - R, 0.0) / (R * 0.45)) * step(R, d) * 0.22;
+    // a perem kifelé lágyabban fogy el (Patrik: „kicsit jobban fadeljen a szélén”): kívül kétszer szélesebb lecsengés,
+    // a fényudvar lágy átmenettel indul (nem a perem vonalánál ugrik)
+    float ring = exp(-pow((d - R) / (d > R ? lw * 2.0 : lw), 2.0)) * 0.95;
+    float halo = exp(-max(d - R, 0.0) / (R * 0.6)) * smoothstep(R - lw, R + lw * 3.0, d) * 0.2;
     vec3 c = mix(vec3(1.0), cin, inside);
     float a = max(inside, halo);
     c = mix(c, vec3(1.0), clamp(ring, 0.0, 1.0));
