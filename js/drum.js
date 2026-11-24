@@ -215,7 +215,7 @@ function clipped(mat) {
 let group = null, DL = null, kk = 1, st = null, body = null, items = [];
 let morphT = 99, closeT = -1, ca = 0;
 let tintRv = 0;                                   // a projekt színe a testben: a pill hover-képének kinyílása (megmarad átméretezéskor)
-const TINT = 0.36;                                // a kinőtt testben ennyire halvány a pill színe (a toronybeli hover 1)
+const TINT = 0.24;                                // a kinőtt testben ennyire halvány a pill színe (a toronybeli hover 1)
 
 export function drumStart() { morphT = 0; closeT = -1; ca = 0; outroT = 0; }       // nyitás: a pill kinyúlik
 export function drumSkipIntro() { morphT = 99; }                         // újraépítéskor (átméretezés, csúszka) nincs újra kinyúlás
