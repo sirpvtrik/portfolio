@@ -103,6 +103,7 @@ function makeImage(p, i) {
       uTime: { value: 0 }, uDim: { value: 0.9 }, uFrostC: { value: f }, uFrostE: { value: f },   // Figma: 90%, erős, egyenletes elmosás
       uBlack: { value: o.black ?? 0 }, uGain: { value: o.gain ?? 1 }, uSat: { value: o.sat ?? 1 },
       uTint: { value: new THREE.Color().fromArray(o.tint || [1, 1, 1]) }, uTintK: { value: o.tint ? 1 : 0 }, uFloor: { value: o.floor ?? 0.5 },
+      uFlatCol: { value: new THREE.Vector3(1, 1, 1) }, uFlat: { value: 0 },
     },
   });
   new THREE.TextureLoader().load(p.image, tex => {

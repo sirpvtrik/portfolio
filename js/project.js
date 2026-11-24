@@ -404,7 +404,7 @@ function open(i) {
   cur = i; D = PROJECTS[i].detail ? Object.assign({}, DETAIL_TEST, PROJECTS[i].detail) : DETAIL_TEST;
   // teszt-forma: a kiválasztott pill helyéről nő ki a projekt teste (a toronybeli pill eltűnik, a restorePills visszahozza)
   pillStart = null; morphT = reduced ? 99 : 0; tgt = 0; lastInput = 0;
-  pillImg = pills[i] && pills[i].img ? { mat: pills[i].img.mat, rv: pills[i].rv || 0 } : null;
+  pillImg = pills[i] && pills[i].img ? { mat: pills[i].img.mat, rv: pills[i].rv || 0, col: paletteOf(i)[1] } : null;
   if (S.pjMode === 2) { drumStart(); if (reduced) drumSkipIntro(); }   // henger: a pill a helyéről nyúlik szét
   if ((S.pjMode === 1 || S.pjMode === 2) && pills[i]) {
     const h = pills[i].holder, w = new THREE.Vector3();

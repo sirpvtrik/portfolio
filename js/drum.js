@@ -306,12 +306,14 @@ export function buildDrum(grp, layout, k, opts) {
     dxF: Math.max(0, (DL.vw / 2 - inset) * k * pf / sc1 - PW / 2), dyF: Math.max(0, (DL.vh / 2 - inset) * k * pf / sc1 - PH / 2) };
   // a pill színe (Patrik: amit hoverre mutat, halványan maradjon a szétnyitott pillen is): a toronybeli pill projektképe,
   // ugyanazzal a shaderrel (erősen elmosva), a test mögött, a háttér-rétegen (a test üvege megtöri); a hover-állapotából
-  // folytatva tölti ki a testet, és ahogy a test nő, halványul el. A test körvonalára vágva, mint a tartalom.
+  // folytatva tölti ki a testet, és ahogy a test nő, a kép a projekt egyszínű árnyalatába olvad (a paletta középső
+  // színe, amit a hullámok is kapnak; Patrik: „a háttérben már ne látszódjon a képe, csak a szín”), és halványul. A test körvonalára vágva, mint a tartalom.
   body.tint = null;
   const src = opts.img && opts.img.mat && opts.img.mat.uniforms;
   if (src) {
     const un = Object.assign({}, src, {               // a kép (és a betöltéskor beállított mérete) közös a pillével
-      uReveal: { value: 0 }, uAspect: { value: 1 }, uDim: { value: 0.9 }, uTime: { value: 0 }, uClip: clipU.uClip, uClipR: clipU.uClipR });
+      uReveal: { value: 0 }, uAspect: { value: 1 }, uDim: { value: 0.9 }, uTime: { value: 0 }, uClip: clipU.uClip, uClipR: clipU.uClipR,
+      uFlat: { value: 0 }, uFlatCol: { value: new THREE.Vector3().fromArray(opts.img.col || [1, 1, 1]) } });
     const fs = pillImageFS.replace('uniform sampler2D uMap;', 'uniform sampler2D uMap;\n  uniform vec4 uClip;\n  uniform float uClipR;')
       .replace('gl_FragColor = vec4(col, mask);', `vec2 cq = abs(gl_FragCoord.xy - uClip.xy) - uClip.zw + uClipR;
     float csd = length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - uClipR;
@@ -426,6 +428,7 @@ export function updateDrum(dt, s, closing) {
     tintRv += (goal - tintRv) * (1 - Math.exp(-(closing ? 3.2 : 2.4) * dt));
     t.u.uReveal.value = tintRv; t.u.uTime.value += dt;
     t.u.uDim.value = 0.9 * lerp(1, TINT, grow);
+    t.u.uFlat.value = ease(clamp(grow * 1.25, 0, 1));   // kinyitva a kép már nem látszik, csak a projekt színe (Patrik)
   }
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
   const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
