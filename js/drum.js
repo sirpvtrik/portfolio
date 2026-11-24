@@ -312,11 +312,11 @@ export function buildDrum(grp, layout, k, opts) {
   if (src) {
     const un = Object.assign({}, src, {               // a kép (és a betöltéskor beállított mérete) közös a pillével
       uReveal: { value: 0 }, uAspect: { value: 1 }, uDim: { value: 0.9 }, uTime: { value: 0 }, uClip: clipU.uClip, uClipR: clipU.uClipR,
-      uFlat: { value: 0 }, uFlatCol: { value: new THREE.Vector3().fromArray(opts.img.col || [1, 1, 1]) } });
-    const fs = pillImageFS.replace('uniform sampler2D uMap;', 'uniform sampler2D uMap;\n  uniform vec4 uClip;\n  uniform float uClipR;')
+      uAlpha: { value: 1 }, uFlat: { value: 0 }, uFlatCol: { value: new THREE.Vector3().fromArray(opts.img.col || [1, 1, 1]) } });
+    const fs = pillImageFS.replace('uniform sampler2D uMap;', 'uniform sampler2D uMap;\n  uniform vec4 uClip;\n  uniform float uClipR;\n  uniform float uAlpha;')
       .replace('gl_FragColor = vec4(col, mask);', `vec2 cq = abs(gl_FragCoord.xy - uClip.xy) - uClip.zw + uClipR;
     float csd = length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - uClipR;
-    gl_FragColor = vec4(col, mask * clamp(0.5 - csd, 0.0, 1.0));`);
+    gl_FragColor = vec4(col, mask * uAlpha * clamp(0.5 - csd, 0.0, 1.0));   // átlátszóság (nem sötétítés): mögötte a hullámok látszanak`);
     const tm = new THREE.ShaderMaterial({ vertexShader: pillImageVS, fragmentShader: fs, uniforms: un, transparent: true, depthWrite: false });
     const mesh = onLayer(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), tm), LAYER_BG);
     mesh.frustumCulled = false; mesh.renderOrder = 0;
@@ -426,7 +426,9 @@ export function updateDrum(dt, s, closing) {
     const goal = closing ? 0 : 1.3;                // 1,3: a kinyílás a test sarkáig ér
     tintRv += (goal - tintRv) * (1 - Math.exp(-(closing ? 3.2 : 2.4) * dt));
     t.u.uReveal.value = tintRv; t.u.uTime.value += dt;
-    t.u.uDim.value = 0.9 * lerp(1, S.pjTint / 100, grow);   // a kinőtt testben ennyire halvány (Glass panel „Pill színe”, alap 24%)
+    // a kinőtt testben ennyire átlátszó (Glass panel „Pill színe”, alap 24%): az átlátszóságot állítjuk, nem a fényerőt,
+    // különben 0%-on is fekete réteg takarta a mögötte lévő hullámokat (Patrik)
+    t.u.uAlpha.value = lerp(1, S.pjTint / 100, grow);
     t.u.uFlat.value = ease(clamp(grow * 1.25, 0, 1));   // kinyitva a kép már nem látszik, csak a projekt színe (Patrik)
   }
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
