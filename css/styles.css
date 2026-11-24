@@ -37,7 +37,10 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .dim { color: var(--dim); }
 .stack-label { display: grid; gap: 4px; }
 .top-right { display: flex; align-items: flex-start; gap: 14px; position: relative; text-align: right; }
-.logo-top { position: fixed; z-index: 2; pointer-events: none; mix-blend-mode: difference; top: calc(24px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: 58px; height: auto; fill: var(--fg); overflow: visible; }
+/* a fejléc logója pixelre igazítva (Patrik: „olyan, mintha pixeles lenne”): a viewBox (-4 -4 343 164) 4 egységes
+   margója miatt a logó teteje korábban fél pixelre esett, és elmosódott szürke sávként rajzolódott. Most 0,17153 px /
+   egység: a teteje pontosan 24 px-en, a szárak alja 16 px-rel lejjebb, egész pixelen van. */
+.logo-top { position: fixed; z-index: 2; pointer-events: none; mix-blend-mode: difference; top: calc(23.314px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: 58.83px; height: auto; fill: var(--fg); overflow: visible; }
 
 .bottom { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 16px; }
 /* a kiválasztott pill nevét a pill maga mutatja: a .caption csak képernyőolvasónak szól (sr-only) */
