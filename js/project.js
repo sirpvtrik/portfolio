@@ -28,6 +28,7 @@ export let isOpen = false;
 let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = '', depthPending = false;
 const geoKey = () => S.depth + '/' + S.thick + '/' + S.pjMode;   // Depth, Vastagság, oldal-forma: ha bármelyik változik, újraépül
 let D = DETAIL_TEST, cur = -1;                   // a nyitott projekt tartalma (a projekt saját detail-je a DETAIL_TEST fölött) és sorszáma
+let pillImg = null;                               // a kiválasztott pill projektképe (anyag + kinyílás): a henger-test halványan megtartja
 let pp = null, morphT = 99, pillStart = null;    // a megnyúlt pill (teszt) és a kiinduló helyzete (a toronybeli pill)
 let s = 0, vel = 0, dragging = false, dragY = 0, dragT = 0, openT = 0, lift = 1.4;
 let lastInput = 0;
@@ -232,7 +233,7 @@ function build() {
   const k = visH / L.vh, depth01 = S.depth / 100, d = D;
   group = new THREE.Group(); scene.add(group);
   if (L.pill) { buildPill(k, depth01); loadFonts(d); return; }
-  if (L.drum) { buildDrum(group, L.drum, k, { pillStart }); loadFonts(d); return; }
+  if (L.drum) { buildDrum(group, L.drum, k, { pillStart, img: pillImg }); loadFonts(d); return; }
   cards = L.list.map(c => {
     const draw = c.kind === 'intro' ? drawIntro : c.kind === 'text' ? drawText : null;
     const card = makeCard(c.w, c.h, k, depth01, draw, c.order, !!draw);   // a szöveges kártyák tartalma az üveg elé kerül
@@ -403,6 +404,7 @@ function open(i) {
   cur = i; D = PROJECTS[i].detail ? Object.assign({}, DETAIL_TEST, PROJECTS[i].detail) : DETAIL_TEST;
   // teszt-forma: a kiválasztott pill helyéről nő ki a projekt teste (a toronybeli pill eltűnik, a restorePills visszahozza)
   pillStart = null; morphT = reduced ? 99 : 0; tgt = 0; lastInput = 0;
+  pillImg = pills[i] && pills[i].img ? { mat: pills[i].img.mat, rv: pills[i].rv || 0 } : null;
   if (S.pjMode === 2) { drumStart(); if (reduced) drumSkipIntro(); }   // henger: a pill a helyéről nyúlik szét
   if ((S.pjMode === 1 || S.pjMode === 2) && pills[i]) {
     const h = pills[i].holder, w = new THREE.Vector3();

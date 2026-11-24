@@ -98,7 +98,7 @@ function drawText() {
 const HU = {
   uTex: { value: tex }, uRes: { value: new THREE.Vector2(1, 1) }, uLamp: { value: new THREE.Vector2() }, uLogo: { value: new THREE.Vector2() },
   uOn: { value: 0 }, uA: { value: 0 }, uLift: { value: 0 }, uS: { value: 1 }, uReach: { value: 600 },
-  uGlass: { value: 0 }, uCut: { value: 1e5 }, uBoxC: { value: new THREE.Vector2() }, uMaskC: { value: new THREE.Vector2() }, uLogoK: { value: 1 },
+  uGlass: { value: 0 }, uCut: { value: 1e5 }, uLogoR: { value: 100 }, uBoxC: { value: new THREE.Vector2() }, uMaskC: { value: new THREE.Vector2() }, uLogoK: { value: 1 },
 };
 const heroFS = /* glsl */`
   precision highp float;
@@ -108,32 +108,41 @@ const heroFS = /* glsl */`
   uniform float uGlass;          // 1 = üveg betűk, 0 = sima fehér betűk (Glass panel „Hero: üveg betűk”)
   uniform vec2 uBoxC, uMaskC;    // a logó-doboz mostani közepe és a maszkon rajzolt helye (a logó a betöltő után még kicsinyedik)
   uniform float uLogoK;          // a maszkon rajzolt logó / a mostani logó mérete
+  uniform float uLogoR;          // a logó köré írt kör sugara (puffer-pixel): csak ezen belül van mit összegyűjteni
   uniform float uCut;            // HOLD TO START: a nyaláb vége ennyire ér a logótól (puffer-pixel); nyomva tartva visszahúzódik
   float T(vec2 p, float b) { return texture2D(uTex, p / uRes, b).r; }       // a szöveg (p: puffer-pixel, alulról)
   float B(vec2 p) { return texture2D(uTex, p / uRes, 0.0).b; }              // a HOLD TO START
   float G(vec2 p, float b) { return texture2D(uTex, p / uRes, b).g; }       // a logó
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-  // isteni sugarak: a pontból a fényforrás (a logó mögött) felé lépkedve összegyűjtjük, mennyi logón megy át a sugár;
-  // a logó betűi közti réseken átjutó fény nyalábokká áll össze. j: pontonkénti véletlen eltolás (szemcse, nincs sávosodás)
-  float rays(vec2 p, float j, float n) {
+  // isteni sugarak: a pontból a fényforrás (a logó mögött) felé haladva összegyűjtjük, mennyi logón megy át a sugár; a logó
+  // betűi közti réseken átjutó fény nyalábokká áll össze. Tiszta, szemcse nélkül (Patrik: „ne legyen grain effektes”):
+  // csak a sugár logót érintő szakaszán lépkedünk (a logó körüli körön belül), sűrűn és enyhén elmosott maszkon, így
+  // véletlen eltolás nélkül sem sávos; az eredmény arányos azzal, mekkora részét takarja a logó a teljes útnak
+  float rays(vec2 p, float n) {
     vec2 d = uLamp - p;
+    float dl = max(length(d), 1e-3);
+    vec2 dir = d / dl;
+    vec2 w = p - uBoxC;
+    float b = dot(w, dir), c = dot(w, w) - uLogoR * uLogoR, h = b * b - c;
+    if (h <= 0.0) return 0.0;
+    h = sqrt(h);
+    float t0 = clamp(-b - h, 0.0, dl), t1 = clamp(-b + h, 0.0, dl);
+    if (t1 - t0 < 0.5) return 0.0;
     float s = 0.0;
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 48; i++) {
       if (float(i) >= n) break;
-      vec2 sp = p + d * ((float(i) + j) / n);
-      s += G(uMaskC + (sp - uBoxC) * uLogoK, 0.5);                  // a maszk a logó mostani helyére és méretére igazítva
+      vec2 sp = p + dir * mix(t0, t1, (float(i) + 0.5) / n);
+      s += G(uMaskC + (sp - uBoxC) * uLogoK, 2.0);                  // a maszk a logó mostani helyére és méretére igazítva
     }
+    s *= (t1 - t0) / dl / n;
     float L = length(p - uLogo);
-    return s / n * 6.5 / (1.0 + pow(L / uReach, 1.6)) * uOn * (1.0 - smoothstep(uCut * 0.55, uCut, L));
+    return s * 6.5 / (1.0 + pow(L / uReach, 1.6)) * uOn * (1.0 - smoothstep(uCut * 0.55, uCut, L));
   }
   void main() {
     vec2 p = gl_FragCoord.xy;
     vec2 q = p - vec2(0.0, uLift);                                   // a szöveg (kilépéskor felfelé úszik)
-    float j = hash(p);
-    float ra = rays(p, j, 40.0);
+    float ra = rays(p, 48.0);
     vec3 tint = vec3(0.93, 0.95, 1.0);
-    // a levegőben: a nyalábok, finom szemcsével (mint a referencián)
-    vec3 air = ra * tint * (0.7 + 0.3 * hash(p * 1.37 + 3.1));
+    vec3 air = ra * tint;                                            // a levegőben: tiszta nyalábok
     // üveg betűk
     float a = T(q, 0.0);
     vec3 txt = vec3(0.0);
@@ -153,7 +162,7 @@ const heroFS = /* glsl */`
       // a test sötét, tiszta üveg: a rajta átmenő nyalábok elhajlanak (a mélyebb részen jobban), színenként kicsit másképp
       float depth = 1.0 - T(q, 3.0);
       vec2 o = n * (6.0 + 14.0 * depth) * uS;
-      vec3 refr = vec3(rays(p + o, j, 20.0), rays(p + o * 1.18, j, 20.0), rays(p + o * 1.36, j, 20.0));
+      vec3 refr = vec3(rays(p + o, 24.0), rays(p + o * 1.18, 24.0), rays(p + o * 1.36, 24.0));
       txt += a * refr * 1.3;
       // élfények: a fény felé néző él erősen csillan, a túloldali gyengébben (belső visszaverődés); sötétben is halványan látszik
       txt += rim * (ra * (5.0 * pow(face, 2.0) + 14.0 * pow(face, 10.0) + 1.6 * back) + 0.05);   // + éles csillanás
@@ -321,5 +330,6 @@ export function updateHero(dt) {
   HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
   HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
   HU.uLogoK.value = LOGO_BW / Math.max(1, L.w);
+  HU.uLogoR.value = 0.6 * L.w * sc;                              // a logó (343 × 164) fél átlója ~0,55 szélesség
   HU.uGlass.value = glassText ? 1 : 0;
 }

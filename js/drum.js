@@ -12,6 +12,7 @@ import { PW, PH, S } from './config.js';
 import { onLayer, LAYER_BG, LAYER_GLASS, U, camera, renderer } from './scene.js';
 import { cursorHead } from './cursor.js';
 import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
+import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
 import { stadium, glassSlab, faceZ } from './glassgeo.js';
 
 const FONT = "'Nohemi', Archivo, 'Helvetica Neue', Arial, sans-serif";
@@ -213,6 +214,8 @@ function clipped(mat) {
 /* ---------- Állapot ---------- */
 let group = null, DL = null, kk = 1, st = null, body = null, items = [];
 let morphT = 99, closeT = -1, ca = 0;
+let tintRv = 0;                                   // a projekt színe a testben: a pill hover-képének kinyílása (megmarad átméretezéskor)
+const TINT = 0.36;                                // a kinőtt testben ennyire halvány a pill színe (a toronybeli hover 1)
 
 export function drumStart() { morphT = 0; closeT = -1; ca = 0; outroT = 0; }       // nyitás: a pill kinyúlik
 export function drumSkipIntro() { morphT = 99; }                         // újraépítéskor (átméretezés, csúszka) nincs újra kinyúlás
@@ -301,6 +304,25 @@ export function buildDrum(grp, layout, k, opts) {
   const sc1 = Rpx * k * pf / (PH / 2);
   body = { holder, geo, mat, bmat, base: geo.attributes.position.array.slice(), dx: -1, dy: -1, sc: 1, sc1, pf,
     dxF: Math.max(0, (DL.vw / 2 - inset) * k * pf / sc1 - PW / 2), dyF: Math.max(0, (DL.vh / 2 - inset) * k * pf / sc1 - PH / 2) };
+  // a pill színe (Patrik: amit hoverre mutat, halványan maradjon a szétnyitott pillen is): a toronybeli pill projektképe,
+  // ugyanazzal a shaderrel (erősen elmosva), a test mögött, a háttér-rétegen (a test üvege megtöri); a hover-állapotából
+  // folytatva tölti ki a testet, és ahogy a test nő, halványul el. A test körvonalára vágva, mint a tartalom.
+  body.tint = null;
+  const src = opts.img && opts.img.mat && opts.img.mat.uniforms;
+  if (src) {
+    const un = Object.assign({}, src, {               // a kép (és a betöltéskor beállított mérete) közös a pillével
+      uReveal: { value: 0 }, uAspect: { value: 1 }, uDim: { value: 0.9 }, uTime: { value: 0 }, uClip: clipU.uClip, uClipR: clipU.uClipR });
+    const fs = pillImageFS.replace('uniform sampler2D uMap;', 'uniform sampler2D uMap;\n  uniform vec4 uClip;\n  uniform float uClipR;')
+      .replace('gl_FragColor = vec4(col, mask);', `vec2 cq = abs(gl_FragCoord.xy - uClip.xy) - uClip.zw + uClipR;
+    float csd = length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0) - uClipR;
+    gl_FragColor = vec4(col, mask * clamp(0.5 - csd, 0.0, 1.0));`);
+    const tm = new THREE.ShaderMaterial({ vertexShader: pillImageVS, fragmentShader: fs, uniforms: un, transparent: true, depthWrite: false });
+    const mesh = onLayer(new THREE.Mesh(new THREE.PlaneGeometry(1, 1), tm), LAYER_BG);
+    mesh.frustumCulled = false; mesh.renderOrder = 0;
+    group.add(mesh);
+    if (morphT < 0.01) tintRv = opts.img.rv || 0;    // új nyitás: onnan folytatja, ahol a hover tartott
+    body.tint = { mesh, mat: tm, u: un };
+  }
   items = DL.items.map(it => makeItem(it, k));
   if (document.fonts && document.fonts.load) {
     const tt = DL.items.find(i => i.kind === 'title'), dd = DL.items.find(i => i.kind === 'desc');
@@ -393,6 +415,18 @@ export function updateDrum(dt, s, closing) {
     clipU.uClip.value.set((DL.vw / 2 + body.holder.position.x * px) * dpr, (DL.vh / 2 + body.holder.position.y * px) * dpr, hw * dpr, hh * dpr);
     clipU.uClipR.value = Math.min(hw, hh, (PH / 2) * sxy * px) * dpr;
   }
+  // a pill színe a testben: kitölti a testet, és ahogy a test kinő, halványra vált; csukáskor visszahúzódik
+  if (body.tint) {
+    const t = body.tint, hw = (PW / 2 + body.dx) * sxy, hh = (PH / 2 + body.dy) * sxy;
+    t.mesh.visible = body.holder.visible;
+    t.mesh.position.set(body.holder.position.x, body.holder.position.y, body.holder.position.z - 0.02);
+    t.mesh.scale.set(2 * hw, 2 * hh, 1);
+    t.u.uAspect.value = hw / Math.max(hh, 1e-4);
+    const goal = closing ? 0 : 1.3;                // 1,3: a kinyílás a test sarkáig ér
+    tintRv += (goal - tintRv) * (1 - Math.exp(-(closing ? 3.2 : 2.4) * dt));
+    t.u.uReveal.value = tintRv; t.u.uTime.value += dt;
+    t.u.uDim.value = 0.9 * lerp(1, TINT, grow);
+  }
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
   const lim = DL.A + DL.Rc * Math.PI / 2, vh = DL.vh;
   // a kurzor a képernyő közepétől (px; y felfelé): a képek a pálya sík részén a képernyő síkjában vannak
@@ -463,6 +497,6 @@ export function disposeDrum() {
     if (o.video) { o.video.pause(); o.video.removeAttribute('src'); o.video.load(); o.video.remove(); }
     o.geo.dispose(); o.mats.forEach(m => m.dispose()); o.texs.forEach(t => t.dispose());
   });
-  if (body) { body.geo.dispose(); body.mat.dispose(); body.bmat.dispose(); }
+  if (body) { body.geo.dispose(); body.mat.dispose(); body.bmat.dispose(); if (body.tint) { body.tint.mesh.geometry.dispose(); body.tint.mat.dispose(); } }
   items = []; body = null; DL = null; group = null;
 }
