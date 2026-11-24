@@ -215,7 +215,6 @@ function clipped(mat) {
 let group = null, DL = null, kk = 1, st = null, body = null, items = [];
 let morphT = 99, closeT = -1, ca = 0;
 let tintRv = 0;                                   // a projekt színe a testben: a pill hover-képének kinyílása (megmarad átméretezéskor)
-const TINT = 0.24;                                // a kinőtt testben ennyire halvány a pill színe (a toronybeli hover 1)
 
 export function drumStart() { morphT = 0; closeT = -1; ca = 0; outroT = 0; }       // nyitás: a pill kinyúlik
 export function drumSkipIntro() { morphT = 99; }                         // újraépítéskor (átméretezés, csúszka) nincs újra kinyúlás
@@ -427,7 +426,7 @@ export function updateDrum(dt, s, closing) {
     const goal = closing ? 0 : 1.3;                // 1,3: a kinyílás a test sarkáig ér
     tintRv += (goal - tintRv) * (1 - Math.exp(-(closing ? 3.2 : 2.4) * dt));
     t.u.uReveal.value = tintRv; t.u.uTime.value += dt;
-    t.u.uDim.value = 0.9 * lerp(1, TINT, grow);
+    t.u.uDim.value = 0.9 * lerp(1, S.pjTint / 100, grow);   // a kinőtt testben ennyire halvány (Glass panel „Pill színe”, alap 24%)
     t.u.uFlat.value = ease(clamp(grow * 1.25, 0, 1));   // kinyitva a kép már nem látszik, csak a projekt színe (Patrik)
   }
   // a tartalom a pályán: középen sík, a széleken felénk hajlik
