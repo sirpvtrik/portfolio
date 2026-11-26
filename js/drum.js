@@ -34,7 +34,7 @@ function wrap(g, text, maxW) {
 
 /* ---------- Elrendezés (px; y: lefelé, a tartalom tetejétől; yc: az elem közepe, s = yc-nél áll a képernyő közepén) ---------- */
 export function drumLayout(o) {
-  const { vw, vh, k, name, cat, intro, cover, gallery } = o, full = o.full || [];
+  const { vw, vh, k, name, cat, intro, cover, gallery } = o, full = o.full || [], after = o.after || [];
   const mob = vw <= 720, f = mob ? 1 : Math.min(vw / 1440, vh / 1024);           // a Figma-keret (1440 × 1024) arányában
   // cím (Figma: Nohemi Medium 40 / −2%, alatta 15 px-re Regular 20, 70%-os fehér) és leírás (Regular 16 / 24, középre)
   const t = { size: mob ? 30 : Math.max(26, 40 * f), csize: mob ? 16 : Math.max(14, 20 * f), gap: mob ? 12 : Math.max(10, 15 * f) };
@@ -63,7 +63,15 @@ export function drumLayout(o) {
   let y = dY + dH / 2 + G;                                                         // a következő elem teteje
   const add = (it, h) => { it.yc = y + h / 2; items.push(it); y += h; };
   if (cover) { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: cover, radius }, cvH); y += G; }
-  full.forEach(src => { add({ kind: 'img', w: cvW, h: cvH, x: 0, src: srcOf(src), radius }, cvH); y += G; });
+  // nagy kép (detail.full / detail.after): a borító szélességében; aspect esetén a saját arányában (a borító arányára vágva
+  // a széléhez közeli szöveg levágódna, pl. a Kurwa catalog képén); { src, video, loop }: videó (pl. GIF-ből), loop: ismétlődik
+  const big = g => {
+    const a = g && g.aspect;
+    let w = cvW, h = a ? cvW / a : cvH;
+    if (h > vh * 0.7) { h = vh * 0.7; w = a ? h * a : cvW * h / cvH; }
+    add({ kind: 'img', w, h, x: 0, src: srcOf(g), video: g && g.video, loop: !!(g && g.loop), radius }, h);
+  };
+  full.forEach(g => { big(g); y += G; });
   // a fajta neve a kép alatt, balra igazítva (Patrik: a név a projekt lényege, mindig látsszon; kicsi, 70%-os fehér, a kép
   // fölé vitt kurzorra kivilágosodik); a képpel együtt gördül és hajlik
   const named = gallery.some(g => g && g.name);
@@ -103,6 +111,7 @@ export function drumLayout(o) {
     }
   });
   if (rows) y = rowTop[rows - 1] + rowCh(rows - 1) + (named ? nGap + nH : 0);
+  after.forEach(g => { y += G; big(g); });                                      // képek a galéria után (detail.after)
   const lastBottom = y;
   // KIVEZETÉS (Patrik, Figma: Desktop – 18): a galéria után továbbgörgetve „elhagyjuk a pillt”: az üvegtest felfelé
   // kigördül a képből (sExit-től a görgetéssel együtt megy), alatta a nagy szöveg jön fel szavanként széthúzva, és
@@ -245,7 +254,7 @@ function makeItem(it, k) {
   if (it.video) {
     // videó: a kerekített sarkokat alfa-maszk adja, a belső ragyogás egy átlátszó réteg fölötte
     const v = document.createElement('video');
-    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.loop = false;
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.loop = !!it.loop;     // loop: GIF-szerű, ismétlődő videó
     v.setAttribute('muted', ''); v.setAttribute('playsinline', '');
     v.src = it.video;
     // a DOM-ban (láthatatlanul) tartjuk: a leválasztott videót némely böngésző nem játssza le, vagy nem ad új kockát
