@@ -10,18 +10,16 @@ export const PROJECTS = [
   { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '', image: 'assets/projects/kurwa/cover.webp', focus: [0.5, 0.55],
     palette: [[0.84, 0.84, 0.88], [0.62, 0.62, 0.67], [0.47, 0.47, 0.52]],   // ezüst flitter (a kép fekete-fehér)
     detail: {   // a szövegek még a DETAIL_TEST-ből jönnek (Patriktól kell a Kurwa saját szövege)
-      // nagy képek a borító után (Patrik sorrendje: catalog, БЖЕТ), a saját 16:9-es arányukban (a borító arányára vágva a
-      // catalog képen levágódna a jobb szélső szöveg)
+      // nagy képek a borító után, a javasolt (Patrik által elfogadott) sorrendben: mi ez (ábécé) → hogyan olvasható
+      // (pangram) → mire képes (БЖЕТ plakát, catalog hangulat, bolygók) → hol működik (app-képernyők a galériában, a végén,
+      // utána jön a kivezetés). A saját 16:9-es arányukban (a borító arányára vágva a catalog jobb szélső szövege levágódna).
+      // A bolygók: Patrik EARTH.gif-je ismétlődő MP4-ként (a poszter az első kockája).
       full: [
-        { src: 'assets/projects/kurwa/catalog.webp', aspect: 1400 / 788 },
-        { src: 'assets/projects/kurwa/bzet.webp', aspect: 1400 / 788 },
-      ],
-      // a galéria (a mobil képernyők) után: a bolygók (Patrik EARTH.gif-je, ismétlődő MP4-ként; a poszter az első kockája),
-      // a legvégén az ábécé (Patrik: „abc a végére kerül”)
-      after: [
-        { src: 'assets/projects/kurwa/pangram.webp', aspect: 1400 / 788 },   // „My soul feels weightless…” (Patrik: a GIF elé)
-        { src: 'assets/projects/kurwa/mercury.webp', video: 'assets/projects/kurwa/planets.mp4', loop: true, aspect: 1400 / 788 },
         { src: 'assets/projects/kurwa/abc.webp', aspect: 1400 / 788 },
+        { src: 'assets/projects/kurwa/pangram.webp', aspect: 1400 / 788 },
+        { src: 'assets/projects/kurwa/bzet.webp', aspect: 1400 / 788 },
+        { src: 'assets/projects/kurwa/catalog.webp', aspect: 1400 / 788 },
+        { src: 'assets/projects/kurwa/mercury.webp', video: 'assets/projects/kurwa/planets.mp4', loop: true, aspect: 1400 / 788 },
       ],
       // a Kurwa app három képernyője (Patrik Figma Motion animációi, Figma: LxMYU0FhGSzmjmEcDGi6cu, „Frame 57 / 55 / 56 –
       // animáció”): telefon-arányú videók egy sorban, balról jobbra kicsit egymás után indulnak, és a végükön megállnak
