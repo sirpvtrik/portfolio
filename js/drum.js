@@ -89,7 +89,9 @@ export function drumLayout(o) {
     const x = -total / 2 + ws.slice(0, col).reduce((a, b) => a + b, 0) + col * gx + ws[col] / 2, yc = rowTop[r] + chR / 2;
     const asp = g && g.aspect, iw = ws[col];
     // a keskeny sor a fenti kép széléről nyílik befelé (Patrik): a szélső elemek a borító széléig vannak széthúzva
-    const sx = asp && !mob && x ? Math.max(0, (edgeW / 2 - iw / 2) / Math.abs(x) - 1) : spreadK;
+    // (a középső elem x-e kerekítés miatt nem pontosan 0: ott nincs széthúzás, különben osztáskor óriási érték jött ki,
+    // és rácsúszott a szomszédjára; Patrik képernyőképe)
+    const sx = asp && !mob ? (Math.abs(x) > iw * 0.25 ? Math.max(0, (edgeW / 2 - iw / 2) / Math.abs(x) - 1) : 0) : spreadK;
     const img = { kind: 'img', w: iw, h: chR, x, sx, src: srcOf(g), video: g && g.video, radius: asp && g.round ? iw * g.round : radius, yc,
       delay: mob ? 0 : (g && g.delay) || 0 };
     items.push(img);
