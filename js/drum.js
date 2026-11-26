@@ -126,18 +126,6 @@ function rrPath(g, x, y, w, h, r) {
   g.beginPath();
   if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h);
 }
-// belső fehér ragyogás (Figma: inset 0 0 blur spread): a kép körvonalán kívüli keret árnyéka esik befelé
-function insetGlow(g, x, y, w, h, r, blur, spread, color) {
-  g.save();
-  rrPath(g, x, y, w, h, r); g.clip();
-  g.shadowColor = color; g.shadowBlur = blur;
-  const m = blur * 3, sp = -spread;
-  g.beginPath();
-  g.rect(x - m, y - m, w + 2 * m, h + 2 * m);
-  if (g.roundRect) g.roundRect(x - sp, y - sp, w + 2 * sp, h + 2 * sp, r + sp); else g.rect(x - sp, y - sp, w + 2 * sp, h + 2 * sp);
-  g.fillStyle = '#000'; g.fill('evenodd');
-  g.restore();
-}
 function drawTitle(g, it, q) {
   const W = it.w * q, H = it.h * q, t = it.t;
   g.textAlign = 'center'; g.textBaseline = 'alphabetic';
@@ -181,7 +169,7 @@ function drawDesc(g, it, q, p = 1) {
     });
   });
 }
-// kép a Figma szerint: 20 px sarok, 95%, belső ragyogás (inset 0 0 35.9px −6px, 45% fehér)
+// kép a Figma szerint: 20 px sarok, 95% (a belső perem-ragyogás kikerült, Patrik)
 function imageDrawer(it, onLoad) {
   return (g, q) => {
     const W = it.w * q, H = it.h * q, r = it.radius * q;
@@ -191,7 +179,6 @@ function imageDrawer(it, onLoad) {
       g.save(); rrPath(g, 0, 0, W, H, r); g.clip(); g.globalAlpha = 0.95;
       g.drawImage(im, (W - iw) / 2, (H - ih) / 2, iw, ih);
       g.restore();
-      insetGlow(g, 0, 0, W, H, r, 35.9 * (it.radius / 20) * q, -6 * (it.radius / 20) * q, 'rgba(255,255,255,0.45)');
       onLoad();
     };
     im.src = it.src;
@@ -261,12 +248,9 @@ function makeItem(it, k) {
     const mg = mc.getContext('2d'); mg.fillStyle = '#000'; mg.fillRect(0, 0, mc.width, mc.height);
     mg.fillStyle = '#fff'; rrPath(mg, 0, 0, mc.width, mc.height, it.radius); mg.fill();
     const mt = texFromCanvas(mc);
-    const gc = document.createElement('canvas'); gc.width = Math.round(it.w * q); gc.height = Math.round(it.h * q);
-    insetGlow(gc.getContext('2d'), 0, 0, gc.width, gc.height, it.radius * q, 35.9 * (it.radius / 20) * q, -6 * (it.radius / 20) * q, 'rgba(255,255,255,0.45)');
-    const gt = texFromCanvas(gc);
+    // (a fehér belső perem-ragyogás kikerült: Patrik: „a képekről ezt a perem glow-ot vegyük le”)
     add(new THREE.MeshBasicMaterial({ map: vt, alphaMap: mt, transparent: true, depthWrite: false, color: new THREE.Color(0.95, 0.95, 0.95) }), 0, 1);
-    add(new THREE.MeshBasicMaterial({ map: gt, transparent: true, depthWrite: false }), 0.003, 2);
-    o.video = v; o.texs.push(vt, mt, gt);
+    o.video = v; o.texs.push(vt, mt);
   } else {
     const cv = document.createElement('canvas'); cv.width = Math.round(it.w * q); cv.height = Math.round(it.h * q);
     const tex = texFromCanvas(cv);

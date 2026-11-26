@@ -225,6 +225,9 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 /* Hero (js/hero.js): amíg látszik, a sarkok felülete és a fejléc logója rejtve; a fejléc logójára kattintva vissza a hero-ba */
 .hero-on .ui .row, .hero-on .ui .bottom, .hero-on .logo-top { opacity: 0 !important; visibility: hidden; transition: opacity .4s ease, visibility 0s linear .4s; }
 .logo-top { pointer-events: auto; cursor: none; }
+/* a projekt-oldalon a logó legfelső elem: sima fehér, keverés nélkül, finom sötét árnyékkal (Patrik: a „difference” miatt
+   a világos képek fölött sötétszürke lett, átsejlett rajta a megtört kép, és úgy hatott, mintha az üveg mögött lenne) */
+.project-open .logo-top { mix-blend-mode: normal; filter: drop-shadow(0 1px 6px rgba(0, 0, 0, 0.45)); }
 
 
 /* hero: nincs szövegkijelölés és hosszú-nyomás menü (a HOLD TO START nyomva tartásához) */
