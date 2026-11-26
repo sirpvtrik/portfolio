@@ -73,20 +73,24 @@ export function drumLayout(o) {
   // köz legfeljebb 64 px (Figma-méretben), de csak annyi, hogy a szélső kép ne lógjon ki a testből
   const spreadK = Math.max(0, Math.min(64 * f, vw / 2 - 24 - (cols * cw + (cols - 1) * gx) / 2)) / (cw + gx);
   const rows = Math.ceil(gallery.length / cols);
+  // saját képarány (aspect = szélesség / magasság, pl. telefonképernyő-videó): a sor magasságában, keskenyebben; a sor a
+  // tényleges szélességekből áll össze, a megszokott közzel (Patrik: a Kurwa képernyői között túl nagy volt a köz, nem úgy,
+  // mint az Oldalra fújva képeinél); round: a sarokív a szélesség arányában (a telefon lekerekített sarka, az MP4 sarka fekete)
+  const wOf = g => (g && g.aspect ? Math.min(cw, ch * g.aspect) : cw);
   gallery.forEach((g, j) => {
     const r = Math.floor(j / cols), col = j % cols, inRow = Math.min(cols, gallery.length - r * cols);
-    const x = (col - (inRow - 1) / 2) * (cw + gx), yc = y + r * (rowH + Gr) + ch / 2;
-    // saját képarány (aspect = szélesség / magasság, pl. telefonképernyő-videó): a sor magasságában, keskenyebben, a
-    // saját oszlopa közepén; round: a sarokív a szélesség arányában (a telefon lekerekített sarka, az MP4 sarka fekete)
-    const asp = g && g.aspect, iw = asp ? Math.min(cw, ch * asp) : cw;
+    const row = gallery.slice(r * cols, r * cols + inRow), ws = row.map(wOf);
+    const total = ws.reduce((a, b) => a + b, 0) + (inRow - 1) * gx;
+    const x = -total / 2 + ws.slice(0, col).reduce((a, b) => a + b, 0) + col * gx + ws[col] / 2, yc = y + r * (rowH + Gr) + ch / 2;
+    const asp = g && g.aspect, iw = ws[col];
     const img = { kind: 'img', w: iw, h: ch, x, sx: spreadK, src: srcOf(g), video: g && g.video, radius: asp && g.round ? iw * g.round : radius, yc,
       delay: mob ? 0 : (g && g.delay) || 0 };
     items.push(img);
     if (g && g.name) {
       measure.font = `400 ${ns}px ${FONT}`;
-      const text = g.name.toUpperCase(), w = Math.min(cw, measure.measureText(text).width * 1.12 + 8);
+      const text = g.name.toUpperCase(), w = Math.min(iw, measure.measureText(text).width * 1.12 + 8);
       // telefonon középre: a kép bal szélénél az üvegtest lencséje torzítaná az első betűt
-      items.push({ kind: 'label', text, size: ns, w, h: nH, x: mob ? x : x - cw / 2 + w / 2, center: mob, of: img, yc: yc + ch / 2 + nGap + nH / 2 });
+      items.push({ kind: 'label', text, size: ns, w, h: nH, x: mob ? x : x - iw / 2 + w / 2, center: mob, of: img, yc: yc + ch / 2 + nGap + nH / 2 });
     }
   });
   if (rows) y += rows * rowH + (rows - 1) * Gr;
