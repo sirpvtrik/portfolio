@@ -8,7 +8,16 @@ export const PROJECTS = [
   { id: 'P01', name: 'Water',           cat: 'Font',  meta: '', image: 'assets/projects/water/cover.webp', focus: [0.52, 0.5],
     palette: [[0.74, 0.76, 0.79], [0.56, 0.58, 0.61], [0.42, 0.43, 0.46]] },   // szürkés alufólia (Patrik)
   { id: 'P02', name: 'Kurwa',           cat: 'Font',  meta: '', image: 'assets/projects/kurwa/cover.webp', focus: [0.5, 0.55],
-    palette: [[0.84, 0.84, 0.88], [0.62, 0.62, 0.67], [0.47, 0.47, 0.52]] },   // ezüst flitter (a kép fekete-fehér)
+    palette: [[0.84, 0.84, 0.88], [0.62, 0.62, 0.67], [0.47, 0.47, 0.52]],   // ezüst flitter (a kép fekete-fehér)
+    detail: {   // a szövegek még a DETAIL_TEST-ből jönnek (Patriktól kell a Kurwa saját szövege)
+      // a Kurwa app három képernyője (Patrik Figma Motion animációi, Figma: LxMYU0FhGSzmjmEcDGi6cu, „Frame 57 / 55 / 56 –
+      // animáció”): telefon-arányú videók egy sorban, balról jobbra kicsit egymás után indulnak, és a végükön megállnak
+      gallery: [
+        { src: 'assets/projects/kurwa/app-1.webp', video: 'assets/projects/kurwa/app-1.mp4', aspect: 692 / 1502, round: 90 / 692, delay: 0 },
+        { src: 'assets/projects/kurwa/app-2.webp', video: 'assets/projects/kurwa/app-2.mp4', aspect: 694 / 1502, round: 90 / 694, delay: 0.35 },
+        { src: 'assets/projects/kurwa/app-3.webp', video: 'assets/projects/kurwa/app-3.mp4', aspect: 694 / 1502, round: 90 / 694, delay: 0.7 },
+      ],
+    } },
   { id: 'P03', name: 'Oldalra fújva',   cat: 'Print', meta: 'Zöldkönyv', image: 'assets/projects/oldalra-fujva/cover.webp', focus: [0.5, 0.52], color: [0.24, 0.92, 0.5],
     detail: {   // a projekt-aloldal saját szövege (a többi mező a DETAIL_TEST-ből jön)
       label: 'Zsebkönyv · Illusztráció',

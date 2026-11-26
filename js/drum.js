@@ -76,7 +76,11 @@ export function drumLayout(o) {
   gallery.forEach((g, j) => {
     const r = Math.floor(j / cols), col = j % cols, inRow = Math.min(cols, gallery.length - r * cols);
     const x = (col - (inRow - 1) / 2) * (cw + gx), yc = y + r * (rowH + Gr) + ch / 2;
-    const img = { kind: 'img', w: cw, h: ch, x, sx: spreadK, src: srcOf(g), video: g && g.video, radius, yc };
+    // saját képarány (aspect = szélesség / magasság, pl. telefonképernyő-videó): a sor magasságában, keskenyebben, a
+    // saját oszlopa közepén; round: a sarokív a szélesség arányában (a telefon lekerekített sarka, az MP4 sarka fekete)
+    const asp = g && g.aspect, iw = asp ? Math.min(cw, ch * asp) : cw;
+    const img = { kind: 'img', w: iw, h: ch, x, sx: spreadK, src: srcOf(g), video: g && g.video, radius: asp && g.round ? iw * g.round : radius, yc,
+      delay: mob ? 0 : (g && g.delay) || 0 };
     items.push(img);
     if (g && g.name) {
       measure.font = `400 ${ns}px ${FONT}`;
@@ -485,7 +489,9 @@ export function updateDrum(dt, s, closing) {
     if (o.video) {                                   // a közepéhez ért → egyszer lejátszódik; ha messze elment, vissza az elejére
       const v = o.video, here = Math.abs(u) < vh * 0.22;
       const now = performance.now();
-      if (here && !o.played && !closing && now > (o.retryAt || 0)) {
+      // delay: egy sorban egymás után indulnak (pl. a Kurwa három képernyője balról jobbra)
+      if (!here) o.hereAt = 0; else if (!o.hereAt) o.hereAt = now;
+      if (here && !o.played && !closing && now > (o.retryAt || 0) && now - o.hereAt >= (it.delay || 0) * 1000) {
         o.played = true; try { v.currentTime = 0; } catch (_) {}
         const pr = v.play();
         if (pr && pr.catch) pr.catch(() => { o.played = false; o.retryAt = performance.now() + 400; });   // nem indult: kicsit később újra
