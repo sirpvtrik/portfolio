@@ -19,6 +19,7 @@ export const PROJECTS = [
       // a galéria (a mobil képernyők) után: a bolygók (Patrik EARTH.gif-je, ismétlődő MP4-ként; a poszter az első kockája),
       // a legvégén az ábécé (Patrik: „abc a végére kerül”)
       after: [
+        { src: 'assets/projects/kurwa/pangram.webp', aspect: 1400 / 788 },   // „My soul feels weightless…” (Patrik: a GIF elé)
         { src: 'assets/projects/kurwa/mercury.webp', video: 'assets/projects/kurwa/planets.mp4', loop: true, aspect: 1400 / 788 },
         { src: 'assets/projects/kurwa/abc.webp', aspect: 1400 / 788 },
       ],
