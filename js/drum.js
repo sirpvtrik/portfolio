@@ -503,7 +503,9 @@ export function updateDrum(dt, s, closing) {
         if (pr && pr.catch) pr.catch(() => { o.played = false; o.retryAt = performance.now() + 400; });   // nem indult: kicsit később újra
       }
       if (o.played && Math.abs(u) > vh * 1.1) { o.played = false; v.pause(); try { v.currentTime = 0; } catch (_) {} }
-      if (!v.paused) o.texs[0].needsUpdate = true;
+      // (nem frissítjük kockánként: a three.js VideoTexture-je csak akkor tölt fel, ha a videó tényleg új képkockát adott
+      // — requestVideoFrameCallback —; a korábbi minden-kockás needsUpdate miatt három videó egyszerre ~560 MB/s feltöltést
+      // jelentett, és gyengébb laptopon akadt; Patrik)
     }
   });
 }
