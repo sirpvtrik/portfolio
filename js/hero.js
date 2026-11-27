@@ -247,8 +247,9 @@ if (I) {
 
 // a fény célpontja (CSS-pixel): söprés a nagy szövegen, utána a kurzor, nyugalomban a nagy szöveg közepe
 let idle = false, idleAng = 0, dtNow = 0, grow = 0;
-let holding = false, hold = 0, lastReal = 0;                     // HOLD TO START: nyomva tartás (0 → 1 = 2,5 s)
-const HOLD_S = 2.5;
+let holding = false, hold = 0, lastReal = 0;                     // HOLD TO START: nyomva tartás (0 → 1 = HOLD_S)
+// 1,6 s (Patrik: a tesztelők egy része nem értette, hogy nyomva kell tartani; a korábbi 2,5 s sok volt)
+const HOLD_S = 1.6;
 function target(L) {
   const m = layout.main;
   const rest = { x: (m.x0 + m.x1) / 2, y: m.y };
@@ -301,7 +302,11 @@ export function updateHero(dt) {
   // egy pillanatra újra kinyúlt, és 0,25 s-nál a nullázásakor teljes hosszban felvillant (Patrik: „utána még villan egyet”)
   if (state === 'in') hold = holding ? Math.min(1, hold + rdt / HOLD_S) : Math.max(0, hold - rdt * 2 / HOLD_S);
   if (state === 'in' && hold >= 1) { state = 'out'; outT = 0; holding = false; on = 0; }   // betelt: a fény azonnal kialszik
-  const pull = hold * hold * (3 - 2 * hold);                  // a nyaláb visszahúzódása a logóba
+  // a nyaláb megmaradó hossza (1 → 0): lenyomásra rögtön láthatóan visszarándul (~15% az első 0,1 s-ban), utána egyenletesen
+  // húzódik a logóba. Korábban lassan indult (smoothstep): az első fél másodpercben alig rövidült, és aki megnyomta, nem
+  // látott reakciót, elengedte (Patrik: „nem volt elég egyértelmű”)
+  const keep = Math.pow(1 - hold, 1.25) * (0.82 + 0.18 * Math.exp(-10 * hold));
+  const pull = hold;
   const gE = grow * grow * (3 - 2 * grow);
   on = damp(on, tgtOn * (state === 'in' || state === 'back' ? gE : 1), tgtOn > on ? 6 : (state === 'out' || state === 'off' ? 14 : 4), dt);
   if (state === 'out' && outT > 0.3) on = 0;                    // mire a logó elindul a fejlécbe, a fény már nem ég
@@ -327,7 +332,7 @@ export function updateHero(dt) {
   const far = Math.hypot(innerWidth, innerHeight) * sc;
   // a vége a logóig rövidül (nem áll meg egy kör körülötte: az kerek foltként világított, Patrik képernyőképe), és az utolsó
   // negyedben el is halványul, így a logóba tűnik el
-  HU.uCut.value = pull > 0.001 ? far * Math.pow(1 - pull, 1.6) : 1e5;
+  HU.uCut.value = hold > 0.001 ? far * keep : 1e5;
   HU.uOn.value = on * (1 - Math.min(1, Math.max(0, (pull - 0.7) / 0.3)));
   HU.uBoxC.value.set(L.x * sc, bufSize.y - L.cy * sc);
   HU.uMaskC.value.set(innerWidth / 2 * sc, bufSize.y - innerHeight / 2 * sc);
