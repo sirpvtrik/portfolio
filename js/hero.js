@@ -226,7 +226,7 @@ if (I) {
   const logoTop = document.getElementById('logoTop');
   logoTop.addEventListener('click', () => {
     if (!(state === 'off' || (state === 'out' && !I.heroOn)) || mode !== 'tower' || !I.hero) return;
-    I.heroBack(); state = 'back'; t = 0; sweep = false; awayT = 1; clearLit();   // a hullámok egészben süllyednek le (front = 2)
+    I.heroBack(); state = 'back'; t = 0; sweep = false; awayT = 1; hold = 0; clearLit();   // a töltés csak visszatéréskor nullázódik   // a hullámok egészben süllyednek le (front = 2)
   });
   // a Glass panel kapcsolója (localStorage: a következő betöltéskor is így marad)
   const chkG = document.getElementById('c-heroglass');
@@ -286,7 +286,7 @@ export function updateHero(dt) {
     outT += dt;
     angT = Math.PI / 2;                                          // a fény lefelé fordul, a pillek felé
     tgtOn = 0; tgtA = 0;                                         // kattintásra a fény rögtön kialszik (Patrik: a logóval együtt fent maradt)
-    if (outT > 0.25 && I.heroOn) { I.heroOut(); awayT = 0; markLit(); hold = 0; }
+    if (outT > 0.25 && I.heroOn) { I.heroOut(); awayT = 0; markLit(); }   // a töltés itt nem nullázódik (lásd lent)
     if (outT > 1.4) state = 'off';
   } else if (state === 'off') { tgtOn = 0; tgtA = 0; }
   // szög: lágyan követ (a legrövidebb úton)
@@ -297,8 +297,10 @@ export function updateHero(dt) {
   if (state === 'in' || state === 'back') { grow = Math.min(1, grow + dt / 2.5); } else if (state === 'off') grow = 0;
   // nyomva tartás: a töltés nő, elengedve kétszer olyan gyorsan visszafut; ha betelt, kilépés
   const rt = now(), rdt = Math.min(0.25, rt - (lastReal || rt)); lastReal = rt;   // valós idő: minden gépen pontosan 2,5 s
-  hold = state === 'in' && holding ? Math.min(1, hold + rdt / HOLD_S) : Math.max(0, hold - rdt * 2 / HOLD_S);
-  if (state === 'in' && hold >= 1) { state = 'out'; outT = 0; holding = false; }
+  // csak a hero alatt változik: kilépéskor betelve marad (a nyaláb a logóban marad), különben visszafutott, a nyaláb
+  // egy pillanatra újra kinyúlt, és 0,25 s-nál a nullázásakor teljes hosszban felvillant (Patrik: „utána még villan egyet”)
+  if (state === 'in') hold = holding ? Math.min(1, hold + rdt / HOLD_S) : Math.max(0, hold - rdt * 2 / HOLD_S);
+  if (state === 'in' && hold >= 1) { state = 'out'; outT = 0; holding = false; on = 0; }   // betelt: a fény azonnal kialszik
   const pull = hold * hold * (3 - 2 * hold);                  // a nyaláb visszahúzódása a logóba
   const gE = grow * grow * (3 - 2 * grow);
   on = damp(on, tgtOn * (state === 'in' || state === 'back' ? gE : 1), tgtOn > on ? 6 : (state === 'out' || state === 'off' ? 14 : 4), dt);
