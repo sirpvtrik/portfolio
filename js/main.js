@@ -11,6 +11,7 @@ import { updateCursor } from './cursor.js';
 import { ctUpdate } from './contact.js';
 import { backUpdate, touchUpdate, iconsUpdate } from './backglass.js';
 import { updateHero } from './hero.js';
+import './perf.js';                                  // ?perf: teljesítmény-mérő (FPS, felbontás, szóló videók)
 
 startLoop(dt => {
   updatePills(dt);           // hover, görgetés, pillek

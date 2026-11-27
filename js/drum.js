@@ -263,6 +263,11 @@ function makeItem(it, k) {
     document.body.appendChild(v);
     const vt = new THREE.VideoTexture(v);
     vt.minFilter = THREE.LinearFilter; vt.magFilter = THREE.LinearFilter;
+    // feltöltéskor ne kelljen a böngészőnek fejjel lefelé fordítania a kockát (flipY): a sík UV-ját fordítjuk meg helyette,
+    // így több böngészőben a gyors, GPU-n belüli másolás marad (gyengébb gépen akadt a lejátszás; a minőség nem változik).
+    // Az alfa-maszk lekerekített téglalapja függőlegesen szimmetrikus, neki mindegy.
+    vt.flipY = false;
+    { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i)); uv.needsUpdate = true; }
     const refresh = () => { vt.needsUpdate = true; };
     v.addEventListener('loadeddata', refresh); v.addEventListener('seeked', refresh);
     v.load();
