@@ -46,16 +46,16 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 /* a kiválasztott pill nevét a pill maga mutatja: a .caption csak képernyőolvasónak szól (sr-only) */
 .br { grid-column: 3; justify-self: end; display: flex; align-items: flex-end; gap: 14px; position: relative; }   /* jobb alul: súgó + Glass gomb */
 .hint { text-align: right; }
-/* HU / EN váltó (Figma: Desktop – 20): 60 px-es üvegkör, benne 50 px-es fehér korong az aktív nyelvvel; hoverre balra
-   nyúlik (az üveget a lejátszó shadere rajzolja, a szélességét a js/langswitch.js állítja, így a Glass gomb is arrébb megy) */
+/* HU / EN váltó (Figma: Desktop – 20): csukva 60 px-es üvegkör az aktív nyelvvel; hoverre balra leválik egy második kör
+   (a kettő homorú nyakkal összeolvad), és az aktív nyelvre 50 px-es fehér korong kerül. Az üveget a lejátszó shadere
+   rajzolja; a helyeket és a szélességet a js/langswitch.js állítja (a szélesség miatt a Glass gomb is arrébb megy). */
 .lg { position: relative; flex: none; width: 60px; height: 60px; pointer-events: auto; text-transform: none; letter-spacing: 0; }
-.lg-b { position: absolute; top: 5px; width: 50px; height: 50px; padding: 0; border: 0; border-radius: 50%; background: none;
-  font: 400 16px/1 'Nohemi', var(--display); color: #f2f2f2; display: grid; place-items: center; cursor: none; }
+.lg > * { position: absolute; top: 5px; left: 0; width: 50px; height: 50px; box-sizing: border-box; border-radius: 50%; }
+.lg-knob { pointer-events: none; background: #dcdcde; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); opacity: 0; }
+.lg-t { pointer-events: none; display: grid; place-items: center; padding-top: 2px;   /* a Nohemi nagybetűi optikailag középre */
+  font: 400 16px/1 'Nohemi', var(--display); color: #f2f2f2; }
+.lg-b { padding: 0; border: 0; background: none; cursor: none; }
 .lg-b:focus-visible { outline: 1px solid var(--fg); outline-offset: 2px; }
-.lg-knob { position: absolute; top: 5px; left: 0; width: 50px; height: 50px; border-radius: 50%; pointer-events: none;
-  background: #dcdcde; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); color: #010101;
-  font: 400 16px/1 'Nohemi', var(--display); display: grid; place-items: center; }
-.lg-b, .lg-knob { padding-top: 2px; }   /* a Nohemi nagybetűi optikailag középre */
 
 .btn {
   pointer-events: auto;
@@ -69,11 +69,12 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .btn:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
 .btn svg { width: 14px; height: 14px; fill: currentColor; }
 .btn.square { border-radius: 14px; width: 44px; height: 36px; }
+#panelBtn { display: none; }   /* a Glass panel Ctrl+X-re nyílik (js/panel.js; Patrik: a gomb ne zavarjon a sarokban) */
 .btn.square svg { fill: none; stroke: currentColor; stroke-width: 1.4; width: 16px; height: 16px; }
 
 .panel {
   pointer-events: auto;
-  position: absolute; bottom: 72px; right: 0;                      /* a jobb alsó sor (Glass gomb, nyelvváltó) fölé, felfelé nyílik */
+  position: absolute; bottom: 72px; right: 0;                      /* a jobb alsó sor (nyelvváltó) fölé, felfelé nyílik; Ctrl+X */
   width: min(290px, calc(100vw - 48px));
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);

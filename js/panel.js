@@ -55,7 +55,19 @@ panelBtn.addEventListener('click', () => {
   const open = panel.hidden;
   panel.hidden = !open; panelBtn.setAttribute('aria-expanded', String(open));
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; panelBtn.setAttribute('aria-expanded', 'false'); panelBtn.focus(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { panel.hidden = true; panelBtn.setAttribute('aria-expanded', 'false'); } });
+// a gomb rejtve van (Patrik: „ne zavarjon ott”): a panel Ctrl+X-re nyílik / csukódik. Szövegmezőben vagy kijelölt
+// szövegnél nem nyúlunk hozzá, ott maradjon a kivágás.
+document.addEventListener('keydown', e => {
+  if (!e.ctrlKey || e.altKey || e.metaKey || (e.key !== 'x' && e.key !== 'X' && e.code !== 'KeyX')) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || (t.tagName === 'INPUT' && !/^(range|checkbox|button)$/.test(t.type)) || t.tagName === 'TEXTAREA')) return;
+  const sel = window.getSelection && window.getSelection();
+  if (sel && String(sel).length) return;
+  e.preventDefault();
+  const open = panel.hidden;
+  panel.hidden = !open; panelBtn.setAttribute('aria-expanded', String(open));
+});
 // a színpadra kattintás becsukja a panelt
 canvas.addEventListener('pointerdown', () => {
   if (!panel.hidden) { panel.hidden = true; panelBtn.setAttribute('aria-expanded', 'false'); }

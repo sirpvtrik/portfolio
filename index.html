@@ -131,12 +131,14 @@
           <div class="ctl"><label for="c-bpm">BPM-szinkron</label><input type="checkbox" id="c-bpm"><output id="bpmOut">92 BPM</output></div>
         </div>
       </div>
-      <!-- HU / EN váltó (Patrik, Figma: Desktop – 20, node 279-391): csukva üvegkör, benne fehér korongon az aktív nyelv;
-           hoverre balra nyúlik, és előjön a másik (js/langswitch.js) -->
+      <!-- HU / EN váltó (Patrik, Figma: Desktop – 20, node 279-391): csukva üvegkör az aktív nyelvvel; hoverre balra
+           leválik egy második kör a másik nyelvvel, és az aktívra fehér korong kerül (js/langswitch.js) -->
       <div class="lg" id="lg" role="group" aria-label="Nyelv / Language">
-        <span class="lg-knob" id="lgKnob" aria-hidden="true"><span id="lgKnobT">HU</span></span>
-        <button class="lg-b" type="button" data-l="en" lang="en" aria-pressed="false">EN</button>
-        <button class="lg-b" type="button" data-l="hu" lang="hu" aria-pressed="false">HU</button>
+        <span class="lg-knob" id="lgKnob" aria-hidden="true"></span>
+        <span class="lg-t" id="lgFront" aria-hidden="true">HU</span>
+        <span class="lg-t" id="lgOther" aria-hidden="true">EN</span>
+        <button class="lg-b" type="button" data-l="en" lang="en" aria-label="English" aria-pressed="false"></button>
+        <button class="lg-b" type="button" data-l="hu" lang="hu" aria-label="Magyar" aria-pressed="false"></button>
       </div>
     </div>
   </div>
