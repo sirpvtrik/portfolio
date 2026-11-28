@@ -110,13 +110,21 @@ white.frustumCulled = false; white.renderOrder = 5;
 scene.add(onLayer(white, LAYER_PL));
 
 // a két kör összeolvadása: közel egymáshoz kis lágyítás (különben a csukott kör felfúvódna), nyitva a Figma homorú nyaka
-const kOf = s => Math.max(1, 42 * sst(8, SEP, s));
+// A lágyítás a távolságból: a nyak fél-magassága (yn) a csukott kör sugarától (30) egyenletesen, folytonosan szűkül a
+// Figma végső nyakáig (~14,6 px, k ≈ 41); a k ebből visszaszámolva (a polinomos smin a felezővonalon k/4-gyel tölt).
+// Korábban a k nem illeszkedett a távolsághoz: közepes távolságnál a két kör találkozásánál éles gyűrődés lett,
+// ez szakadásnak látszott (Patrik: „meg is szakad a köztes rész”).
+const kOf = s => {
+  const x = Math.max(0, s), yn = 30 - 15.4 * Math.pow(x / SEP, 2);
+  return Math.max(0.5, 4 * (Math.sqrt(Math.max(0, yn) ** 2 + (x / 2) ** 2) - 30));
+};
 const mixC = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 const LIGHT = [242, 242, 242], DARK = [1, 1, 1];
 
 export function lgUpdate(dt) {
   // rugók: a bal kör csepp-szerűen kicsit túllendül; a fehér folyadék lassabban, lágyan folyik át
-  const K = reduced ? 900 : 240, Dm = reduced ? 60 : 17, KF = reduced ? 900 : 90, DF = reduced ? 60 : 15;
+  // a szétnyílás közel kritikusan csillapított (Patrik: túlságosan rugózott; folyjon szét, ne pattanjon)
+  const K = reduced ? 900 : 130, Dm = reduced ? 60 : 21, KF = reduced ? 900 : 90, DF = reduced ? 60 : 15;
   const steps = Math.max(1, Math.ceil(dt / (1 / 120))), h = dt / steps;
   const ts = target ? SEP : 0, tf = lang() === 'en' ? 1 : 0;
   for (let n = 0; n < steps; n++) {
@@ -162,7 +170,7 @@ export function lgUpdate(dt) {
   const alpha = vis ? uiIn() : 0;                                        // belépéskor a felülettel együtt jelenik meg
   cu.uAlpha.value = alpha;
   quad.visible = alpha > 0.003;
-  cu.uRimGlow.value = open; cu.uClear.value = 1 - 0.32 * open;          // nyitva: derengő perem, enyhe sötétítés (mint a lejátszón)
+  cu.uRimGlow.value = open; cu.uClear.value = 1 - 0.32 * open;          // nyitva: derengő perem (mint a többi gombon), enyhe sötétítés
 
   // a fehér folyadék
   const cy = Y + H / 2;

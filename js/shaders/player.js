@@ -40,8 +40,9 @@ export const playerFS = /* glsl */`
     vec2 p = gl_FragCoord.xy;
     if (p.x < uBox.x || p.y < uBox.y || p.x > uBox.z || p.y > uBox.w) discard;
     float d = scene(p);
-    // hover / nyitva: halvány külső ragyogás, pontosan mint a GET IN TOUCH gombé (CSS: 0 0 32px 2px, 20% fehér)
-    float og = 0.2 * 0.5 * exp(-0.5 * pow(max(d - 2.0 * uScale, 0.0) / (16.0 * uScale), 2.0)) * uRimGlow;
+    // hover / nyitva: halvány külső ragyogás (minden gombon egyforma). Eredetileg a GET IN TOUCH CSS-e (0 0 32px 2px, 20% fehér)
+    // szerint; Patrik: „vegyük lentébb, legyen picit szebb”: a felére véve
+    float og = 0.2 * 0.25 * exp(-0.5 * pow(max(d - 2.0 * uScale, 0.0) / (16.0 * uScale), 2.0)) * uRimGlow;
     if (d > 1.5) {
       if (og * uAlpha < 0.002) discard;
       gl_FragColor = vec4(1.0, 1.0, 1.0, og * uAlpha);
@@ -93,7 +94,9 @@ export const playerFS = /* glsl */`
     if (uRimGlow > 0.001) {
       // belső derengés pontosan a GET IN TOUCH gombé szerint (CSS: inset 0 0 14px −2px, 40% fehér): a peremen ~16%,
       // ~3,5 px-en ~6%, ~11 px-en ~1–2%
-      float gl = 0.2 * o1 + 0.12 * o2;
+      // Patrik: lentebb, szebben: a széles (11 px-es) köd erősebben csökkent, a perem melletti vékony fény kevésbé, így
+      // finomabb, üvegesebb él marad (előtte 0,2 / 0,12)
+      float gl = 0.11 * o1 + 0.035 * o2;
       col += vec3(gl * uRimGlow);
     }
     col = mix(vec3(1.0), col, alpha);                                // az élsimítás sávjában a külső ragyogásba fut
