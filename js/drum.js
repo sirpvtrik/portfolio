@@ -11,6 +11,7 @@
 import { PW, PH, S } from './config.js';
 import { onLayer, LAYER_BG, LAYER_GLASS, U, camera, renderer } from './scene.js';
 import { cursorHead } from './cursor.js';
+import { tr } from './lang.js';
 import { glassVS, glassFS, glassBackFS } from './shaders/glass.js';
 import { pillImageVS, pillImageFS } from './shaders/pillimage.js';
 import { stadium, glassSlab, faceZ } from './glassgeo.js';
@@ -66,6 +67,13 @@ export function drumLayout(o) {
   // nagy kép (detail.full / detail.after): a borító szélességében; aspect esetén a saját arányában (a borító arányára vágva
   // a széléhez közeli szöveg levágódna, pl. a Kurwa catalog képén); { src, video, loop }: videó (pl. GIF-ből), loop: ismétlődik
   const big = g => {
+    // szöveg-blokk a képek között ({ text: { hu, en } }): a leíráshoz hasonlóan, széthúzva úszik be, és összeáll
+    if (g && g.text) {
+      measure.font = `400 ${ds}px ${FONT}`;
+      const ls = wrap(measure, tr(g.text) || '', dW), h = Math.max(1, ls.length) * dl + ds * 0.6;
+      add({ kind: 'desc', w: sW, dW, h, x: 0, lines: ls, ds, dl, spread: true }, h);
+      return;
+    }
     const a = g && g.aspect;
     let w = cvW, h = a ? cvW / a : cvH;
     if (h > vh * 0.7) { h = vh * 0.7; w = a ? h * a : cvW * h / cvH; }

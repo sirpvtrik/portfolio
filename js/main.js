@@ -9,6 +9,7 @@ import { plUpdate, updateTime } from './player.js';
 import { updateProject } from './project.js';
 import { updateCursor } from './cursor.js';
 import { ctUpdate } from './contact.js';
+import { lgUpdate } from './langswitch.js';
 import { backUpdate, touchUpdate, iconsUpdate } from './backglass.js';
 import { updateHero } from './hero.js';
 import './perf.js';                                  // ?perf: teljesítmény-mérő (FPS, felbontás, szóló videók)
@@ -21,6 +22,7 @@ startLoop(dt => {
   if (actx) updateTime();    // idősáv
   plUpdate(dt);              // a lejátszó blobja
   ctUpdate(dt);              // a névjegy-blob jobb felül
+  lgUpdate(dt);              // a HU / EN váltó jobb alul
   backUpdate(dt);            // a Vissza gomb üvege
   touchUpdate(dt);           // a GET IN TOUCH gomb üvege (a projekt-oldal végén)
   iconsUpdate(dt);           // a lejátszó és a névjegy kis gombjai: a kurzor a formájukat veszi fel

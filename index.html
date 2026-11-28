@@ -131,6 +131,13 @@
           <div class="ctl"><label for="c-bpm">BPM-szinkron</label><input type="checkbox" id="c-bpm"><output id="bpmOut">92 BPM</output></div>
         </div>
       </div>
+      <!-- HU / EN váltó (Patrik, Figma: Desktop – 20, node 279-391): csukva üvegkör, benne fehér korongon az aktív nyelv;
+           hoverre balra nyúlik, és előjön a másik (js/langswitch.js) -->
+      <div class="lg" id="lg" role="group" aria-label="Nyelv / Language">
+        <span class="lg-knob" id="lgKnob" aria-hidden="true"><span id="lgKnobT">HU</span></span>
+        <button class="lg-b" type="button" data-l="en" lang="en" aria-pressed="false">EN</button>
+        <button class="lg-b" type="button" data-l="hu" lang="hu" aria-pressed="false">HU</button>
+      </div>
     </div>
   </div>
 </div>

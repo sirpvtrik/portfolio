@@ -46,6 +46,16 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 /* a kiválasztott pill nevét a pill maga mutatja: a .caption csak képernyőolvasónak szól (sr-only) */
 .br { grid-column: 3; justify-self: end; display: flex; align-items: flex-end; gap: 14px; position: relative; }   /* jobb alul: súgó + Glass gomb */
 .hint { text-align: right; }
+/* HU / EN váltó (Figma: Desktop – 20): 60 px-es üvegkör, benne 50 px-es fehér korong az aktív nyelvvel; hoverre balra
+   nyúlik (az üveget a lejátszó shadere rajzolja, a szélességét a js/langswitch.js állítja, így a Glass gomb is arrébb megy) */
+.lg { position: relative; flex: none; width: 60px; height: 60px; pointer-events: auto; text-transform: none; letter-spacing: 0; }
+.lg-b { position: absolute; top: 5px; width: 50px; height: 50px; padding: 0; border: 0; border-radius: 50%; background: none;
+  font: 400 16px/1 'Nohemi', var(--display); color: #f2f2f2; display: grid; place-items: center; cursor: none; }
+.lg-b:focus-visible { outline: 1px solid var(--fg); outline-offset: 2px; }
+.lg-knob { position: absolute; top: 5px; left: 0; width: 50px; height: 50px; border-radius: 50%; pointer-events: none;
+  background: #dcdcde; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); color: #010101;
+  font: 400 16px/1 'Nohemi', var(--display); display: grid; place-items: center; }
+.lg-b, .lg-knob { padding-top: 2px; }   /* a Nohemi nagybetűi optikailag középre */
 
 .btn {
   pointer-events: auto;
@@ -63,7 +73,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 
 .panel {
   pointer-events: auto;
-  position: absolute; bottom: 48px; right: 0;                      /* a jobb alsó gomb fölé, felfelé nyílik */
+  position: absolute; bottom: 72px; right: 0;                      /* a jobb alsó sor (Glass gomb, nyelvváltó) fölé, felfelé nyílik */
   width: min(290px, calc(100vw - 48px));
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -167,6 +177,8 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .project-closing .back { opacity: 0; pointer-events: none; }
 .back:focus, .back:focus-visible { outline: none; }   /* a fehér fókuszkeret kikerült (Patrik); billentyűvel az üvege szürkül be (js/backglass.js) */
 .back svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+/* HU / EN váltó a Vissza gomb mellett (a helyét a project.js állítja: a gomb jobb széle + 14 px); a gomb magasságában,
+   a sarok-feliratokhoz illő kis betűvel; a választott nyelv fehér, a másik halvány; difference keveréssel, mint a Vissza */
 @media (max-width: 720px) {   /* keskeny képernyőn csak a nyíl, kör alakú gomb (Patrik), különben a logóhoz ér */
   .back { width: 57.6px; padding: 0; justify-content: center; }
   .back span { display: none; }
@@ -207,7 +219,7 @@ html, body { height: 100%; background: var(--bg); color: var(--fg); overflow: hi
 .intro-on .ui .row, .intro-on .ui .bottom { visibility: hidden; }
 
 /* a blob-lejátszó, a névjegy és a sarokgombok fölött sincs rendszer-kurzor: ott is a saját (halvány) kurzor látszik (js/cursor.js) */
-.pl, .pl *, .ct, .ct *, .btn { cursor: none !important; }
+.pl, .pl *, .ct, .ct *, .lg, .lg *, .btn { cursor: none !important; }
 
 /* lejátszó: csukva, ha szól a zene, a hangszóró a fehér körön ül: ez maga a hangerő-sáv (52 px-es kör), nyitáskor folyamatosan
    kinyúlik az alsó pillel (js/player.js); megállítva / némítva csukva nincs fehér kör (Patrik) */

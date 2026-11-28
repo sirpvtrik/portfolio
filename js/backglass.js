@@ -125,7 +125,7 @@ export const touchUpdate = glassButton(document.getElementById('pjTouch'));
 // Patrik: itt csak halványan látszódjon, hol vagyunk: vékony, halvány körvonal fényudvar nélkül
 const iconRing = cursorRing({ k: 0.3, pad: 2, halo: 0 });
 let iconOver = null;
-document.querySelectorAll('.ct-ic, .cb, .spk, .ct-av').forEach(el => {
+document.querySelectorAll('.ct-ic, .cb, .spk, .ct-av, .lg-b').forEach(el => {
   el.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') iconOver = el; });
   el.addEventListener('pointerleave', () => { if (iconOver === el) iconOver = null; });
 });
@@ -137,5 +137,5 @@ export function iconsUpdate(dt) {
     else iconOver = null;
   }
   iconRing(dt, r, 1);
-  setCursorDim(document.querySelector('.pl:hover, .ct:hover') ? 0.4 : 1);   // a lejátszó / névjegy fölött a kurzor is halványabb
+  setCursorDim(document.querySelector('.pl:hover, .ct:hover, .lg:hover') ? 0.4 : 1);   // a lejátszó / névjegy fölött a kurzor is halványabb
 }

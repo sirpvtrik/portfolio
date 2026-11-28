@@ -18,11 +18,26 @@ import { damp } from './util.js';
 import { setupHeap, resetHeap, updateHeap, heapPointer, preloadHeap, heapSettled } from './heap.js';
 import { openContact } from './contact.js';
 import { drumLayout, buildDrum, updateDrum, disposeDrum, drumStart, drumSkipIntro, drumClose, drumOutroReady } from './drum.js';
+import { tr, onLang } from './lang.js';
 
 const root = document.getElementById('project');
 const input = document.getElementById('pjInput');
 const srText = document.getElementById('pjText');
 const backBtn = document.getElementById('projectBack');
+// a Vissza gomb felirata a nyelvhez (a HU / EN váltó jobb alul van, js/langswitch.js)
+const backLabel = backBtn.querySelector('span');
+const BACK = { hu: 'Vissza', en: 'Back' };
+function placeLang() {
+  backLabel.textContent = tr(BACK);
+  backBtn.setAttribute('aria-label', tr({ hu: 'Vissza a projektekhez', en: 'Back to projects' }));
+}
+placeLang();
+onLang(() => {
+  placeLang();
+  if (!group || !D) return;
+  srText.textContent = (PROJECTS[cur] ? PROJECTS[cur].name + '. ' : '') + tr(D.label) + '. ' + tr(D.intro) + ' ' + tr(D.text);
+  morphT = 99; drumSkipIntro(); build(); cards.concat(gal).forEach(c => { c.a = 1; c.av = 0; });   // újraépítés a másik nyelven, megjelenés nélkül
+});
 
 export let isOpen = false;
 let closing = false, group = null, cards = [], gal = [], galHolder = null, L = null, builtVisH = 0, builtDepth = '', depthPending = false;
@@ -50,14 +65,14 @@ function wrap(g, text, maxW) {
   if (line) lines.push(line);
   return lines;
 }
-const introLayout = (w, u) => { measure.font = `300 ${32 * u}px ${FONT}`; return wrap(measure, D.intro, Math.min(504 * u, w - 50 * u)); };
-const textLayout = (w, u) => { measure.font = `400 ${24 * u}px ${FONT}`; return wrap(measure, D.text, Math.min(325 * u, w - 60 * u)); };
+const introLayout = (w, u) => { measure.font = `300 ${32 * u}px ${FONT}`; return wrap(measure, tr(D.intro), Math.min(504 * u, w - 50 * u)); };
+const textLayout = (w, u) => { measure.font = `400 ${24 * u}px ${FONT}`; return wrap(measure, tr(D.text), Math.min(325 * u, w - 60 * u)); };
 
 function computeLayout() {
   const vw = innerWidth, vh = innerHeight, mob = vw <= 720;
   if (S.pjMode === 2) {                              // henger (js/drum.js)
     const p = PROJECTS[cur] || { name: '', cat: '' };
-    const DL = drumLayout({ vw, vh, k: visH / vh, name: p.name, cat: p.cat, intro: D.intro,
+    const DL = drumLayout({ vw, vh, k: visH / vh, name: p.name, cat: p.cat, intro: tr(D.intro),
       cover: p.image || srcOf(D.gallery[0]) || null, full: D.full || [], after: D.after || [], gallery: p.image ? D.gallery : D.gallery.slice(1) });
     return { mode: 'drum', vw, vh, mob, u: 1, gw: vw, list: [], sMax: DL.sMax, drum: DL, heap: DL.heap };
   }
@@ -92,7 +107,7 @@ function computeLayout() {
 }
 
 /* ---------- Teszt: a megnyúlt pill elrendezése (px, y a lap tetejétől, x a képernyő közepétől) ---------- */
-const pillIntroLayout = (w, u) => { measure.font = `400 ${22 * u}px ${FONT}`; return wrap(measure, D.intro, w); };
+const pillIntroLayout = (w, u) => { measure.font = `400 ${22 * u}px ${FONT}`; return wrap(measure, tr(D.intro), w); };
 function pillLayout(o) {
   const { vw, vh, mob, gw, u, n, pillW, pillH } = o;
   const Wp = mob ? vw - 24 : gw * 0.97, top = mob ? 110 : 160, r = Wp / 2, pad = 30 * u;
@@ -140,7 +155,7 @@ function drawPillText(g, w, h, q) {
   g.textBaseline = 'alphabetic';
   g.fillStyle = '#919191'; g.font = `400 ${14 * u * q}px ${FONT}`;
   if ('letterSpacing' in g) g.letterSpacing = (0.56 * u * q) + 'px';
-  g.fillText(D.label.toUpperCase(), 0, 14 * u * q);
+  g.fillText(tr(D.label).toUpperCase(), 0, 14 * u * q);
   if ('letterSpacing' in g) g.letterSpacing = '0px';
   g.fillStyle = '#f2f2f2'; g.font = `400 ${22 * u * q}px ${FONT}`;
   pillIntroLayout(w, u).forEach((l, i) => g.fillText(l, 0, (34 + 22 + i * 31) * u * q));
@@ -165,7 +180,7 @@ function drawIntro(g, w, h, q) {
   g.fillStyle = '#919191'; g.font = `400 ${16 * u * q}px ${FONT}`;
   if ('letterSpacing' in g) g.letterSpacing = (0.64 * u * q) + 'px';
   g.textBaseline = 'alphabetic';
-  g.fillText(D.label.toUpperCase(), 25 * u * q, (40 + 13) * u * q);
+  g.fillText(tr(D.label).toUpperCase(), 25 * u * q, (40 + 13) * u * q);
   if ('letterSpacing' in g) g.letterSpacing = (-0.4 * u * q) + 'px';
   g.fillStyle = '#f2f2f2'; g.font = `300 ${32 * u * q}px ${FONT}`;
   introLayout(w, u).forEach((l, i) => g.fillText(l, 25 * u * q, (40 + 16 + 20 + 28 + i * 40) * u * q));
@@ -245,12 +260,13 @@ function build() {
   loadFonts(d);
 }
 function loadFonts(d) {
-  srText.textContent = (PROJECTS[cur] ? PROJECTS[cur].name + '. ' : '') + d.label + '. ' + d.intro + ' ' + d.text;
+  srText.textContent = (PROJECTS[cur] ? PROJECTS[cur].name + '. ' : '') + tr(d.label) + '. ' + tr(d.intro) + ' ' + tr(d.text);
   // a betűket a tényleges szöveggel töltjük be (az ékezetes latin-ext rész is), utána újrarajzolunk
   if (document.fonts && document.fonts.load) {
     const name = PROJECTS[cur] ? PROJECTS[cur].name : '';
-    Promise.all([document.fonts.load(`300 32px ${FONT}`, d.intro), document.fonts.load(`400 24px ${FONT}`, d.text + ' ' + d.intro),
-      document.fonts.load(`400 16px ${FONT}`, d.label.toUpperCase()), document.fonts.load(`500 40px ${FONT}`, name)])
+    const it = tr(d.intro) || '', tx = tr(d.text) || '', lb = (tr(d.label) || '').toUpperCase();
+    Promise.all([document.fonts.load(`300 32px ${FONT}`, it), document.fonts.load(`400 24px ${FONT}`, tx + ' ' + it),
+      document.fonts.load(`400 16px ${FONT}`, lb), document.fonts.load(`500 40px ${FONT}`, name)])
       .then(() => { if (group) cards.forEach(c => c.redraw && c.redraw()); }).catch(() => {});
   }
 }
