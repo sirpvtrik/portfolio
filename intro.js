@@ -22,6 +22,8 @@
   };
   const POST = {
     fly: 900, flyEase: 'cubic-bezier(0.65, 0, 0.35, 1)',   // a logó felúszik a fejlécbe
+    shrink: 520, shrinkEase: 'cubic-bezier(0.45, 0, 0.2, 1)',   // kilépéskor: előbb a helyén kicsinyedik,
+    slide: 760, slideEase: 'cubic-bezier(0.5, 0, 0.18, 1)',     // utána felcsúszik a fejlécbe
     ui: 1800, uiDur: 600,                                    // a sarkokban lévő feliratok és a lejátszó
     // a js/entrance.js ezeket olvassa (másodpercben):
     // a pillek és a két szélső hullám együtt, azonos sebességgel indulnak alulról; a hullám előbb ér a helyére,
@@ -96,17 +98,32 @@
         logoTop.style.opacity = '1';
         setTimeout(() => { intro.style.visibility = 'hidden'; }, 420);
       } else {
-        box.animate([{ transform: curT() }, { transform: headT() }], { duration: POST.fly, easing: POST.flyEase, fill: 'forwards' });
-        lineSvg.animate([{ opacity: getComputedStyle(lineSvg).opacity }, { opacity: 0 }], { duration: POST.fly * 0.8, easing: 'ease-out', fill: 'forwards' });
-        fill.animate([{ fill: '#ffffff' }, { fill: toFg() }], { duration: POST.fly, fill: 'forwards' });
-        setTimeout(() => { if (!state.heroOn) { document.body.classList.remove('hero-on'); logoTop.style.opacity = '1'; intro.style.visibility = 'hidden'; } }, POST.fly);
+        // két szakaszban (Patrik: „menjen kisebbre, miután behúzódott a vonal, majd utána csússzon fel … cleanebb,
+        // smoothabb”): előbb a helyén, a közepére igazítva a fejléc méretére kicsinyedik, utána egyenesen felcsúszik.
+        // Előtte egyszerre kicsinyedett és úszott (POST.fly).
+        // Ha a nyomva tartás közben már kicsinyedett (hs), a doboz ugyanonnan folytatja (a belső kicsinyítés a dobozra
+        // kerül át, láthatatlanul), és csak a maradékot kicsinyedik.
+        const k = kHead(), cen = q => 'translate(' + (from.width * (1 - q) / 2) + 'px, ' + (from.height * (1 - q) / 2) + 'px) scale(' + q + ')';
+        const s0 = hs, shrink = Math.round(POST.shrink * Math.min(1, Math.max(0, (s0 - k) / (1 - k)))), total = shrink + POST.slide;
+        setHs(1);
+        box.animate(shrink > 40 ? [
+          { transform: cen(s0), easing: POST.shrinkEase },
+          { transform: cen(k), offset: shrink / total, easing: POST.slideEase },
+          { transform: headT() },
+        ] : [
+          { transform: cen(s0), easing: POST.slideEase },
+          { transform: headT() },
+        ], { duration: total, fill: 'forwards' });
+        lineSvg.animate([{ opacity: getComputedStyle(lineSvg).opacity }, { opacity: 0 }], { duration: Math.max(300, shrink), easing: 'ease-out', fill: 'forwards' });
+        fill.animate([{ fill: '#ffffff' }, { fill: toFg() }], { duration: total, fill: 'forwards' });
+        setTimeout(() => { if (!state.heroOn) { document.body.classList.remove('hero-on'); logoTop.style.opacity = '1'; intro.style.visibility = 'hidden'; } }, total);
       }
       // a feliratok és a lejátszó
       setTimeout(() => {
         if (state.heroOn) return;
         document.body.classList.remove('intro-on', 'hero-on');
         ui.forEach(el => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: POST.uiDur, easing: 'ease-out' }));
-      }, reduced ? 300 : (first ? POST.ui : POST.fly * 0.6));
+      }, reduced ? 300 : (first ? POST.ui : POST.slide * 0.6 + POST.shrink * 0.5));
       first = false;
     }
     // vissza a hero-ba (a fejléc logójára kattintva, js/hero.js): a logó a fejlécből visszaúszik középre
@@ -115,13 +132,21 @@
       document.body.classList.add('hero-on');
       intro.style.visibility = 'visible';
       logoTop.style.opacity = '0';
+      setHs(1);
       box.animate([{ transform: headT(), opacity: 1 }, { transform: heroT, opacity: 1 }], { duration: reduced ? 1 : POST.fly, easing: POST.flyEase, fill: 'forwards' });
       fill.animate([{ fill: toFg() }, { fill: '#ffffff' }], { duration: reduced ? 1 : POST.fly, fill: 'forwards' });
     }
     state.heroOut = () => { if (state.heroOn) out(); };
     state.heroBack = () => { if (!state.heroOn && !first) back(); };
     // a lámpa (a logó) közepe a képernyőn, CSS-pixelben
-    state.heroLamp = () => { const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.45, cy: r.top + r.height / 2, w: r.width }; };
+    // a logó belső kicsinyítése (a két SVG, a közepére igazítva; a doboz transzformációját a WAAPI-animációk fogják)
+    let hs = 1;
+    const setHs = v => { hs = v; box.style.setProperty('--hs', v.toFixed(4)); };
+    const kHead = () => logoTop.getBoundingClientRect().width / from.width;
+    // HOLD TO START: nyomva tartás közben a töltéssel együtt kicsinyedik a fejléc méretére (Patrik: „lenyomás közben már
+    // mehetne össze a mérete”), elengedve a töltéssel visszanő; betelve már csak felcsúszik (js/hero.js hívja)
+    state.heroScale = p => { if (!state.heroOn || reduced) return; const e = 1 - Math.pow(1 - Math.min(1, Math.max(0, p)), 1.5); setHs(1 + (kHead() - 1) * e); };
+    state.heroLamp = () => { const r = box.getBoundingClientRect(), cy = r.top + r.height / 2; return { x: r.left + r.width / 2, y: cy - r.height * 0.05 * hs, cy, w: r.width * hs }; };
 
     if (state.hero) {
       // hero: a logó a helyén marad, a körvonal elhalványul; a fényt a hero.js kapcsolja fel

@@ -302,6 +302,7 @@ export function updateHero(dt) {
   // egy pillanatra újra kinyúlt, és 0,25 s-nál a nullázásakor teljes hosszban felvillant (Patrik: „utána még villan egyet”)
   if (state === 'in') hold = holding ? Math.min(1, hold + rdt / HOLD_S) : Math.max(0, hold - rdt * 2 / HOLD_S);
   if (state === 'in' && hold >= 1) { state = 'out'; outT = 0; holding = false; on = 0; }   // betelt: a fény azonnal kialszik
+  if (state === 'in' && I.heroScale) I.heroScale(hold);            // a logó a töltéssel együtt kicsinyedik (Patrik), elengedve visszanő
   // a nyaláb megmaradó hossza (1 → 0): lenyomásra rögtön láthatóan visszarándul (~15% az első 0,1 s-ban), utána egyenletesen
   // húzódik a logóba. Korábban lassan indult (smoothstep): az első fél másodpercben alig rövidült, és aki megnyomta, nem
   // látott reakciót, elengedte (Patrik: „nem volt elég egyértelmű”)
