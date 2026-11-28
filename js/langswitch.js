@@ -43,13 +43,10 @@ Object.entries(btn).forEach(([l, b]) => b.addEventListener('click', () => {
 }));
 
 // a felület szövegei, amik a nyelvvel váltanak
-const hint = document.querySelector('.hint');
-const HINT = { hu: 'Görgess vagy húzd<br>Hangszóró → lejátszó', en: 'Scroll or drag<br>Speaker → player' };
 function applyLang() {
   const l = lang();
   Object.entries(btn).forEach(([k, b]) => b.setAttribute('aria-pressed', String(k === l)));
   lg.setAttribute('aria-label', tr({ hu: 'Nyelv', en: 'Language' }));
-  if (hint) hint.innerHTML = tr(HINT);
 }
 applyLang();
 onLang(applyLang);
