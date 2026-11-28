@@ -53,5 +53,19 @@ export const wavesIn = () => litStyle() ? (INTRO.t2 ? 1 : 0) * (1 - away) : (P ?
 export const wavesRise = () => litStyle() ? (P ? P.wavesDist * away : 0) : P ? P.wavesDist * Math.max(1 - easeOut4(introK(P.rise, P.wavesDur)), away) : 0;
 // az i. pill még hátralévő emelkedése (képernyőmagasságban)
 export const pillRise = i => litStyle() ? 1.7 * Math.max(litRise(), away) : P ? P.pillsDist * Math.max(1 - easeOut4(introK(P.rise + i * P.pillsStagger, pillsDur)), away) : 0;
-// a lejátszó-blob átlátszósága (a HTML felülettel együtt jelenik meg)
-export const uiIn = () => (P ? introK(P.ui / 1000, P.uiDur / 1000) : 1) * (1 - away);
+// A sarokelemek (lejátszó, névjegy, nyelvváltó) oldalról csúsznak be, amikor a pillek már feljöttek (Patrik): a pillek
+// felúszásának ~70%-ánál indulnak (addigra a pill lassulva már majdnem a helyén van). lag: elemenkénti késés (mp).
+// Mozgáscsökkentésnél nincs csúszás, csak a régi elhalványulás.
+const reducedM = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const UI_SLIDE_DUR = 1.0;
+export function uiSlideRaw(lag = 0) {
+  if (!INTRO || reducedM) return 1;
+  if (litStyle()) {
+    if (litBase == null) return 0;
+    return Math.min(1, Math.max(0, (litT() - PILL_RISE_DELAY - PILL_RISE_DUR * 0.7 - lag) / UI_SLIDE_DUR));
+  }
+  return P ? introK(P.rise + pillsDur * 0.7 + lag, UI_SLIDE_DUR) : 1;
+}
+export const uiSlide = (lag = 0) => 1 - Math.pow(1 - uiSlideRaw(lag), 3);   // lassulva ér a helyére
+// a sarokelemek üvegének átlátszósága: becsúszáskor már látszik (mozgáscsökkentésnél a régi elhalványulás)
+export const uiIn = () => (reducedM ? (P ? introK(P.ui / 1000, P.uiDur / 1000) : 1) : Math.min(1, uiSlideRaw() * 4)) * (1 - away);

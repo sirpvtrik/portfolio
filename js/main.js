@@ -10,6 +10,7 @@ import { updateProject } from './project.js';
 import { updateCursor } from './cursor.js';
 import { ctUpdate } from './contact.js';
 import { lgUpdate } from './langswitch.js';
+import { uiSlideUpdate } from './uislide.js';
 import { backUpdate, touchUpdate, iconsUpdate } from './backglass.js';
 import { updateHero } from './hero.js';
 import './perf.js';                                  // ?perf: teljesítmény-mérő (FPS, felbontás, szóló videók)
@@ -20,6 +21,7 @@ startLoop(dt => {
   updateCursor(dt);          // egérfény (folyékony nyom, a kurzor kis fénye)
   updateAudio(dt);           // zenei reakció: hullámok, logó, pulzálás
   if (actx) updateTime();    // idősáv
+  uiSlideUpdate();           // a sarokelemek becsúszása (a pillek felúszása után)
   plUpdate(dt);              // a lejátszó blobja
   ctUpdate(dt);              // a névjegy-blob jobb felül
   lgUpdate(dt);              // a HU / EN váltó jobb alul
